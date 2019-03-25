@@ -249,6 +249,150 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "AtmosDycore/#",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMAAtmosDycore",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.getrhsfunction",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.getrhsfunction",
+    "category": "function",
+    "text": "getrhsfunction(disc::AbstractAtmosDiscretization)\n\nThe spatial discretizations are of the form Q = f(Q), and this function returns the handle to right-hand side function f of the disc\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.solve!",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.solve!",
+    "category": "function",
+    "text": "solve!(Q, solver::AbstractAtmosODESolver; timeend,\n       stopaftertimeend=true, numberofsteps, callbacks)\n\nSolves an ODE using the solver starting from a state Q. The state Q is updated inplace. The final time timeend or numberofsteps must be specified.\n\nA series of optional callback functions can be specified using the tuple callbacks; see GenericCallbacks.\n\ntodo: Todo\nCurrently stopaftertimeend is not used. The idea behind it was that a user might want to stop either one step before or after the final time timeend. This should either be removed or used.\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#CLIMAAtmosDycore-1",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMAAtmosDycore",
+    "category": "section",
+    "text": "CurrentModule = CLIMA.CLIMAAtmosDycoregetrhsfunction\nsolve!"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.AtmosStateArrays.AtmosStateArray",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.AtmosStateArrays.AtmosStateArray",
+    "category": "type",
+    "text": "AtmosStateArray{S <: Tuple, T, DeviceArray, N,\n                DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}\n\nN-dimensional MPI-aware array with elements of type T. The dimension N is length(S) + 1. S is a tuple of the first N-1 array dimensions.\n\ntodo: Todo\nIt should be reevaluated whether all this stuff in the type domain is really necessary (some of it was optimistically added for functionality that never panned out)\n\ntodo: Todo\ntag for the MPI message should probably be unified for each AtmosStateArray (right now 888 used is the same for all communication)\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.AtmosStateArrays.postrecvs!",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.AtmosStateArrays.postrecvs!",
+    "category": "function",
+    "text": "postrecvs!(Q::AtmosStateArray)\n\nposts the MPI.Irecv! for Q\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.AtmosStateArrays.startexchange!",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.AtmosStateArrays.startexchange!",
+    "category": "function",
+    "text": "startexchange!(Q::AtmosStateArray; dorecvs=true)\n\nStart the MPI exchange of the data stored in Q. If dorecvs is true then postrecvs!(Q) is called, otherwise the caller is responsible for this.\n\nThis function will fill the send buffer (on the device), copies the data from the device to the host, and then issues the send. Previous sends are waited on to ensure that they are complete.\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.AtmosStateArrays.finishexchange!",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.AtmosStateArrays.finishexchange!",
+    "category": "function",
+    "text": "finishexchange!(Q::AtmosStateArray)\n\nComplete the exchange of data and fill the data array on the device\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#AtmosStateArray-1",
+    "page": "CLIMAAtmosDycore",
+    "title": "AtmosStateArray",
+    "category": "section",
+    "text": "AtmosStateArrays.AtmosStateArray\nAtmosStateArrays.postrecvs!\nAtmosStateArrays.startexchange!\nAtmosStateArrays.finishexchange!"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.Grids.DiscontinuousSpectralElementGrid",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.Grids.DiscontinuousSpectralElementGrid",
+    "category": "type",
+    "text": "DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,\n                                 polynomialorder,\n                                 meshwarp = (x...)->identity(x))\n\nGenerate a discontinuous spectral element (tensor product, Legendre-Gauss-Lobatto) grid/mesh from a topology, where the order of the elements is given by polynomialorder. DeviceArray gives the array type used to store the data (CuArray or Array), and the coordinate points will be of FloatType.\n\nThe optional meshwarp function allows the coordinate points to be warped after the mesh is created; the mesh degrees of freedom are orginally assigned using a trilinear blend of the element corner locations.\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#Grids-1",
+    "page": "CLIMAAtmosDycore",
+    "title": "Grids",
+    "category": "section",
+    "text": "Grids.DiscontinuousSpectralElementGrid"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.Topologies.BrickTopology",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.Topologies.BrickTopology",
+    "category": "type",
+    "text": "BrickTopology{dim, T}(mpicomm, elemrange; boundary, periodicity)\n\nGenerate a brick mesh topology with coordinates given by the tuple elemrange and the periodic dimensions given by the periodicity tuple.\n\nThe elements of the brick are partitioned equally across the MPI ranks based on a space-filling curve.\n\nBy default boundary faces will be marked with a one and other faces with a zero.  Specific boundary numbers can also be passed for each face of the brick in boundary.  This will mark the nonperiodic brick faces with the given boundary number.\n\nExamples\n\nWe can build a 3 by 2 element two-dimensional mesh that is periodic in the x_2-direction with\n\n\nusing CLIMAAtmosDycore\nusing CLIMAAtmosDycore.Topologies\nusing MPI\nMPI.Init()\ntopology = BrickTopology(MPI.COMM_SELF, (2:5,4:6);\n                         periodicity=(false,true),\n                         boundary=[1 3; 2 4])\nMPI.Finalize()\n\nThis returns the mesh structure for\n\n         x_2\n\n          ^\n          |\n         6-  +-----+-----+-----+\n          |  |     |     |     |\n          |  |  3  |  4  |  5  |\n          |  |     |     |     |\n         5-  +-----+-----+-----+\n          |  |     |     |     |\n          |  |  1  |  2  |  6  |\n          |  |     |     |     |\n         4-  +-----+-----+-----+\n          |\n          +--|-----|-----|-----|--> x_1\n             2     3     4     5\n\nFor example, the (dimension by number of corners by number of elements) array elemtocoord gives the coordinates of the corners of each element.\n\njulia> topology.elemtocoord\n2×4×6 Array{Int64,3}:\n[:, :, 1] =\n 2  3  2  3\n 4  4  5  5\n\n[:, :, 2] =\n 3  4  3  4\n 4  4  5  5\n\n[:, :, 3] =\n 2  3  2  3\n 5  5  6  6\n\n[:, :, 4] =\n 3  4  3  4\n 5  5  6  6\n\n[:, :, 5] =\n 4  5  4  5\n 5  5  6  6\n\n[:, :, 6] =\n 4  5  4  5\n 4  4  5  5\n\nNote that the corners are listed in Cartesian order.\n\nThe (number of faces by number of elements) array elemtobndy gives the boundary number for each face of each element.  A zero will be given for connected faces.\n\njulia> topology.elemtobndy\n4×6 Array{Int64,2}:\n 1  0  1  0  0  0\n 0  0  0  0  2  2\n 0  0  0  0  0  0\n 0  0  0  0  0  0\n\nNote that the faces are listed in Cartesian order.\n\ntodo: Todo\nWe may/probably want to unify to a single Topology type which has different constructors since all the topologies we currently have are essentially the same\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#Topologies-1",
+    "page": "CLIMAAtmosDycore",
+    "title": "Topologies",
+    "category": "section",
+    "text": "Topologies.BrickTopology"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.VanillaAtmosDiscretization",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.VanillaAtmosDiscretization",
+    "category": "type",
+    "text": "VanillaAtmosDiscretization{nmoist, ntrace}(grid; gravity = true,\nviscosity = 0)\n\nGiven a \'grid <: AbstractGrid\' this construct all the data necessary to run a vanilla discontinuous Galerkin discretization of the the compressible Euler equations with nmoist moisture variables and ntrace tracer variables. If the boolean keyword argument gravity is true then gravity is used otherwise it is not. Isotropic viscosity can be used if viscosity is set to a positive constant.\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.estimatedt",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.estimatedt",
+    "category": "function",
+    "text": "estimatedt(disc::VanillaAtmosDiscretization, Q::AtmosStateArray)\n\nGiven a discretization disc and a state Q compute an estimate for the time step\n\ntodo: Todo\nThis estimate is currently very conservative, needs to be revisited\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#VanillaAtmosDiscretizations-1",
+    "page": "CLIMAAtmosDycore",
+    "title": "VanillaAtmosDiscretizations",
+    "category": "section",
+    "text": "VanillaAtmosDiscretizations.VanillaAtmosDiscretization\nVanillaAtmosDiscretizations.estimatedt"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.LSRKmethods.LSRK",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.LSRKmethods.LSRK",
+    "category": "type",
+    "text": "LSRK(f, Q; dt, t0 = 0)\n\nThis is a time stepping object for explicitly time stepping the differential equation given by the right-hand-side function f with the state Q, i.e.,\n\nQ̇ = f(Q)\n\nwith the required time step size dt and optional initial time t0.  This time stepping object is intended to be passed to the solve! command.\n\nThis uses the fourth-order, low-storage, Runge–Kutta scheme of Carpenter and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).\n\nReferences\n\n@TECHREPORT{CarpenterKennedy1994,\n  author = {M.~H. Carpenter and C.~A. Kennedy},\n  title = {Fourth-order {2N-storage} {Runge-Kutta} schemes},\n  institution = {National Aeronautics and Space Administration},\n  year = {1994},\n  number = {NASA TM-109112},\n  address = {Langley Research Center, Hampton, VA},\n}\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#LSRKmethods-1",
+    "page": "CLIMAAtmosDycore",
+    "title": "LSRKmethods",
+    "category": "section",
+    "text": "LSRKmethods.LSRK"
+},
+
+{
     "location": "CodingConventions/#",
     "page": "Coding Conventions",
     "title": "Coding Conventions",
