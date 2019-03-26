@@ -281,6 +281,54 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "AtmosDycore/#Topologies-1",
+    "page": "CLIMAAtmosDycore",
+    "title": "Topologies",
+    "category": "section",
+    "text": "Topologies encode the connectivity of the elements, spatial domain interval and MPI communication.Topologies.BrickTopology\nTopologies.StackedBrickTopology\nTopologies.CubedShellTopology\nTopologies.cubedshellmesh\nTopologies.cubedshellwarp\nTopologies.StackedCubedSphereTopology"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.Grids.DiscontinuousSpectralElementGrid",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.Grids.DiscontinuousSpectralElementGrid",
+    "category": "type",
+    "text": "DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,\n                                 polynomialorder,\n                                 meshwarp = (x...)->identity(x))\n\nGenerate a discontinuous spectral element (tensor product, Legendre-Gauss-Lobatto) grid/mesh from a topology, where the order of the elements is given by polynomialorder. DeviceArray gives the array type used to store the data (CuArray or Array), and the coordinate points will be of FloatType.\n\nThe optional meshwarp function allows the coordinate points to be warped after the mesh is created; the mesh degrees of freedom are orginally assigned using a trilinear blend of the element corner locations.\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#Grids-1",
+    "page": "CLIMAAtmosDycore",
+    "title": "Grids",
+    "category": "section",
+    "text": "Grids specify the approximation within each element, and any necessary warping.Grids.DiscontinuousSpectralElementGrid"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.VanillaAtmosDiscretization",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.VanillaAtmosDiscretization",
+    "category": "type",
+    "text": "VanillaAtmosDiscretization{nmoist, ntrace}(grid; gravity = true,\nviscosity = 0)\n\nGiven a \'grid <: AbstractGrid\' this construct all the data necessary to run a vanilla discontinuous Galerkin discretization of the the compressible Euler equations with nmoist moisture variables and ntrace tracer variables. If the boolean keyword argument gravity is true then gravity is used otherwise it is not. Isotropic viscosity can be used if viscosity is set to a positive constant.\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.estimatedt",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.estimatedt",
+    "category": "function",
+    "text": "estimatedt(disc::VanillaAtmosDiscretization, Q::AtmosStateArray)\n\nGiven a discretization disc and a state Q compute an estimate for the time step\n\ntodo: Todo\nThis estimate is currently very conservative, needs to be revisited\n\n\n\n\n\n"
+},
+
+{
+    "location": "AtmosDycore/#VanillaAtmosDiscretizations-1",
+    "page": "CLIMAAtmosDycore",
+    "title": "VanillaAtmosDiscretizations",
+    "category": "section",
+    "text": "A discretization adds additional information for the atmosphere problem.VanillaAtmosDiscretizations.VanillaAtmosDiscretization\nVanillaAtmosDiscretizations.estimatedt"
+},
+
+{
     "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.AtmosStateArrays.AtmosStateArray",
     "page": "CLIMAAtmosDycore",
     "title": "CLIMA.CLIMAAtmosDycore.AtmosStateArrays.AtmosStateArray",
@@ -317,63 +365,7 @@ var documenterSearchIndex = {"docs": [
     "page": "CLIMAAtmosDycore",
     "title": "AtmosStateArray",
     "category": "section",
-    "text": "AtmosStateArrays.AtmosStateArray\nAtmosStateArrays.postrecvs!\nAtmosStateArrays.startexchange!\nAtmosStateArrays.finishexchange!"
-},
-
-{
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.Grids.DiscontinuousSpectralElementGrid",
-    "page": "CLIMAAtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.Grids.DiscontinuousSpectralElementGrid",
-    "category": "type",
-    "text": "DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,\n                                 polynomialorder,\n                                 meshwarp = (x...)->identity(x))\n\nGenerate a discontinuous spectral element (tensor product, Legendre-Gauss-Lobatto) grid/mesh from a topology, where the order of the elements is given by polynomialorder. DeviceArray gives the array type used to store the data (CuArray or Array), and the coordinate points will be of FloatType.\n\nThe optional meshwarp function allows the coordinate points to be warped after the mesh is created; the mesh degrees of freedom are orginally assigned using a trilinear blend of the element corner locations.\n\n\n\n\n\n"
-},
-
-{
-    "location": "AtmosDycore/#Grids-1",
-    "page": "CLIMAAtmosDycore",
-    "title": "Grids",
-    "category": "section",
-    "text": "Grids.DiscontinuousSpectralElementGrid"
-},
-
-{
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.Topologies.BrickTopology",
-    "page": "CLIMAAtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.Topologies.BrickTopology",
-    "category": "type",
-    "text": "BrickTopology{dim, T}(mpicomm, elemrange; boundary, periodicity)\n\nGenerate a brick mesh topology with coordinates given by the tuple elemrange and the periodic dimensions given by the periodicity tuple.\n\nThe elements of the brick are partitioned equally across the MPI ranks based on a space-filling curve.\n\nBy default boundary faces will be marked with a one and other faces with a zero.  Specific boundary numbers can also be passed for each face of the brick in boundary.  This will mark the nonperiodic brick faces with the given boundary number.\n\nExamples\n\nWe can build a 3 by 2 element two-dimensional mesh that is periodic in the x_2-direction with\n\n\nusing CLIMAAtmosDycore\nusing CLIMAAtmosDycore.Topologies\nusing MPI\nMPI.Init()\ntopology = BrickTopology(MPI.COMM_SELF, (2:5,4:6);\n                         periodicity=(false,true),\n                         boundary=[1 3; 2 4])\nMPI.Finalize()\n\nThis returns the mesh structure for\n\n         x_2\n\n          ^\n          |\n         6-  +-----+-----+-----+\n          |  |     |     |     |\n          |  |  3  |  4  |  5  |\n          |  |     |     |     |\n         5-  +-----+-----+-----+\n          |  |     |     |     |\n          |  |  1  |  2  |  6  |\n          |  |     |     |     |\n         4-  +-----+-----+-----+\n          |\n          +--|-----|-----|-----|--> x_1\n             2     3     4     5\n\nFor example, the (dimension by number of corners by number of elements) array elemtocoord gives the coordinates of the corners of each element.\n\njulia> topology.elemtocoord\n2×4×6 Array{Int64,3}:\n[:, :, 1] =\n 2  3  2  3\n 4  4  5  5\n\n[:, :, 2] =\n 3  4  3  4\n 4  4  5  5\n\n[:, :, 3] =\n 2  3  2  3\n 5  5  6  6\n\n[:, :, 4] =\n 3  4  3  4\n 5  5  6  6\n\n[:, :, 5] =\n 4  5  4  5\n 5  5  6  6\n\n[:, :, 6] =\n 4  5  4  5\n 4  4  5  5\n\nNote that the corners are listed in Cartesian order.\n\nThe (number of faces by number of elements) array elemtobndy gives the boundary number for each face of each element.  A zero will be given for connected faces.\n\njulia> topology.elemtobndy\n4×6 Array{Int64,2}:\n 1  0  1  0  0  0\n 0  0  0  0  2  2\n 0  0  0  0  0  0\n 0  0  0  0  0  0\n\nNote that the faces are listed in Cartesian order.\n\ntodo: Todo\nWe may/probably want to unify to a single Topology type which has different constructors since all the topologies we currently have are essentially the same\n\n\n\n\n\n"
-},
-
-{
-    "location": "AtmosDycore/#Topologies-1",
-    "page": "CLIMAAtmosDycore",
-    "title": "Topologies",
-    "category": "section",
-    "text": "Topologies.BrickTopology"
-},
-
-{
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.VanillaAtmosDiscretization",
-    "page": "CLIMAAtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.VanillaAtmosDiscretization",
-    "category": "type",
-    "text": "VanillaAtmosDiscretization{nmoist, ntrace}(grid; gravity = true,\nviscosity = 0)\n\nGiven a \'grid <: AbstractGrid\' this construct all the data necessary to run a vanilla discontinuous Galerkin discretization of the the compressible Euler equations with nmoist moisture variables and ntrace tracer variables. If the boolean keyword argument gravity is true then gravity is used otherwise it is not. Isotropic viscosity can be used if viscosity is set to a positive constant.\n\n\n\n\n\n"
-},
-
-{
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.estimatedt",
-    "page": "CLIMAAtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.estimatedt",
-    "category": "function",
-    "text": "estimatedt(disc::VanillaAtmosDiscretization, Q::AtmosStateArray)\n\nGiven a discretization disc and a state Q compute an estimate for the time step\n\ntodo: Todo\nThis estimate is currently very conservative, needs to be revisited\n\n\n\n\n\n"
-},
-
-{
-    "location": "AtmosDycore/#VanillaAtmosDiscretizations-1",
-    "page": "CLIMAAtmosDycore",
-    "title": "VanillaAtmosDiscretizations",
-    "category": "section",
-    "text": "VanillaAtmosDiscretizations.VanillaAtmosDiscretization\nVanillaAtmosDiscretizations.estimatedt"
+    "text": "Storage for the state of a discretization.AtmosStateArrays.AtmosStateArray\nAtmosStateArrays.postrecvs!\nAtmosStateArrays.startexchange!\nAtmosStateArrays.finishexchange!"
 },
 
 {
@@ -385,11 +377,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.LSRKmethods.updatedt!",
+    "page": "CLIMAAtmosDycore",
+    "title": "CLIMA.CLIMAAtmosDycore.LSRKmethods.updatedt!",
+    "category": "function",
+    "text": "updatedt!(lsrk::LSRK, dt)\n\nChange the time step size to dt for `lsrk.\n\n\n\n\n\n"
+},
+
+{
     "location": "AtmosDycore/#LSRKmethods-1",
     "page": "CLIMAAtmosDycore",
     "title": "LSRKmethods",
     "category": "section",
-    "text": "LSRKmethods.LSRK"
+    "text": "Methods for time discretization.LSRKmethods.LSRK\nLSRKmethods.updatedt!"
 },
 
 {
