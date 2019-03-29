@@ -85,7 +85,7 @@ var documenterSearchIndex = {"docs": [
     "page": "MoistThermodynamics",
     "title": "CLIMA.MoistThermodynamics.air_density",
     "category": "function",
-    "text": "air_density(T, p[, q_t=0, q_l=0, q_i=0])\n\nReturn the (moist-)air density from the equation of state (ideal gas law), given the air temperature T, the pressure p, and, optionally, the total specific humidity q_t, the liquid specific humidity q_l, and the ice specific humidity q_i. Without the specific humidity arguments, it returns the air density from the equation of state of dry air.\n\n\n\n\n\n"
+    "text": "air_density(T, p[, q_t=0, q_l=0, q_i=0])\n\nReturn the (moist-)air density from the equation of state (ideal gas law), given the air temperature T, the pressure p, and, optionally, the total specific humidity q_t, the liquid specific humidity q_l, and the ice specific humidity q_i. Without the specific humidity arguments, it returns the (moist-)air density from the equation of state of dry air.\n\n\n\n\n\n"
 },
 
 {
@@ -133,7 +133,7 @@ var documenterSearchIndex = {"docs": [
     "page": "MoistThermodynamics",
     "title": "CLIMA.MoistThermodynamics.total_energy",
     "category": "function",
-    "text": "total_energy(KE, PE, T[, q_t=0, q_l=0, q_i=0])\n\nReturn the total energy per unit mass, given the kinetic energy per unit mass KE, the potential energy per unit mass PE, the temperature T, and, optionally, the total specific humidity q_t, the liquid specific humidity q_l, and the ice specific humidity q_i.\n\n\n\n\n\n"
+    "text": "total_energy(e_kin, e_pot, T[, q_t=0, q_l=0, q_i=0])\n\nReturn the total energy per unit mass, given the kinetic energy per unit mass e_kin, the potential energy per unit mass e_pot, the temperature T, and, optionally, the total specific humidity q_t, the liquid specific humidity q_l, and the ice specific humidity q_i.\n\n\n\n\n\n"
 },
 
 {
@@ -197,7 +197,7 @@ var documenterSearchIndex = {"docs": [
     "page": "MoistThermodynamics",
     "title": "CLIMA.MoistThermodynamics.saturation_shum_from_pressure",
     "category": "function",
-    "text": "saturation_shum_from_pressure(ρ, T, p_vs)\n\nCompute the saturation specific humidity, given the ambient air density ρ, temperature T, and the saturation vapor pressure p_vs.\n\n\n\n\n\n"
+    "text": "saturation_shum_from_pressure(T, ρ, p_vs)\n\nCompute the saturation specific humidity, given the ambient air temperature T, density ρ, and the saturation vapor pressure p_vs.\n\n\n\n\n\n"
 },
 
 {
