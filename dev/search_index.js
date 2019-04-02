@@ -249,6 +249,78 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ODESolvers/#",
+    "page": "ODESolvers",
+    "title": "ODESolvers",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ODESolvers/#ODESolvers-1",
+    "page": "ODESolvers",
+    "title": "ODESolvers",
+    "category": "section",
+    "text": ""
+},
+
+{
+    "location": "ODESolvers/#LowStorageRungeKutta-1",
+    "page": "ODESolvers",
+    "title": "LowStorageRungeKutta",
+    "category": "section",
+    "text": "LowStorageRungeKuttaMethod.LowStorageRungeKutta\nLowStorageRungeKuttaMethod.updatedt!"
+},
+
+{
+    "location": "ODESolvers/#GenericCallbacks-1",
+    "page": "ODESolvers",
+    "title": "GenericCallbacks",
+    "category": "section",
+    "text": "GenericCallbacks.EveryXWallTimeSeconds\nGenericCallbacks.EveryXSimulationSteps"
+},
+
+{
+    "location": "ODESolvers/#ODESolvers-2",
+    "page": "ODESolvers",
+    "title": "ODESolvers",
+    "category": "section",
+    "text": "ODESolvers.solve!"
+},
+
+{
+    "location": "Mesh/#",
+    "page": "Mesh",
+    "title": "Mesh",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "Mesh/#Meshing-Stuff-1",
+    "page": "Mesh",
+    "title": "Meshing Stuff",
+    "category": "section",
+    "text": ""
+},
+
+{
+    "location": "Mesh/#Topologies-1",
+    "page": "Mesh",
+    "title": "Topologies",
+    "category": "section",
+    "text": "Topologies encode the connectivity of the elements, spatial domain interval and MPI communication.Topologies.BrickTopology\nTopologies.StackedBrickTopology\nTopologies.CubedShellTopology\nTopologies.cubedshellmesh\nTopologies.cubedshellwarp\nTopologies.StackedCubedSphereTopology"
+},
+
+{
+    "location": "Mesh/#Grids-1",
+    "page": "Mesh",
+    "title": "Grids",
+    "category": "section",
+    "text": "Grids specify the approximation within each element, and any necessary warping.Grids.DiscontinuousSpectralElementGrid"
+},
+
+{
     "location": "AtmosDycore/#",
     "page": "AtmosDycore",
     "title": "AtmosDycore",
@@ -265,43 +337,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.solve!",
-    "page": "AtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.solve!",
-    "category": "function",
-    "text": "solve!(Q, solver::AbstractAtmosODESolver; timeend,\n       stopaftertimeend=true, numberofsteps, callbacks)\n\nSolves an ODE using the solver starting from a state Q. The state Q is updated inplace. The final time timeend or numberofsteps must be specified.\n\nA series of optional callback functions can be specified using the tuple callbacks; see GenericCallbacks.\n\ntodo: Todo\nCurrently stopaftertimeend is not used. The idea behind it was that a user might want to stop either one step before or after the final time timeend. This should either be removed or used.\n\n\n\n\n\n"
-},
-
-{
     "location": "AtmosDycore/#CLIMAAtmosDycore-1",
     "page": "AtmosDycore",
     "title": "CLIMAAtmosDycore",
     "category": "section",
-    "text": "CurrentModule = CLIMA.CLIMAAtmosDycoregetrhsfunction\nsolve!"
-},
-
-{
-    "location": "AtmosDycore/#Topologies-1",
-    "page": "AtmosDycore",
-    "title": "Topologies",
-    "category": "section",
-    "text": "Topologies encode the connectivity of the elements, spatial domain interval and MPI communication.Topologies.BrickTopology\nTopologies.StackedBrickTopology\nTopologies.CubedShellTopology\nTopologies.cubedshellmesh\nTopologies.cubedshellwarp\nTopologies.StackedCubedSphereTopology"
-},
-
-{
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.Grids.DiscontinuousSpectralElementGrid",
-    "page": "AtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.Grids.DiscontinuousSpectralElementGrid",
-    "category": "type",
-    "text": "DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,\n                                 polynomialorder,\n                                 meshwarp = (x...)->identity(x))\n\nGenerate a discontinuous spectral element (tensor product, Legendre-Gauss-Lobatto) grid/mesh from a topology, where the order of the elements is given by polynomialorder. DeviceArray gives the array type used to store the data (CuArray or Array), and the coordinate points will be of FloatType.\n\nThe optional meshwarp function allows the coordinate points to be warped after the mesh is created; the mesh degrees of freedom are orginally assigned using a trilinear blend of the element corner locations.\n\n\n\n\n\n"
-},
-
-{
-    "location": "AtmosDycore/#Grids-1",
-    "page": "AtmosDycore",
-    "title": "Grids",
-    "category": "section",
-    "text": "Grids specify the approximation within each element, and any necessary warping.Grids.DiscontinuousSpectralElementGrid"
+    "text": "CurrentModule = CLIMA.CLIMAAtmosDycoregetrhsfunction"
 },
 
 {
@@ -317,7 +357,7 @@ var documenterSearchIndex = {"docs": [
     "page": "AtmosDycore",
     "title": "CLIMA.CLIMAAtmosDycore.VanillaAtmosDiscretizations.estimatedt",
     "category": "function",
-    "text": "estimatedt(disc::VanillaAtmosDiscretization, Q::AtmosStateArray)\n\nGiven a discretization disc and a state Q compute an estimate for the time step\n\ntodo: Todo\nThis estimate is currently very conservative, needs to be revisited\n\n\n\n\n\n"
+    "text": "estimatedt(disc::VanillaAtmosDiscretization, Q::MPIStateArray)\n\nGiven a discretization disc and a state Q compute an estimate for the time step\n\ntodo: Todo\nThis estimate is currently very conservative, needs to be revisited\n\n\n\n\n\n"
 },
 
 {
@@ -329,67 +369,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.AtmosStateArrays.AtmosStateArray",
-    "page": "AtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.AtmosStateArrays.AtmosStateArray",
-    "category": "type",
-    "text": "AtmosStateArray{S <: Tuple, T, DeviceArray, N,\n                DATN<:AbstractArray{T,N}, Nm1, DAI1} <: AbstractArray{T, N}\n\nN-dimensional MPI-aware array with elements of type T. The dimension N is length(S) + 1. S is a tuple of the first N-1 array dimensions.\n\ntodo: Todo\nIt should be reevaluated whether all this stuff in the type domain is really necessary (some of it was optimistically added for functionality that never panned out)\n\ntodo: Todo\ntag for the MPI message should probably be unified for each AtmosStateArray (right now 888 used is the same for all communication)\n\n\n\n\n\n"
-},
-
-{
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.AtmosStateArrays.postrecvs!",
-    "page": "AtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.AtmosStateArrays.postrecvs!",
-    "category": "function",
-    "text": "postrecvs!(Q::AtmosStateArray)\n\nposts the MPI.Irecv! for Q\n\n\n\n\n\n"
-},
-
-{
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.AtmosStateArrays.startexchange!",
-    "page": "AtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.AtmosStateArrays.startexchange!",
-    "category": "function",
-    "text": "startexchange!(Q::AtmosStateArray; dorecvs=true)\n\nStart the MPI exchange of the data stored in Q. If dorecvs is true then postrecvs!(Q) is called, otherwise the caller is responsible for this.\n\nThis function will fill the send buffer (on the device), copies the data from the device to the host, and then issues the send. Previous sends are waited on to ensure that they are complete.\n\n\n\n\n\n"
-},
-
-{
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.AtmosStateArrays.finishexchange!",
-    "page": "AtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.AtmosStateArrays.finishexchange!",
-    "category": "function",
-    "text": "finishexchange!(Q::AtmosStateArray)\n\nComplete the exchange of data and fill the data array on the device\n\n\n\n\n\n"
-},
-
-{
     "location": "AtmosDycore/#AtmosStateArray-1",
     "page": "AtmosDycore",
     "title": "AtmosStateArray",
     "category": "section",
     "text": "Storage for the state of a discretization.AtmosStateArrays.AtmosStateArray\nAtmosStateArrays.postrecvs!\nAtmosStateArrays.startexchange!\nAtmosStateArrays.finishexchange!"
-},
-
-{
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.LSRKmethods.LSRK",
-    "page": "AtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.LSRKmethods.LSRK",
-    "category": "type",
-    "text": "LSRK(f, Q; dt, t0 = 0)\n\nThis is a time stepping object for explicitly time stepping the differential equation given by the right-hand-side function f with the state Q, i.e.,\n\nQ̇ = f(Q)\n\nwith the required time step size dt and optional initial time t0.  This time stepping object is intended to be passed to the solve! command.\n\nThis uses the fourth-order, low-storage, Runge–Kutta scheme of Carpenter and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).\n\nReferences\n\n@TECHREPORT{CarpenterKennedy1994,\n  author = {M.~H. Carpenter and C.~A. Kennedy},\n  title = {Fourth-order {2N-storage} {Runge-Kutta} schemes},\n  institution = {National Aeronautics and Space Administration},\n  year = {1994},\n  number = {NASA TM-109112},\n  address = {Langley Research Center, Hampton, VA},\n}\n\n\n\n\n\n"
-},
-
-{
-    "location": "AtmosDycore/#CLIMA.CLIMAAtmosDycore.LSRKmethods.updatedt!",
-    "page": "AtmosDycore",
-    "title": "CLIMA.CLIMAAtmosDycore.LSRKmethods.updatedt!",
-    "category": "function",
-    "text": "updatedt!(lsrk::LSRK, dt)\n\nChange the time step size to dt for `lsrk.\n\n\n\n\n\n"
-},
-
-{
-    "location": "AtmosDycore/#LSRKmethods-1",
-    "page": "AtmosDycore",
-    "title": "LSRKmethods",
-    "category": "section",
-    "text": "Methods for time discretization.LSRKmethods.LSRK\nLSRKmethods.updatedt!"
 },
 
 {
