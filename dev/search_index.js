@@ -301,7 +301,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Mesh",
     "title": "Meshing Stuff",
     "category": "section",
-    "text": ""
+    "text": "CurrentModule = CLIMA"
 },
 
 {
@@ -309,7 +309,95 @@ var documenterSearchIndex = {"docs": [
     "page": "Mesh",
     "title": "Topologies",
     "category": "section",
-    "text": "Topologies encode the connectivity of the elements, spatial domain interval and MPI communication.Topologies.BrickTopology\nTopologies.StackedBrickTopology\nTopologies.CubedShellTopology\nTopologies.cubedshellmesh\nTopologies.cubedshellwarp\nTopologies.StackedCubedSphereTopology"
+    "text": "Topologies encode the connectivity of the elements, spatial domain interval and MPI communication."
+},
+
+{
+    "location": "Mesh/#CLIMA.Topologies.AbstractTopology",
+    "page": "Mesh",
+    "title": "CLIMA.Topologies.AbstractTopology",
+    "category": "type",
+    "text": "AbstractTopology{dim}\n\nRepresents the connectivity of individual elements, with local dimension dim.\n\n\n\n\n\n"
+},
+
+{
+    "location": "Mesh/#CLIMA.Topologies.BoxElementTopology",
+    "page": "Mesh",
+    "title": "CLIMA.Topologies.BoxElementTopology",
+    "category": "type",
+    "text": "BoxElementTopology{dim, T} <: AbstractTopology{dim}\n\nThe local topology of a larger MPI-distributed topology, represented by dim-dimensional box elements.\n\nThis contains the necessary information for the connectivity elements of the elements on the local process, along with \"ghost\" elements from neighbouring processes.\n\nFields\n\nmpicomm\nMPI communicator for communicating with neighbouring processes.\n\nelems\nRange of element indices\n\nrealelems\nRange of real (aka nonghost) element indices\n\nghostelems\nRange of ghost element indices\n\nsendelems\nArray of send element indices sorted so that\n\nelemtocoord\nElement to vertex coordinates; elemtocoord[d,i,e] is the dth coordinate of corner i of element e\nnote: Note\ncurrently coordinates always are of size 3 for (x, y, z)\n\nelemtoelem\nElement to neighboring element; elemtoelem[f,e] is the number of the element neighboring element e across face f.  If there is no neighboring element then elemtoelem[f,e] == e.\n\nelemtoface\nElement to neighboring element face; elemtoface[f,e] is the face number of the element neighboring element e across face f.  If there is no neighboring element then elemtoface[f,e] == f.\"\n\nelemtoordr\nelement to neighboring element order; elemtoordr[f,e] is the ordering number of the element neighboring element e across face f.  If there is no neighboring element then elemtoordr[f,e] == 1.\n\nelemtobndy\nElement to bounday number; elemtobndy[f,e] is the boundary number of face f of element e.  If there is a neighboring element then elemtobndy[f,e] == 0.\n\nnabrtorank\nList of the MPI ranks for the neighboring processes\n\nnabrtorecv\nRange in ghost elements to receive for each neighbor\n\nnabrtosend\nRange in sendelems to send for each neighbor\n\n\n\n\n\n"
+},
+
+{
+    "location": "Mesh/#CLIMA.Topologies.BrickTopology",
+    "page": "Mesh",
+    "title": "CLIMA.Topologies.BrickTopology",
+    "category": "type",
+    "text": "BrickTopology{dim, T} <: AbstractTopology{dim}\n\nA simple grid-based topolgy. This is a convenience wrapper around BoxElementTopology.\n\n\n\n\n\n"
+},
+
+{
+    "location": "Mesh/#CLIMA.Topologies.StackedBrickTopology",
+    "page": "Mesh",
+    "title": "CLIMA.Topologies.StackedBrickTopology",
+    "category": "type",
+    "text": "StackedBrickTopology{dim, T} <: AbstractTopology{dim}\n\nA simple grid-based topolgy, where all elements on the trailing dimension are stacked to be contiguous. This is a convenience wrapper around BoxElementTopology.\n\n\n\n\n\n"
+},
+
+{
+    "location": "Mesh/#CLIMA.Topologies.CubedShellTopology",
+    "page": "Mesh",
+    "title": "CLIMA.Topologies.CubedShellTopology",
+    "category": "type",
+    "text": "CubedShellTopology{T} <: AbstractTopology{2}\n\nA cube-shell topolgy. This is a convenience wrapper around BoxElementTopology.\n\n\n\n\n\n"
+},
+
+{
+    "location": "Mesh/#CLIMA.Topologies.StackedCubedSphereTopology",
+    "page": "Mesh",
+    "title": "CLIMA.Topologies.StackedCubedSphereTopology",
+    "category": "type",
+    "text": "StackedCubedSphereTopology{3, T} <: AbstractTopology{3}\n\nA cube-sphere topology. All elements on the same \"vertical\" dimension are stacked to be contiguous. This is a convenience wrapper around BoxElementTopology.\n\n\n\n\n\n"
+},
+
+{
+    "location": "Mesh/#Types-1",
+    "page": "Mesh",
+    "title": "Types",
+    "category": "section",
+    "text": "Topologies.AbstractTopology\nTopologies.BoxElementTopology\nTopologies.BrickTopology\nTopologies.StackedBrickTopology\nTopologies.CubedShellTopology\nTopologies.StackedCubedSphereTopology"
+},
+
+{
+    "location": "Mesh/#CLIMA.Topologies.cubedshellmesh",
+    "page": "Mesh",
+    "title": "CLIMA.Topologies.cubedshellmesh",
+    "category": "function",
+    "text": "cubedshellmesh(T, Ne; part=1, numparts=1)\n\nGenerate a cubed mesh with each of the \"cubes\" has an Ne X Ne grid of elements.\n\nThe mesh can optionally be partitioned into numparts and this returns partition part.  This is a simple Cartesian partition and further partitioning (e.g, based on a space-filling curve) should be done before the mesh is used for computation.\n\nThis mesh returns the cubed spehere in a flatten fashion for the vertex values, and a remapping is needed to embed the mesh in a 3-D space.\n\nThe mesh structures for the cubes is as follows:\n\nx_2\n   ^\n   |\n4Ne-           +-------+\n   |           |       |\n   |           |   6   |\n   |           |       |\n3Ne-           +-------+\n   |           |       |\n   |           |   5   |\n   |           |       |\n2Ne-           +-------+\n   |           |       |\n   |           |   4   |\n   |           |       |\n Ne-   +-------+-------+-------+\n   |   |       |       |       |\n   |   |   1   |   2   |   3   |\n   |   |       |       |       |\n  0-   +-------+-------+-------+\n   |\n   +---|-------|-------|------|-> x_1\n       0      Ne      2Ne    3Ne\n\n\n\n\n\n"
+},
+
+{
+    "location": "Mesh/#CLIMA.Topologies.cubedshellwarp",
+    "page": "Mesh",
+    "title": "CLIMA.Topologies.cubedshellwarp",
+    "category": "function",
+    "text": "cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))\n\nGiven points (a, b, c) on the surface of a cube, warp the points out to a spherical shell of radius R based on the equiangular gnomonic grid proposed by Ronchi, Iacono, Paolucci (1996) https://dx.doi.org/10.1006/jcph.1996.0047\n\n@article{RonchiIaconoPaolucci1996,\n  title={The ``cubed sphere\'\': a new method for the solution of partial\n         differential equations in spherical geometry},\n  author={Ronchi, C. and Iacono, R. and Paolucci, P. S.},\n  journal={Journal of Computational Physics},\n  volume={124},\n  number={1},\n  pages={93--114},\n  year={1996},\n  doi={10.1006/jcph.1996.0047}\n}\n\n\n\n\n\n"
+},
+
+{
+    "location": "Mesh/#Functions-1",
+    "page": "Mesh",
+    "title": "Functions",
+    "category": "section",
+    "text": "Topologies.cubedshellmesh\nTopologies.cubedshellwarp"
+},
+
+{
+    "location": "Mesh/#CLIMA.Grids.DiscontinuousSpectralElementGrid",
+    "page": "Mesh",
+    "title": "CLIMA.Grids.DiscontinuousSpectralElementGrid",
+    "category": "type",
+    "text": "DiscontinuousSpectralElementGrid(topology; FloatType, DeviceArray,\n                                 polynomialorder,\n                                 meshwarp = (x...)->identity(x))\n\nGenerate a discontinuous spectral element (tensor product, Legendre-Gauss-Lobatto) grid/mesh from a topology, where the order of the elements is given by polynomialorder. DeviceArray gives the array type used to store the data (CuArray or Array), and the coordinate points will be of FloatType.\n\nThe optional meshwarp function allows the coordinate points to be warped after the mesh is created; the mesh degrees of freedom are orginally assigned using a trilinear blend of the element corner locations.\n\n\n\n\n\n"
 },
 
 {
