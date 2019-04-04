@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>CliMA Variable List: · CLIMA</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link href="../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><a href="../index.html"><img class="logo" src="../assets/logo.png" alt="CLIMA logo"/></a><h1>CLIMA</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../search/"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../">Home</a></li><li><span class="toctext">Utilites</span><ul><li><a class="toctext" href="../Utilities/RootSolvers/">RootSolvers</a></li><li><a class="toctext" href="../Utilities/MoistThermodynamics/">MoistThermodynamics</a></li></ul></li><li><span class="toctext">Atmos</span><ul><li><a class="toctext" href="../Atmos/SurfaceFluxes/"><code>SurfaceFluxes</code></a></li></ul></li><li><a class="toctext" href="../ODESolvers/">ODESolvers</a></li><li><a class="toctext" href="../Mesh/">Mesh</a></li><li><a class="toctext" href="../AtmosDycore/">AtmosDycore</a></li><li><a class="toctext" href="../TurbulenceConvection/">TurbulenceConvection</a></li><li><span class="toctext">Developer docs</span><ul><li><a class="toctext" href="../CodingConventions/">Coding Conventions</a></li><li><a class="toctext" href="../AcceptableUnicode/">Acceptable Unicode characters:</a></li><li class="current"><a class="toctext" href>CliMA Variable List:</a><ul class="internal"></ul></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li>Developer docs</li><li><a href>CliMA Variable List:</a></li></ul><a class="edit-page" href="https://github.com/climate-machine/CLIMA/blob/master/docs/src/VariableList.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>CliMA Variable List:</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="CliMA-Variable-List:-1" href="#CliMA-Variable-List:-1">CliMA Variable List:</a></h1><p>This document is currently for collaborators within the project with access to the Overleaf CliMA-Atmos docs. The purpose of this page is to unify the naming conventions used in the Overleaf document in a manner useful for coding. This document suggests &#39;reserved&#39; variable names in &lt;property&gt;_&lt;species&gt; format with the default working fluid (no-subscript) being moist air. Contributors to the CliMA repository are welcome to suggest changes when necessary.</p><h3><a class="nav-anchor" id="Names-reserved-for-&#39;use-and-throw&#39;-/-debug-variables-1" href="#Names-reserved-for-&#39;use-and-throw&#39;-/-debug-variables-1">Names reserved for &#39;use and throw&#39; / debug variables</a></h3><pre><code class="language-none">dummy
+scratch</code></pre><h3><a class="nav-anchor" id=".1-Working-Fluid-and-Equation-of-State-1" href="#.1-Working-Fluid-and-Equation-of-State-1">2.1  Working Fluid and Equation of State</a></h3><pre><code class="language-none">q_dry = dry air mass fraction
+q_vap = specific humidity, vapour
+q_liq = specific humidity, liquid
+q_ice = specific humidity, ice
+q_con = specific humidity, condensate
+q_tot = specific humidity, total
+
+
+P_&lt;species&gt;     = pressure, species (no subscript == default working fluid moist air) 
+ρ_&lt;species&gt;     = density, species (no subscript == default working fluid moist air) 
+R_m             = gas constant, moist
+R_d             = gas constant, dry
+R_v             = gas constant, water vapour
+T               = temperature, moist air 
+T_&lt;species&gt;     = temperature, species </code></pre><h3><a class="nav-anchor" id=".2-Mass-Balance-1" href="#.2-Mass-Balance-1">2.2 Mass Balance</a></h3><pre><code class="language-none">dt              = time increment
+u               = x-velocity 
+v               = y-velocity
+w               = z-velocity
+U		= x-momentum 
+V		= y-momentum
+W		= z=momentum </code></pre><h3><a class="nav-anchor" id=".3-Moisture-balances-1" href="#.3-Moisture-balances-1">2.3 Moisture balances</a></h3><pre><code class="language-none">source_qt           = local source/sink of water mass [S_qt]
+diffusiveflux_vap   = diffusive flux, water vapour
+diffusiveflux_liq   = diffusive flux, cloud liquid
+diffusiveflux_ice   = diffusive flux, cloud ice
+diffusiveflux_tot   = diffusive flux, total</code></pre><h3><a class="nav-anchor" id=".4-Momentum-balances-1" href="#.4-Momentum-balances-1">2.4 Momentum balances</a></h3><pre><code class="language-none">U               = x-momentum 
+V               = y-momentum 
+W               = z-momentum (2D/3D: this is the vertical coordinate)
+Ω_x             = x-angular momentum
+Ω_y             = y-angular momentum
+Ω_z             = z-angular momentum
+τ_xx            = stress tensor ((1,1) component)
+τ_&lt;ij&gt;          = replace ij with combination of x/y/z to recover appropriate value
+λ_stokes        = Stokes parameter</code></pre><h3><a class="nav-anchor" id=".5-Energy-balance-1" href="#.5-Energy-balance-1">2.5 Energy balance</a></h3><pre><code class="language-none">&lt;Lower case e_&lt;type&gt; suggests specific (per unit mass) quantities&gt;
+e_kin_&lt;spe&gt;      = specific energy per unit volume, kinetic
+e_pot_&lt;spe&gt;      = specific energy per unit volume, potential
+e_int_&lt;spe&gt;      = specific energy per unit volume, internal
+e_tot_&lt;spe&gt;      = specific energy per unit volume, total
+
+E_kin_&lt;spe&gt;      = energy, kinetic
+E_pot_&lt;spe&gt;      = energy, potential
+E_int_&lt;spe&gt;      = energy, internal
+E_tot_&lt;spe&gt;      = energy, total
+
+cv_m             = isochoric specific heat, moist air
+cv_d             = isochoric specific heat, dry air
+cv_l             = isochoric specific heat, liquid water
+cv_v             = isochoric specific heat, water vapour
+cv_i             = isochoric specific heat, ice
+
+cp_m             = isobaric specific heat, moist air
+cp_d             = isobaric specific heat, dry air
+cp_l             = isobaric specific heat, liquid water
+cp_v             = isobaric specific heat, water vapour
+cp_i             = isobaric specific heat, ice</code></pre><h3><a class="nav-anchor" id="TODO-1" href="#TODO-1">TODO</a></h3><pre><code class="language-none">Update with list of additional parameters / source terms as necessary</code></pre><footer><hr/><a class="previous" href="../AcceptableUnicode/"><span class="direction">Previous</span><span class="title">Acceptable Unicode characters:</span></a></footer></article></body></html>
