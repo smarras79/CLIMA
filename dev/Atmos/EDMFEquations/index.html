@@ -142,7 +142,7 @@
   \IntraCVSDi{\h}{\h}      &amp; \quad \text{intra subdomain covariance of $\h&#39;$ and $\h&#39;$},  \\
   \IntraCVSDi{\qt}{\qt}    &amp; \quad \text{intra subdomain covariance of $\qt&#39;$ and $\qt&#39;$}, \\
   \IntraCVSDi{\h}{\qt}     &amp; \quad \text{intra subdomain covariance of $\h&#39;$ and $\qt&#39;$}.
-\end{align}\]</div><h2><a class="nav-anchor" id="Domain-averaged-equations-1" href="#Domain-averaged-equations-1">Domain averaged equations</a></h2><p>The EDMF model can be used in the context of a stand-alone single column, or integrated with a dynamical core. Either way, the EDMF model relies on domain-averaged variables, which may be prescribed or solved for. Taking an area fraction-weighted average of the SD equations yields the domain-averaged equations (which should be consistent with variables in the dynamical core).</p><p>The domain-averaged equations for <span>$\DM{\phi} \in [w, \qt, \h, \uH]$</span> are:</p><div>\[\begin{align}
+\end{align}\]</div><p>From the large-scale model perspective, <span>$\DM{\phi}$</span> represents the resolved grid-scale (GS) mean, and <span>$\TCV{\phi}{\psi}$</span> represents the SGS fluxes and (co)-variances of scalars that need to be parameterized. Equations in the following sections, \eqref{eq:AreaFracGov}, \eqref{eq:1stMoment} and \eqref{eq:2ndMoment}, are solved on <span>$z_{min} \le z \le z_{max}$</span> and <span>$t \ge 0$</span>. There are <span>$8 \Nsd$</span> equations in total.</p><h2><a class="nav-anchor" id="Domain-averaged-equations-1" href="#Domain-averaged-equations-1">Domain averaged equations</a></h2><p>The EDMF model can be used in the context of a stand-alone single column, or integrated with a dynamical core. Either way, the EDMF model relies on domain-averaged variables, which may be prescribed or solved for. Taking an area fraction-weighted average of the SD equations yields the domain-averaged equations (which should be consistent with variables in the dynamical core).</p><p>The domain-averaged equations for <span>$\DM{\phi} \in [w, \qt, \h, \uH]$</span> are:</p><div>\[\begin{align}
 \PD_t (\rhoRef{} \DM{\phi})
 + \PD_z (\rhoRef{} \DM{w} \DM{\phi})
 + \nabla_h \DOT \left( \rhoRef{} \DM{\phi} \otimes \DM{\phi} \right)
@@ -182,7 +182,7 @@
   =
   \SDi{S}^\phi
   , \quad i = 1,2,..., \Nsd{}. \\
-\end{align}\]</div><p>In addition, <span>$\SDi{S}^{\phi}$</span> are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. From the large-scale model perspective, <span>$\DM{\phi}$</span> represents the resolved grid-scale (GS) mean, and <span>$\TCV{\phi}{\psi}$</span> represents the SGS fluxes and (co)-variances of scalars that need to be parameterized. Equations <span>$\eqref{eq:AreaFracGov}$</span> and <span>$\eqref{eq:1stMoment}$</span> are solved on <span>$z_{min} \le z \le z_{max}$</span> and <span>$t \ge 0$</span>. There are <span>$8 \Nsd$</span> equations in total. In general, <span>$\SDi{S}^{\phi}$</span> and <span>$\SDi{S}^{a}$</span> may depend on <span>$\SDj{\phi}$</span> and or <span>$\aSDj{a}$</span> for any <span>$j$</span>.</p><h3><a class="nav-anchor" id="Source-terms-per-equation-1" href="#Source-terms-per-equation-1">Source terms per equation</a></h3><p>The source terms common to all unknowns are:</p><div>\[\begin{align}
+\end{align}\]</div><p>Here, <span>$\SDi{S}^{\phi}$</span> are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. In general, <span>$\SDi{S}^{\phi}$</span> and <span>$\SDi{S}^{a}$</span> may depend on <span>$\SDj{\phi}$</span> and or <span>$\aSDj{a}$</span> for any <span>$j$</span>.</p><h3><a class="nav-anchor" id="Source-terms-per-equation-1" href="#Source-terms-per-equation-1">Source terms per equation</a></h3><p>The source terms common to all unknowns are:</p><div>\[\begin{align}
 \SDi{S}^{\phi} =
   \SDi{S_{\epsilon\delta}}^{\phi}
 + \SDi{S_{\text{turb-transp}}}^{\phi}, \quad \forall \phi
@@ -226,7 +226,7 @@
   =
   \SDi{S}^\phi
   , \quad i = 1,2,..., \Nsd{}. \\
-\end{align}\]</div><h3><a class="nav-anchor" id="Source-terms-per-equation-2" href="#Source-terms-per-equation-2">Source terms per equation</a></h3><p>The source terms common to all unknowns are:</p><div>\[\begin{align}
+\end{align}\]</div><p>Here, <span>$\SDi{S}^{\phi}$</span> are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. In general, <span>$\SDi{S}^{\phi}$</span> and <span>$\SDi{S}^{a}$</span> may depend on <span>$\SDj{\phi}$</span> and or <span>$\aSDj{a}$</span> for any <span>$j$</span>.</p><h3><a class="nav-anchor" id="Source-terms-per-equation-2" href="#Source-terms-per-equation-2">Source terms per equation</a></h3><p>The source terms common to all unknowns are:</p><div>\[\begin{align}
 \SDi{S}^{\phi\psi} =
   \SDi{S_{\epsilon\delta}}^{\phi\psi}
 + \SDi{S_{\text{x-grad flux}}}^{\phi\psi}
@@ -342,11 +342,11 @@ f_c &amp;= 0 \qquad \text{good for simple cases, need to confirm for more comple
 u_{\mathrm{ave}}     &amp; = \frac{\FrictionVelocity}{\VKConst}    \left[ \log\left(\frac{\LayerThickness}{\SurfaceRoughness{m}}\right) - \Psi_m\left(\frac{\LayerThickness}{\MOLen}\right) + \frac{\SurfaceRoughness{m}}{\LayerThickness} \Psi_m\left(\frac{\SurfaceRoughness{m}}{\MOLen}\right) + R_{z0m} \left\{ \psi_m\left(\frac{\SurfaceRoughness{m}}{\MOLen}\right) - 1 \right\} \right] \\
 R_{z0m}              &amp; = 1 - \SurfaceRoughness{h}/\LayerThickness \\
 \SurfaceMomentumFlux &amp; = -\FrictionVelocity^2                , \label{eq:SurfaceMomentumFlux}  \\
-\end{align}\]</div><h3><a class="nav-anchor" id="Temperature-scale-1" href="#Temperature-scale-1">Temperature scale</a></h3><p>NOTE: All variables (Monin-Obhukov length, friction velocity, temperature scale) in <a href="#Surface-fluxes-1">Surface fluxes</a> must be solved simultaneously</p><ul><li><p>Knowns: <span>$\theta_{\mathrm{ave}}, \theta_s, \LayerThickness, \SurfaceRoughness{h}$</span></p></li><li><p>Unknowns: <span>$\FrictionVelocity, \MOLen$</span>, and <span>$\SurfaceHeatFlux$</span></p></li></ul><div>\[\begin{align}\label{eq:TemperatureScale}
+\end{align}\]</div><p>where <span>$\Psi_m$</span> is defined in Appendix A, equations A6 in Nishizawa, S., and Y. Kitamura. &quot;A Surface Flux Scheme Based on the Monin‐Obukhov Similarity for Finite Volume Models.&quot; Journal of Advances in Modeling Earth Systems 10.12 (2018): 3159-3175.</p><h3><a class="nav-anchor" id="Temperature-scale-1" href="#Temperature-scale-1">Temperature scale</a></h3><p>NOTE: All variables (Monin-Obhukov length, friction velocity, temperature scale) in <a href="#Surface-fluxes-1">Surface fluxes</a> must be solved simultaneously</p><ul><li><p>Knowns: <span>$\theta_{\mathrm{ave}}, \theta_s, \LayerThickness, \SurfaceRoughness{h}$</span></p></li><li><p>Unknowns: <span>$\FrictionVelocity, \MOLen$</span>, and <span>$\SurfaceHeatFlux$</span></p></li></ul><div>\[\begin{align}\label{eq:TemperatureScale}
 \theta_{\mathrm{ave}} - \theta_s &amp; = \frac{Pr \TemperatureScale}{\VKConst} \left[ \log\left(\frac{\LayerThickness}{\SurfaceRoughness{h}}\right) - \Psi_h\left(\frac{\LayerThickness}{\MOLen}\right) + \frac{\SurfaceRoughness{h}}{\LayerThickness} \Psi_m\left(\frac{\SurfaceRoughness{h}}{\MOLen}\right) + R_{z0h} \left\{ \psi_h\left(\frac{\SurfaceRoughness{h}}{\MOLen}\right) - 1 \right\} \right] \\
 R_{z0h}                          &amp; = 1 - \SurfaceRoughness{h}/\LayerThickness \\
 \SurfaceHeatFlux                 &amp; = -\FrictionVelocity\TemperatureScale , \label{eq:SurfaceHeatFlux}  \\
-\end{align}\]</div><h2><a class="nav-anchor" id="Shear-production-1" href="#Shear-production-1">Shear production</a></h2><div>\[\begin{align}\label{eq:ShearProduction}
+\end{align}\]</div><p>where <span>$\Psi_h$</span> is defined in Appendix A, equation A6 in Nishizawa, S., and Y. Kitamura. &quot;A Surface Flux Scheme Based on the Monin‐Obukhov Similarity for Finite Volume Models.&quot; Journal of Advances in Modeling Earth Systems 10.12 (2018): 3159-3175.</p><h2><a class="nav-anchor" id="Shear-production-1" href="#Shear-production-1">Shear production</a></h2><div>\[\begin{align}\label{eq:ShearProduction}
 |S|^2 &amp;= (\PD_z \DM{u})^2 + (\PD_z \DM{v})^2 + (\PD_z \SDe{w})^2 \\
 \end{align}\]</div><h2><a class="nav-anchor" id="Prandtl-number-1" href="#Prandtl-number-1">Prandtl number</a></h2><div>\[\begin{align}\label{eq:PrandtlNumber}
 Pr_{neut} &amp;= 0.74 \\
@@ -372,13 +372,13 @@ l_2 &amp;= \frac{\VKConst z}{c_K \kappa^* \phi_m(\xi)} \\
 \kappa^* &amp;= \frac{\FrictionVelocity}{\sqrt{\SDe{TKE}}} \\
 l_3 &amp;= \sqrt{\frac{c_{\varepsilon}}{c_K}} \sqrt{\SDe{TKE}}
 \left[ |S|^2 - \frac{1}{Pr(z)} \BuoyancyGrad \right]^{-1/2} \\
-\end{align}\]</div><p>where additional variable definitions are in:</p><ul><li><p><a href="#Shear-production-1">Shear production</a> (<span>$S$</span>).</p></li><li><p><a href="#Monin-Obhukov-length-1">Monin-Obhukov length</a> (<span>$\MOLen$</span>).</p></li><li><p><a href="#Buoyancy-gradient-1">Buoyancy gradient</a> (<span>$\BuoyancyGrad$</span>).</p></li><li><p><a href="#Potential-temperatures-1">Potential temperatures</a> (<span>$\ThetaDry$</span>, <span>$\ThetaVirt$</span>).</p></li></ul><p>Smoothing function is provided in python file. The Prandtl number was used from Eq. 75 in Dan Li 2019 &quot;Turbulent Prandtl number in the atmospheric BL - where are we now&quot;.</p><h2><a class="nav-anchor" id="Eddy-diffusivity-1" href="#Eddy-diffusivity-1">Eddy diffusivity</a></h2><div>\[\begin{align}\label{eq:EddyDiffusivity}
-\SDi{K_m} = \begin{cases}
+\end{align}\]</div><p>where additional variable definitions are in:</p><ul><li><p><a href="#Shear-production-1">Shear production</a> (<span>$S$</span>).</p></li><li><p><a href="#Monin-Obhukov-length-1">Monin-Obhukov length</a> (<span>$\MOLen$</span>).</p></li><li><p><a href="#Friction-velocity-1">Friction velocity</a> (<span>$\FrictionVelocity$</span>).</p></li><li><p><a href="#Buoyancy-gradient-1">Buoyancy gradient</a> (<span>$\BuoyancyGrad$</span>).</p></li><li><p><a href="#Potential-temperatures-1">Potential temperatures</a> (<span>$\ThetaDry$</span>, <span>$\ThetaVirt$</span>).</p></li></ul><p>Smoothing function is provided in python file. The Prandtl number was used from Eq. 75 in Dan Li 2019 &quot;Turbulent Prandtl number in the atmospheric BL - where are we now&quot;.</p><h2><a class="nav-anchor" id="Eddy-diffusivity-1" href="#Eddy-diffusivity-1">Eddy diffusivity</a></h2><div>\[\begin{align}\label{eq:EddyDiffusivity}
+\SDi{K_m} &amp; = \begin{cases}
 c_K \SDio{{l_{mix},}} \sqrt{\SDi{TKE}} &amp; i = \iEnv
 0 &amp; \text{otherwise}
 \end{cases} \\
-c_K = 0.1 \\
-\SDi{K_h} = \frac{\SDi{K_m}}{Pr} \\
+c_K &amp; = 0.1 \\
+\SDi{K_h} &amp; = \frac{\SDi{K_m}}{Pr} \\
 Pr &amp;= \frac{K_m}{K_h} \\
 \end{align}\]</div><p>where additional variable definitions are in:</p><ul><li><p><a href="#Mixing-length-1">Mixing length</a> (<span>$l_{mix}$</span>).</p></li><li><p><a href="#Prandtl-number-1">Prandtl number</a> (<span>$Pr$</span>).</p></li></ul><h2><a class="nav-anchor" id="Buoyancy-flux-1" href="#Buoyancy-flux-1">Buoyancy flux</a></h2><div class="admonition todo"><div class="admonition-title">Todo</div><div class="admonition-text"><p>Currently, <span>$\IntraCVSDi{w}{b}$</span> is hard-coded from the first expression (which was used in SCAMPy), however, this value should be computed from the SurfaceFluxes section.</p></div></div><div>\[\begin{align}\label{eq:BuoyancyFlux}
 \IntraCVSDi{w}{b} &amp; = \frac{\grav \BC{\alphaRef}}{c_{pm} \BC{\SDi{T}}} (\SensibleSurfaceHeatFlux + (\epsvi - 1) c_{pm} \BC{\SDi{T}} \LatentSurfaceHeatFlux / \LatentHeat{\BC{\SDi{T}}}) \\
@@ -420,12 +420,12 @@ l_A &amp;= \VKConst z \left( 1 + a_l \frac{z}{\MOLen} \right)^{b_l} \\
 \end{align}\]</div><p>where additional variable definitions are in:</p><ul><li><p><a href="#Inversion-height-1">Inversion height</a> (<span>$\SDio{\InversionHeight}$</span>)</p></li><li><p><a href="#Monin-Obhukov-length-1">Monin-Obhukov length</a> (<span>$\MOLen$</span>).</p></li><li><p><a href="#Convective-velocity-1">Convective velocity</a> (<span>$\SDio{\ConvectiveVelocity}$</span>)</p></li></ul><h1><a class="nav-anchor" id="Boundary-Conditions-1" href="#Boundary-Conditions-1">Boundary Conditions</a></h1><p>Here, we specify boundary conditions (BCs) by their type, Dirichlet (D) or Neumann (N), and their value.</p><h2><a class="nav-anchor" id="BC-functions-1" href="#BC-functions-1">BC functions</a></h2><div>\[\begin{align}
 \Gamma_{\phi}(\FrictionVelocity, \zLL, \MOLen, F_1, F_2)
 &amp; = \begin{cases}
-    4 \frac{F_1 F_2}{\FrictionVelocity^2} (1 - 8.3\zLL/\MOLen) &amp; \MOLen &lt; 0 \\
+    4 \frac{F_1 F_2}{\FrictionVelocity^2} (1 - 8.3\zLL/\MOLen)^{-2/3} &amp; \MOLen &lt; 0 \\
     4 \frac{F_1 F_2}{\FrictionVelocity^2} &amp; \text{otherwise}
 \end{cases} \\
 \Gamma_{TKE}(\FrictionVelocity, \zLL, \MOLen, \ConvectiveVelocity)
 &amp; = \begin{cases}
-    3.75 {\FrictionVelocity}^2 + 0.2 {\ConvectiveVelocity}^2 {\FrictionVelocity}^2 (-\zLL/\MOLen)^{2/3} &amp; \MOLen &lt; 0 \\
+    3.75 {\FrictionVelocity}^2 + 0.2 {\ConvectiveVelocity}^2 + {\FrictionVelocity}^2 (-\zLL/\MOLen)^{2/3} &amp; \MOLen &lt; 0 \\
     3.75 {\FrictionVelocity}^2 &amp; \text{otherwise}
 \end{cases} \\
 \SensibleSurfaceHeatFlux &amp; = \BC{\TCV{w}{\hint}} c_{pm} \rhoRef \\
@@ -453,8 +453,8 @@ c_{frac} = 0.1, \quad
 \PD_z \BCT{\SDi{\hint}} &amp;= 0 \\
 \end{align}\]</div><p>Bottom boundary</p><div>\[\begin{align}
 \BCB{\SDi{w}} &amp;= 0 \\
-\PD_z \BCB{\SDi{\qt}} &amp;= \DM{\qt} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\qt}{\qt}} \\
-\PD_z \BCB{\SDi{\hint}} &amp;= \DM{\hint} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\hint}{\hint}} \\
+\BCB{\SDi{\qt}} &amp;= \DM{\qt} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\qt}{\qt}} \\
+\BCB{\SDi{\hint}} &amp;= \DM{\hint} + \mathcal D(\aSDi{a}) \sqrt{\IntraCVSDi{\hint}{\hint}} \\
 \end{align}\]</div><p>where additional variable/function definitions are in:</p><ul><li><a href="#BC-functions-1">BC functions</a> <span>$\mathcal D$</span></li></ul><h2><a class="nav-anchor" id="nd-order-moments-1" href="#nd-order-moments-1">2nd order moments</a></h2><p>Top boundary</p><div>\[\begin{align}
 \BCB{\SDi{TKE}} &amp; = \Gamma_{TKE}(\FrictionVelocity, \zLL, \MOLen, \ConvectiveVelocity) \\
 \BCB{\IntraCVSDi{\qt}{\qt}}       &amp; = \Gamma_{\phi}(\FrictionVelocity, \zLL, \MOLen, F_{\qt}(\LatentSurfaceHeatFlux)    \alphaLL, F_{\qt}(\LatentSurfaceHeatFlux)    \alphaLL) \\
