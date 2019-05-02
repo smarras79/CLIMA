@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Example 002: Solid Body Rotation · CLIMA</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../../../../assets/documenter.js"></script><script src="../../../../siteinfo.js"></script><script src="../../../../../versions.js"></script><link href="../../../../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><a href="../../../../index.html"><img class="logo" src="../../../../assets/logo.png" alt="CLIMA logo"/></a><h1>CLIMA</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../../../../search/"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../../../../">Home</a></li><li><span class="toctext">Utilites</span><ul><li><a class="toctext" href="../../../../Utilities/RootSolvers/">RootSolvers</a></li><li><a class="toctext" href="../../../../Utilities/MoistThermodynamics/">MoistThermodynamics</a></li></ul></li><li><span class="toctext">Atmos</span><ul><li><a class="toctext" href="../../../../Atmos/SurfaceFluxes/"><code>SurfaceFluxes</code></a></li><li><a class="toctext" href="../../../../Atmos/TurbulenceConvection/"><code>TurbulenceConvection</code></a></li><li><a class="toctext" href="../../../../Atmos/EDMFEquations/">Eddy-Diffusivity Mass-Flux (EDMF) equations</a></li></ul></li><li><a class="toctext" href="../../../../ODESolvers/">ODESolvers</a></li><li><a class="toctext" href="../../../../Mesh/">Mesh</a></li><li><a class="toctext" href="../../../../AtmosDycore/">AtmosDycore</a></li><li><a class="toctext" href="../../../../Arrays/">Arrays</a></li><li><a class="toctext" href="../../../../DGmethods/">DGmethods</a></li><li><span class="toctext">Developer docs</span><ul><li><a class="toctext" href="../../../../CodingConventions/">Coding Conventions</a></li><li><a class="toctext" href="../../../../AcceptableUnicode/">Acceptable Unicode characters</a></li><li><a class="toctext" href="../../../../VariableList/">CliMA Variable List</a></li></ul></li><li><span class="toctext">Balance Law Examples</span><ul><li><a class="toctext" href="../../../../BalanceLawOverview/">DG Balance Law Method</a></li><li><a class="toctext" href="../ex_001_periodic_advection/">Example 001: Periodic Advection</a></li><li class="current"><a class="toctext" href>Example 002: Solid Body Rotation</a><ul class="internal"><li><a class="toctext" href="#Introduction-1">Introduction</a></li><li><a class="toctext" href="#Commented-Program-1">Commented Program</a></li><li><a class="toctext" href="#ex_002_solid_body_rotation-plain-program-1">Plain Program</a></li></ul></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li>Balance Law Examples</li><li><a href>Example 002: Solid Body Rotation</a></li></ul><a class="edit-page" href="https://github.com/climate-machine/CLIMA/blob/master/src/DGmethods/examples/ex_002_solid_body_rotation.jl"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Example 002: Solid Body Rotation</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Example-002:-Solid-Body-Rotation-1" href="#Example-002:-Solid-Body-Rotation-1">Example 002: Solid Body Rotation</a></h1><div class="admonition jupyter"><div class="admonition-title">Jupyter</div><div class="admonition-text"><p>This example is also available as a Jupyter notebook: <a href="https://nbviewer.jupyter.org/github/climate-machine/CLIMA/blob/gh-pages/dev/examples/DGmethods/generated/ex_002_solid_body_rotation.html"><code>ex_002_solid_body_rotation.ipynb</code></a></p></div></div><p>Key ideas of this tutorial:</p><ul><li>Setting up auxiliary state variables</li><li>Defining the boundary condition treatment</li></ul><h2><a class="nav-anchor" id="Introduction-1" href="#Introduction-1">Introduction</a></h2><p>In this example we will solve the variable coefficient advection equation. The velocity field used is solid body rotation where the domain is the square or domain <span>$\Omega = [-1, 1]^{d}$</span> where <span>$d=2$</span> or <span>$3$</span>.</p><p>The partial differential equation we wish to solve is</p><div>\[\frac{\partial q}{\partial t} + \nabla \cdot (\vec{u} q) = 0,\]</div><p>where <span>$q$</span> is the advected field and the velocity field is <span>$\vec{u} = 2\pi r (-\sin(\theta), \cos(\theta), 0)^{T}$</span> with <span>$r = \sqrt{x^2 + y^2}$</span> and <span>$\theta = \arctan(y / x)$</span>.</p><p>The quantity <span>$\vec{u} q$</span> is more generally called the flux and denoted in the tutorial below as <span>$\boldsymbol{F}(q) = \vec{u} q$</span>.</p><p>Below is a program interspersed with comments. The full program, without comments, can be found in the next <a href="#ex_002_solid_body_rotation-plain-program-1">section</a>.</p><h2><a class="nav-anchor" id="Commented-Program-1" href="#Commented-Program-1">Commented Program</a></h2><h3><a class="nav-anchor" id="Preliminaries-1" href="#Preliminaries-1">Preliminaries</a></h3><p>Load in modules needed for solving the problem</p><pre><code class="language-julia">using MPI
+using CLIMA.Topologies
+using CLIMA.Grids
+using CLIMA.DGBalanceLawDiscretizations
+using CLIMA.MPIStateArrays
+using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.ODESolvers
+using CLIMA.GenericCallbacks
+using LinearAlgebra
+using Logging
+using Dates
+using Printf
+using StaticArrays</code></pre><p>Start up MPI if this has not already been done</p><pre><code class="language-julia">MPI.Initialized() || MPI.Init()</code></pre><h3><a class="nav-anchor" id="Initializing-the-Velocity-Field-1" href="#Initializing-the-Velocity-Field-1">Initializing the Velocity Field</a></h3><p>The key difference between this example and <a href="examples/DGmethods/generated/ex_001_periodic_advection.html">example 001</a> is that in this case we have a non-constant velocity field. In the balance law solver, in addition to the PDE state at every degree of freedom we can also define a constant in time <em>auxiliary state,</em> and it is in this auxiliary state that we will store the velocity field.</p><p>Initialization of the auxiliary state can happen in several ways, but here we will use the default <code>DGBalanceLaw</code> initialization interface which requires the user-defined function which given <code>x</code>, <code>y</code>, and <code>z</code> defines the auxiliary state</p><pre><code class="language-julia">const num_aux_states = 3
+function velocity_initilization!(uvec::MVector{num_aux_states, DFloat},
+                                 x, y, z) where DFloat
+  @inbounds begin
+    r = hypot(x, y)
+    θ = atan(y, x)
+    uvec .= 2DFloat(π) * r .* (-sin(θ), cos(θ), 0)
+  end
+end</code></pre><p>Note: We have caught the type of the elements in order the properly cast <span>$\pi$</span> since <code>2pi</code> would be default be a <code>Float64</code>.</p><p>Remark: Though not needed for this problem, if the user wishes to have access to the coordinate points during the simulation these should be stored in the auxiliary state which would increase the size of the auxiliary state.</p><h3><a class="nav-anchor" id="Physical-Flux-1" href="#Physical-Flux-1">Physical Flux</a></h3><p>Now we define a function which given a value for <span>$q$</span> computes the physical flux <span>$\boldsymbol{F} = \vec{u} q$</span>. The balance law solver will will pass user-defined auxiliary state at a degree of freedom through to the flux function as the fourth argument; the third and fifth arguments which are not needed for this example is the viscous state and simulation time).</p><pre><code class="language-julia">function advectionflux!(F, state, _, uvec, _)
+  DFloat = eltype(state) # get the floating point type we are using
+  @inbounds begin
+    q = state[1]
+    F[:, 1] = uvec * q
+  end
+end</code></pre><h3><a class="nav-anchor" id="Numerical-Flux-1" href="#Numerical-Flux-1">Numerical Flux</a></h3><p>As in <a href="examples/DGmethods/generated/ex_001_periodic_advection.html">example 001</a> we will use an upwind numerical flux; more discussion of this can be seen in the <a href="examples/DGmethods/generated/ex_001_periodic_advection.html#numerical_flux-1">numerical flux</a> section of example 001.</p><p>The auxiliary state for the minus and plus sides of the interface will be passed in through arguments 4 and 6 of the numerical flux callback. Since the two sides of the interface are collocated the auxiliary state on the two sides should be the same.</p><pre><code class="language-julia">function upwindflux!(fs, nM, stateM, viscM, uvecM, stateP, viscP, uvecP, t)
+  DFloat = eltype(fs)
+  @inbounds begin
+    # determine the advection speed and direction
+    un = dot(nM, uvecM)
+    qM = stateM[1]
+    qP = stateP[1]
+    # Determine which state is &quot;upwind&quot; of the minus side
+    fs[1] = un ≥ 0 ? un * qM : un * qP
+  end
+end</code></pre><pre><code class="language-none">upwindflux! (generic function with 1 method)</code></pre><h3><a class="nav-anchor" id="Boundary-Numerical-Flux-1" href="#Boundary-Numerical-Flux-1">Boundary Numerical Flux</a></h3><p>Since we will not assume that the domain is periodic, we also need to define a boundary numerical flux which will be used to define the boundary conditions. Generally speaking, boundary conditions for purely hyperbolic problems should be imposed by relating incoming characteristic variables to outgoing characteristics. In this case we will use characteristic outflow boundary conditions and zero inflow boundary conditions.</p><p>The syntax of the boundary flux is almost the same as the numerical flux except that the boundary condition type is passed into the function, though in this case we can neglect the value of the boundary condition flag. In the case of boundary conditions the plus state is set to the minus side state; this is done since in the case of model coupling this could be set to some values derived from the neighbouring model.</p><p>In the case of advection with the outflow boundary condition and zero inflow, the boundary numerical flux is the same as the upwind flux except with <span>$q^{+}$</span> set to zero; more complicated PDES and boundary conditions would require more complex constructions.</p><pre><code class="language-julia">function upwindboundaryflux!(fs, nM, stateM, viscM, uvecM, stateP, viscP, uvecP,
+                             bctype, t)
+  DFloat = eltype(fs)
+  @inbounds begin
+    # determine the advection speed and direction
+    un = dot(nM, uvecM)
+    qM = stateM[1]
+    # Determine which state is &quot;upwind&quot; of the minus side
+    fs[1] = un ≥ 0 ? un * qM : 0
+  end
+end</code></pre><h3><a class="nav-anchor" id="Initial-Condition-1" href="#Initial-Condition-1">Initial Condition</a></h3><p>In this example we take the initial condition to be</p><div>\[q(\vec{x}, t=0) =
+\exp\left(-\left(8\left\|\vec{x}-\frac{1}{2}\vec{e}_{1}\right\|_2\right)^2\right)\]</div><p>where <span>$\vec{e}_{1} = (1, 0, 0)^{T}$</span>.</p><p>Note: The initial condition will always be called as though the dimensionality of the problem is 3. For the domain used below <code>z = 0</code> when the problem is actually two-dimensional and thus the <code>hypot</code> call before is not effected by <code>z</code></p><p>Note: When the balance law solver calls the initial condition function the auxiliary state, in this case the velocity field, will also be included since the number of auxiliary variables is greater than zero.</p><pre><code class="language-julia">function initialcondition!(Q, x, y, z, _)
+  @inbounds Q[1] = exp(-(8 * hypot(x - 1//2, y, z))^2)
+end</code></pre><h3><a class="nav-anchor" id="Exact-Solution-1" href="#Exact-Solution-1">Exact Solution</a></h3><p>For solid body rotation the exact solution is computed by tracing back the rotation to the initial state.</p><p>Note: <code>uvec</code> is included to match calling convention of <code>initialcondition!</code></p><pre><code class="language-julia">function exactsolution!(Q, t, x, y, z, uvec)
+  @inbounds begin
+    DFloat = eltype(Q)
+
+    r = hypot(x, y)
+    θ = atan(y, x) - 2DFloat(π) * t
+
+    x, y = r * cos(θ), r * sin(θ)
+
+    initialcondition!(Q, x, y, z, uvec)
+  end
+end</code></pre><h3><a class="nav-anchor" id="Initialize-the-DG-Method-1" href="#Initialize-the-DG-Method-1">Initialize the DG Method</a></h3><p>The initialization of the DG method is largely the same as the <a href="examples/DGmethods/generated/ex_001_periodic_advection.html#Initial-Condition-1">intialization</a> discussion of <a href="examples/DGmethods/generated/ex_001_periodic_advection.html">ex 001</a>.</p><pre><code class="language-julia">function setupDG(mpicomm, dim, Ne, polynomialorder, DFloat=Float64,
+                 ArrayType=Array)
+
+  @assert ArrayType === Array
+
+  brickrange = (range(DFloat(-1); length=Ne+1, stop=1),
+                range(DFloat(-1); length=Ne+1, stop=1),
+                range(DFloat(-1); length=Ne+1, stop=1))</code></pre><p>By default the <code>BrickTopology</code> is not periodic, so unlike ex 001, we do not need to specify the periodicity</p><pre><code class="language-julia">  topology = BrickTopology(mpicomm, brickrange[1:dim])
+
+  grid = DiscontinuousSpectralElementGrid(topology; polynomialorder =
+                                          polynomialorder, FloatType = DFloat,
+                                          DeviceArray = ArrayType,)</code></pre><p>Note the additional keyword arguments: <code>numerical_boundary_flux!</code> which is used to pass the numerical flux function that implements the boundary condition, <code>auxiliary_state_length</code> which defines the number of auxiliary state fields at each degree of freedom, and <code>auxiliary_state_initialization!</code> which initializes the auxiliary state.</p><pre><code class="language-julia">  spatialdiscretization = DGBalanceLaw(grid = grid, length_state_vector = 1,
+                                       flux! = advectionflux!,
+                                       numerical_flux! = upwindflux!,
+                                       numerical_boundary_flux! =
+                                       upwindboundaryflux!,
+                                       auxiliary_state_length = num_aux_states,
+                                       auxiliary_state_initialization! =
+                                       velocity_initilization!)
+
+end</code></pre><h3><a class="nav-anchor" id="Initializing-and-run-the-DG-method-1" href="#Initializing-and-run-the-DG-method-1">Initializing and run the DG method</a></h3><p>This <code>let</code> statement is largely the same as the <a href="examples/DGmethods/generated/ex_001_periodic_advection.html#Using-ODE-solver-callback-functions-1">Using ODE solver callback functions</a> block from ex 001. Difference are highlighted.</p><pre><code class="language-julia">let
+  mpicomm = MPI.COMM_WORLD
+  mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
+  dim = 2
+  Ne = 20
+  polynomialorder = 4
+  spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder)
+  Q = MPIStateArray(spatialdiscretization, initialcondition!)
+  filename = @sprintf(&quot;initialcondition_mpirank%04d&quot;, MPI.Comm_rank(mpicomm))
+  DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+                                       (&quot;q&quot;,))
+
+  h = 1 / Ne</code></pre><p>Since we are on the <span>$[-1, 1]^d$</span> domain, the maximum velocity will by <span>$2\pi$</span>, thus this defines the CFL restriction</p><pre><code class="language-julia">  CFL = h / (2π)
+  dt = CFL / polynomialorder^2
+  lsrk = LowStorageRungeKutta(spatialdiscretization, Q; dt = dt, t0 = 0)
+  finaltime = 1.0</code></pre><p>For simplicity we only include the vtk callback</p><pre><code class="language-julia">  vtk_step = 0
+  mkpath(&quot;vtk&quot;)
+  cb_vtk = GenericCallbacks.EveryXSimulationSteps(20) do
+    vtk_step += 1
+    filename = @sprintf(&quot;vtk/solid_body_rotation_mpirank%04d_step%04d&quot;,
+                         MPI.Comm_rank(mpicomm), vtk_step)
+    DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+                                         (&quot;q&quot;,))
+    nothing
+  end
+
+  solve!(Q, lsrk; timeend = finaltime, callbacks = (cb_vtk, ))
+
+  filename = @sprintf(&quot;finalsolution_mpirank%04d&quot;, MPI.Comm_rank(mpicomm))
+  DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+                                       (&quot;q&quot;,))</code></pre><p>As with the initial condition, we need to catch the auxiliary state <code>uvec</code> in this initialization call.</p><pre><code class="language-julia">  Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z, uvec
+    exactsolution!(Qin, finaltime, x, y, z, uvec)
+  end
+
+  error = euclidean_distance(Q, Qe)
+  with_logger(mpi_logger) do
+    @info @sprintf(&quot;&quot;&quot;Run with
+                   dim              = %d
+                   Ne               = %d
+                   polynomial order = %d
+                   error            = %e
+                   &quot;&quot;&quot;, dim, Ne, polynomialorder, error)
+  end
+end</code></pre><pre><code class="language-none">┌ Info: Run with
+│ dim              = 2
+│ Ne               = 20
+│ polynomial order = 4
+└ error            = 1.577257e-04</code></pre><h3><a class="nav-anchor" id="Computing-rates-and-errors-1" href="#Computing-rates-and-errors-1">Computing rates and errors</a></h3><p>As with ex 001, since the analytic solution is known we can compute the rate of convergence of the scheme</p><pre><code class="language-julia">let
+  mpicomm = MPI.COMM_WORLD
+  mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
+
+  dim = 2
+  polynomialorder = 4
+  finaltime = 1.0
+
+  with_logger(mpi_logger) do
+    @info @sprintf(&quot;&quot;&quot;Running with
+                   dim              = %d
+                   polynomial order = %d
+                   &quot;&quot;&quot;, dim, polynomialorder)
+  end
+
+  base_Ne = 5
+  lvl_error = zeros(4) # number of levels to compute is length(lvl_error)
+  for lvl = 1:length(lvl_error)
+    # `Ne` for this mesh level
+    Ne = base_Ne * 2^(lvl-1)
+    spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder)
+
+    Q = MPIStateArray(spatialdiscretization, initialcondition!)
+    h = 1 / Ne
+    CFL = h / (2π)
+    dt = CFL / polynomialorder^2
+    lsrk = LowStorageRungeKutta(spatialdiscretization, Q; dt = dt, t0 = 0)
+
+    solve!(Q, lsrk; timeend = finaltime)
+
+    Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z, uvec
+      exactsolution!(Qin, finaltime, x, y, z, uvec)
+    end
+
+    lvl_error[lvl] = euclidean_distance(Q, Qe)
+    msg =  @sprintf   &quot;Level      = %d&quot; lvl
+    msg *= @sprintf &quot;\nNe               = %d&quot; Ne
+    msg *= @sprintf &quot;\nerror            = %.4e&quot; lvl_error[lvl]
+    if lvl &gt; 1
+      rate = log2(lvl_error[lvl-1]) - log2(lvl_error[lvl])
+      msg *= @sprintf &quot;\nconvergence rate = %.4e&quot; rate
+    end
+    with_logger(mpi_logger) do
+      @info msg
+    end
+  end
+end</code></pre><pre><code class="language-none">┌ Info: Running with
+│ dim              = 2
+└ polynomial order = 4
+┌ Info: Level      = 1
+│ Ne               = 5
+└ error            = 5.7704e-02
+┌ Info: Level      = 2
+│ Ne               = 10
+│ error            = 7.2082e-03
+└ convergence rate = 3.0010e+00
+┌ Info: Level      = 3
+│ Ne               = 20
+│ error            = 1.5773e-04
+└ convergence rate = 5.5141e+00
+┌ Info: Level      = 4
+│ Ne               = 40
+│ error            = 3.3760e-06
+└ convergence rate = 5.5460e+00</code></pre><h3><a class="nav-anchor" id="Finalizing-MPI-(if-necessary)-1" href="#Finalizing-MPI-(if-necessary)-1">Finalizing MPI (if necessary)</a></h3><pre><code class="language-julia">Sys.iswindows() || MPI.finalize_atexit()
+Sys.iswindows() &amp;&amp; !isinteractive() &amp;&amp; MPI.Finalize()</code></pre><h2><a class="nav-anchor" id="ex_002_solid_body_rotation-plain-program-1" href="#ex_002_solid_body_rotation-plain-program-1">Plain Program</a></h2><p>Below follows a version of the program without any comments. The file is also available here: <a href="../ex_002_solid_body_rotation.jl">ex_002_solid_body_rotation_periodic_advection.jl</a></p><pre><code class="language-julia">using MPI
+using CLIMA.Topologies
+using CLIMA.Grids
+using CLIMA.DGBalanceLawDiscretizations
+using CLIMA.MPIStateArrays
+using CLIMA.LowStorageRungeKuttaMethod
+using CLIMA.ODESolvers
+using CLIMA.GenericCallbacks
+using LinearAlgebra
+using Logging
+using Dates
+using Printf
+using StaticArrays
+
+MPI.Initialized() || MPI.Init()
+
+const num_aux_states = 3
+function velocity_initilization!(uvec::MVector{num_aux_states, DFloat},
+                                 x, y, z) where DFloat
+  @inbounds begin
+    r = hypot(x, y)
+    θ = atan(y, x)
+    uvec .= 2DFloat(π) * r .* (-sin(θ), cos(θ), 0)
+  end
+end
+
+function advectionflux!(F, state, _, uvec, _)
+  DFloat = eltype(state) # get the floating point type we are using
+  @inbounds begin
+    q = state[1]
+    F[:, 1] = uvec * q
+  end
+end
+
+function upwindflux!(fs, nM, stateM, viscM, uvecM, stateP, viscP, uvecP, t)
+  DFloat = eltype(fs)
+  @inbounds begin
+    # determine the advection speed and direction
+    un = dot(nM, uvecM)
+    qM = stateM[1]
+    qP = stateP[1]
+    # Determine which state is &quot;upwind&quot; of the minus side
+    fs[1] = un ≥ 0 ? un * qM : un * qP
+  end
+end
+
+function upwindboundaryflux!(fs, nM, stateM, viscM, uvecM, stateP, viscP, uvecP,
+                             bctype, t)
+  DFloat = eltype(fs)
+  @inbounds begin
+    # determine the advection speed and direction
+    un = dot(nM, uvecM)
+    qM = stateM[1]
+    # Determine which state is &quot;upwind&quot; of the minus side
+    fs[1] = un ≥ 0 ? un * qM : 0
+  end
+end
+
+function initialcondition!(Q, x, y, z, _)
+  @inbounds Q[1] = exp(-(8 * hypot(x - 1//2, y, z))^2)
+end
+
+function exactsolution!(Q, t, x, y, z, uvec)
+  @inbounds begin
+    DFloat = eltype(Q)
+
+    r = hypot(x, y)
+    θ = atan(y, x) - 2DFloat(π) * t
+
+    x, y = r * cos(θ), r * sin(θ)
+
+    initialcondition!(Q, x, y, z, uvec)
+  end
+end
+
+function setupDG(mpicomm, dim, Ne, polynomialorder, DFloat=Float64,
+                 ArrayType=Array)
+
+  @assert ArrayType === Array
+
+  brickrange = (range(DFloat(-1); length=Ne+1, stop=1),
+                range(DFloat(-1); length=Ne+1, stop=1),
+                range(DFloat(-1); length=Ne+1, stop=1))
+
+  topology = BrickTopology(mpicomm, brickrange[1:dim])
+
+  grid = DiscontinuousSpectralElementGrid(topology; polynomialorder =
+                                          polynomialorder, FloatType = DFloat,
+                                          DeviceArray = ArrayType,)
+
+  spatialdiscretization = DGBalanceLaw(grid = grid, length_state_vector = 1,
+                                       flux! = advectionflux!,
+                                       numerical_flux! = upwindflux!,
+                                       numerical_boundary_flux! =
+                                       upwindboundaryflux!,
+                                       auxiliary_state_length = num_aux_states,
+                                       auxiliary_state_initialization! =
+                                       velocity_initilization!)
+
+end
+
+let
+  mpicomm = MPI.COMM_WORLD
+  mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
+  dim = 2
+  Ne = 20
+  polynomialorder = 4
+  spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder)
+  Q = MPIStateArray(spatialdiscretization, initialcondition!)
+  filename = @sprintf(&quot;initialcondition_mpirank%04d&quot;, MPI.Comm_rank(mpicomm))
+  DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+                                       (&quot;q&quot;,))
+
+  h = 1 / Ne
+
+  CFL = h / (2π)
+  dt = CFL / polynomialorder^2
+  lsrk = LowStorageRungeKutta(spatialdiscretization, Q; dt = dt, t0 = 0)
+  finaltime = 1.0
+
+  vtk_step = 0
+  mkpath(&quot;vtk&quot;)
+  cb_vtk = GenericCallbacks.EveryXSimulationSteps(20) do
+    vtk_step += 1
+    filename = @sprintf(&quot;vtk/solid_body_rotation_mpirank%04d_step%04d&quot;,
+                         MPI.Comm_rank(mpicomm), vtk_step)
+    DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+                                         (&quot;q&quot;,))
+    nothing
+  end
+
+  solve!(Q, lsrk; timeend = finaltime, callbacks = (cb_vtk, ))
+
+  filename = @sprintf(&quot;finalsolution_mpirank%04d&quot;, MPI.Comm_rank(mpicomm))
+  DGBalanceLawDiscretizations.writevtk(filename, Q, spatialdiscretization,
+                                       (&quot;q&quot;,))
+
+  Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z, uvec
+    exactsolution!(Qin, finaltime, x, y, z, uvec)
+  end
+
+  error = euclidean_distance(Q, Qe)
+  with_logger(mpi_logger) do
+    @info @sprintf(&quot;&quot;&quot;Run with
+                   dim              = %d
+                   Ne               = %d
+                   polynomial order = %d
+                   error            = %e
+                   &quot;&quot;&quot;, dim, Ne, polynomialorder, error)
+  end
+end
+
+let
+  mpicomm = MPI.COMM_WORLD
+  mpi_logger = ConsoleLogger(MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull)
+
+  dim = 2
+  polynomialorder = 4
+  finaltime = 1.0
+
+  with_logger(mpi_logger) do
+    @info @sprintf(&quot;&quot;&quot;Running with
+                   dim              = %d
+                   polynomial order = %d
+                   &quot;&quot;&quot;, dim, polynomialorder)
+  end
+
+  base_Ne = 5
+  lvl_error = zeros(4) # number of levels to compute is length(lvl_error)
+  for lvl = 1:length(lvl_error)
+    # `Ne` for this mesh level
+    Ne = base_Ne * 2^(lvl-1)
+    spatialdiscretization = setupDG(mpicomm, dim, Ne, polynomialorder)
+
+    Q = MPIStateArray(spatialdiscretization, initialcondition!)
+    h = 1 / Ne
+    CFL = h / (2π)
+    dt = CFL / polynomialorder^2
+    lsrk = LowStorageRungeKutta(spatialdiscretization, Q; dt = dt, t0 = 0)
+
+    solve!(Q, lsrk; timeend = finaltime)
+
+    Qe = MPIStateArray(spatialdiscretization) do Qin, x, y, z, uvec
+      exactsolution!(Qin, finaltime, x, y, z, uvec)
+    end
+
+    lvl_error[lvl] = euclidean_distance(Q, Qe)
+    msg =  @sprintf   &quot;Level      = %d&quot; lvl
+    msg *= @sprintf &quot;\nNe               = %d&quot; Ne
+    msg *= @sprintf &quot;\nerror            = %.4e&quot; lvl_error[lvl]
+    if lvl &gt; 1
+      rate = log2(lvl_error[lvl-1]) - log2(lvl_error[lvl])
+      msg *= @sprintf &quot;\nconvergence rate = %.4e&quot; rate
+    end
+    with_logger(mpi_logger) do
+      @info msg
+    end
+  end
+end
+
+Sys.iswindows() || MPI.finalize_atexit()
+Sys.iswindows() &amp;&amp; !isinteractive() &amp;&amp; MPI.Finalize()
+
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p><footer><hr/><a class="previous" href="../ex_001_periodic_advection/"><span class="direction">Previous</span><span class="title">Example 001: Periodic Advection</span></a></footer></article></body></html>
