@@ -163,15 +163,16 @@
 + \PD_z (\rhoRef{} \DM{w} \DM{\phi})
 + \nabla_h \DOT \left( \rhoRef{} \DM{\phi} \otimes \DM{\phi} \right)
 = \\
-  \DM{S}_{\text{diff}}
+  \DM{S}_{\text{diff}}^{\DM{\phi}}
 + \DM{S}_{\text{press}}
 + \DM{S}_{\text{coriolis}}
 + \DM{S}_{\text{subsidence}},
 \end{align}\]</div><p>where</p><div>\[\begin{align}
-\DM{S}_{\text{diff}}       &amp; = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
-\DM{S}_{\text{press}}      &amp; = - \GRAD_h \DM{p},                                       \label{eq:gm_pressure} \\
-\DM{S}_{\text{coriolis}}   &amp; = \CoriolisParam \DM{\phi} \CROSS \mathbf{k},             \label{eq:gm_coriolis} \\
-\DM{S}_{\text{subsidence}} &amp; = - \SubsidenceParam \GRAD \phi,                          \label{eq:gm_subsidence} \\
+\DM{S}_{\text{diff}}^{\DM{\phi}} &amp; = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
+\DM{S}_{\text{diff}}^{w}         &amp; = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
+\DM{S}_{\text{press}}            &amp; = - \GRAD_h \DM{p},                                       \label{eq:gm_pressure} \\
+\DM{S}_{\text{coriolis}}         &amp; = \CoriolisParam \DM{\phi} \CROSS \mathbf{k},             \label{eq:gm_coriolis} \\
+\DM{S}_{\text{subsidence}}       &amp; = - \SubsidenceParam \GRAD \phi,                          \label{eq:gm_subsidence} \\
 \end{align}\]</div><h2><a class="nav-anchor" id="Sub-domain-equations:-Area-fraction-1" href="#Sub-domain-equations:-Area-fraction-1">Sub-domain equations: Area fraction</a></h2><p>The EDMF equations take the form of advection-diffusion equations. The size of these SDs are tracked by solving an equation governing the area fraction in the <span>$i$</span>th SD (<span>$\aSDi{a}$</span>), given by:</p><div>\[\begin{gather}
   \PD_t (\rhoRef{} \aSDi{a})
   + \PD_z (\rhoRef{} \aSDi{a} \SDi{w})
@@ -290,7 +291,7 @@
 \rhoRef{} a_i \SDi{\Km} \left[ \left(\PD_z\DM{u}\right)^2 + \left(\PD_z\DM{v}\right)^2 + \left(\PD_z\DM{w}\right)^2 \right] \\
 \SDi{S_{\text{turb-transp}}}^{\phi\psi} &amp; = - \PD_z (\rhoRef{} a_i \overline{w&#39;_i\phi&#39;_i\psi&#39;_i}) \\
 &amp; = \PD_z (\rhoRef{} a_i \SDi{\Kh} \PD_z \IntraCVSDi{\phi}{\psi}) \\
-\SDi{S_{\text{turb-transp}}}^{TKE} &amp; = \PD_z (\rhoRef{} a_i \SDi{\Kh} \PD_z \SDi{TKE}) \\
+\SDi{S_{\text{turb-transp}}}^{TKE} &amp; = \PD_z (\rhoRef{} a_i \SDi{\Km} \PD_z \SDi{TKE}) \\
 \SDi{S_{\text{dissip}}}
 &amp; = - \rhoRef{} a_i c_e \IntraCVSDi{\phi}{\psi} \frac{\SDi{TKE}^{1/2}}{\SDio{{l_{mix}}}}, \quad \text{Equation 38 in Tan et al.} \\
 c_e &amp; = 2 \\
@@ -426,7 +427,7 @@ c_K \SDio{{l_{mix},}} \sqrt{\SDi{TKE}} &amp; i = \iEnv \\
 \SDi{\Kh} &amp; = \frac{\SDi{\Km}}{Pr} \\
 \end{align}\]</div><p>where additional variable definitions are in:</p><ul><li><p><a href="#Constants-1">Constants</a>.</p></li><li><p><a href="#Mixing-length-1">Mixing length</a> (<span>$l_{mix}$</span>).</p></li><li><p><a href="#Prandtl-number-1">Prandtl number</a> (<span>$Pr$</span>).</p></li></ul><h2><a class="nav-anchor" id="Buoyancy-flux-1" href="#Buoyancy-flux-1">Buoyancy flux</a></h2><div class="admonition todo"><div class="admonition-title">Todo</div><div class="admonition-text"><p>Currently, <span>$\BuoyancyFlux$</span> is hard-coded from the first expression (which was used in SCAMPy), however, this value should be computed from the SurfaceFluxes section.</p></div></div><div>\[\begin{align}\label{eq:BuoyancyFlux}
 \SurfaceBuoyancyFlux &amp; = \frac{\grav \BC{\alphaRef}}{\Cpm \BC{\SDi{T}}} (\SensibleSurfaceHeatFlux + (\EpsDV - 1) \Cpm \BC{\SDi{T}} \LatentSurfaceHeatFlux / \LatentHeatV{\BC{\SDi{T}}}) \\
-\BuoyancyFlux &amp; = - \SDi{\Km} \SDi{\BuoyancyGrad} \\
+\BuoyancyFlux &amp; = - \SDi{\Kh} \SDi{\BuoyancyGrad} \\
 \end{align}\]</div><ul><li><p><a href="#Eddy-diffusivity-1">Eddy diffusivity</a> (<span>$\Km, \Kh$</span>).</p></li><li><p><a href="#Latent-heat-1">Latent heat</a> (<span>$\LatentHeatV{T}$</span>).</p></li><li><p><a href="#Buoyancy-gradient-1">Buoyancy gradient</a> (<span>$\BuoyancyGrad$</span>).</p></li><li><p><a href="#Specific-heats-1">Specific heats</a> <span>$\Cpm$</span> and <span>$\Cvm$</span>.</p></li></ul><h2><a class="nav-anchor" id="Entrainment-Detrainment-1" href="#Entrainment-Detrainment-1">Entrainment-Detrainment</a></h2><p>Entrainment (<span>$\epsilon_{i}$</span>)</p><div>\[\begin{align}\label{eq:Entrainment}
 \epsilon_{i} &amp;= c_{\epsilon} \frac{\max(\SDi{b}, 0)}{\SDi{w}^2} \\
 c_{\epsilon} &amp;= 0.12 \\
