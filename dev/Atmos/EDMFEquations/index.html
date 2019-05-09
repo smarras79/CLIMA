@@ -169,7 +169,7 @@
 + \DM{S}_{\text{subsidence}},
 \end{align}\]</div><p>where</p><div>\[\begin{align}
 \DM{S}_{\text{diff}}^{\DM{\phi}} &amp; = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
-\DM{S}_{\text{diff}}^{w}         &amp; = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion} \\
+\DM{S}_{\text{diff}}^{w}         &amp; = \PD_z (\rhoRef{} \aSDe{a} \SDe{\Km} \PD_z \DM{\phi}),   \label{eq:gm_diffusion_w} \\
 \DM{S}_{\text{press}}            &amp; = - \GRAD_h \DM{p},                                       \label{eq:gm_pressure} \\
 \DM{S}_{\text{coriolis}}         &amp; = \CoriolisParam \DM{\phi} \CROSS \mathbf{k},             \label{eq:gm_coriolis} \\
 \DM{S}_{\text{subsidence}}       &amp; = - \SubsidenceParam \GRAD \phi,                          \label{eq:gm_subsidence} \\
@@ -180,8 +180,8 @@
   (\rhoRef{} \aSDi{a} \DM{\uH})
   =
   \SDi{S}^a
-  , \quad i = 1,2,..., \Nsd{}, \label{eq:AreaFracGov} \\
-  \sum_i \aSDi{a} = 1, \label{eq:AreaFracConserve} \\
+  , \quad i \ne \iEnv, \label{eq:AreaFracGov} \\
+  \aSDi{a} = 1 - \sum_{j\ne\iEnv} \aSDj{a}, \quad i = \iEnv, \label{eq:AreaFracConserve} \\
   \qquad 0 &lt; \aSDi{a} &lt; 1. \label{eq:AreaFracConstraint}
 \end{gather}\]</div><p>Here, <span>$\rhoRef{}, \SDi{w}, \uH$</span> is fluid density, mean vertical velocity along <span>$z$</span>, and domain-mean of the horizontal velocity respectively. The area fraction constraints are necessary to ensure the system of equations is well-posed. All source terms (<span>$\SDi{S}^a$</span>) will be discussed in later sections.</p><div class="admonition note"><div class="admonition-title">Note</div><div class="admonition-text"><p>The greater than zero constraint must be satisfied at every step of the solution process, since it is necessary to avoid division by zero in the mean field equations.</p></div></div><div>\[\begin{align}
 \SDi{S}^a = \SDi{S_{\epsilon\delta}}^a.
@@ -198,7 +198,7 @@
   (\rhoRef{} \aSDi{a} \DM{\uH} \SDi{\phi})
   =
   \SDi{S}^\phi
-  , \quad i = 1,2,..., \Nsd{}. \\
+  , \quad \forall i. \\
 \end{align}\]</div><p>Here, <span>$\SDi{S}^{\phi}$</span> are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. In general, <span>$\SDi{S}^{\phi}$</span> and <span>$\SDi{S}^{a}$</span> may depend on <span>$\SDj{\phi}$</span> and or <span>$\aSDj{a}$</span> for any <span>$j$</span>.</p><h3><a class="nav-anchor" id="Source-terms-per-equation-1" href="#Source-terms-per-equation-1">Source terms per equation</a></h3><p>The source terms common to all unknowns are:</p><div>\[\begin{align}
 \SDi{S}^{\phi} =
   \SDi{S_{\epsilon\delta}}^{\phi}
@@ -242,7 +242,7 @@
   (\rhoRef{} \aSDi{a} \DM{\uH} \SDi{\phi})
   =
   \SDi{S}^\phi
-  , \quad i = 1,2,..., \Nsd{}. \\
+  , \quad \forall i. \\
 \end{align}\]</div><p>Here, <span>$\SDi{S}^{\phi}$</span> are source terms, including diffusion, and many other sub-grid-scale (SGS) physics. In general, <span>$\SDi{S}^{\phi}$</span> and <span>$\SDi{S}^{a}$</span> may depend on <span>$\SDj{\phi}$</span> and or <span>$\aSDj{a}$</span> for any <span>$j$</span>.</p><h3><a class="nav-anchor" id="Source-terms-per-equation-2" href="#Source-terms-per-equation-2">Source terms per equation</a></h3><p>The source terms common to all unknowns are:</p><div>\[\begin{align}
 \SDi{S}^{\phi\psi} =
   \SDi{S_{\epsilon\delta}}^{\phi\psi}
