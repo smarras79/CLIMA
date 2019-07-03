@@ -54,8 +54,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _S
 const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 8
-const _a_z, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_P, _a_q_liq, _a_soundspeed_air  = 1:_nauxstate
+const _nauxstate = 11
+const _a_z, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_P, _a_q_liq, _a_soundspeed_air, _a_cfl_coeffx, _a_cfl_coeffy, _a_cfl_coeffm = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -164,7 +164,7 @@ end
 # max eigenvalue
 @inline function wavespeed(n, Q, aux, t, u, v, w)
     @inbounds begin
-        (n[1] * u + n[2] * v + n[3] * w) + aux[_a_soundspeed_air]
+        abs(n[1] * u + n[2] * v + n[3] * w) + aux[_a_soundspeed_air]
     end
 end
 
@@ -356,6 +356,11 @@ end
         DFloat = eltype(aux)
         aux[_a_z] = z
 
+        
+        aux[_a_dx] = dx
+        aux[_a_dy] = dy
+        aux[_a_dz] = dz
+        
         #Sponge
         csleft  = zero(DFloat)
         csright = zero(DFloat)
@@ -466,8 +471,8 @@ end
 end
 
 """
-    Geostrophic wind forcing
-    """
+        Geostrophic wind forcing
+        """
 @inline function source_geostrophic!(S,Q,aux,t)
     DFloat = eltype(S)
     f_coriolis = DFloat(7.62e-5)
@@ -538,10 +543,10 @@ end
 
 # initial condition
 """
-        User-specified. Required.
-        This function specifies the initial conditions
-        for the dycoms driver.
-    """
+            User-specified. Required.
+            This function specifies the initial conditions
+            for the dycoms driver.
+        """
 function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
                  spl_pinit, x, y, z, _...)
     DFloat         = eltype(Q)
@@ -579,70 +584,6 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT] = ρ, U, V, W, E, ρ * q_tot
 end
 
-#=
-function get_maximum_Courant(Q::MPIStateArray, vgeo) 
-_nvgeo = 15
-R_gas::eltype(Q) = R_d
-c_v::eltype(Q) = cv_d
-_ξx, _ηx, _ζx, _ξy, _ηy, _ζy, _ξz, _ηz, _ζz, _M, _MI,
-_x, _y, _z, _JcV = 1:_nvgeo
-_ρ, _U, _V, _W, _E = 1:5
-(Np, nstate, nelem) = size(Q)
-DFloat = eltype(Q) 
-locmax = DFloat(-10^6)
-locmin = DFloat(10^6)
-dt = floatmax(DFloat)
-gravity::eltype(Q) = grav
-γ::eltype(Q) = 1.4
-Courantx = - floatmax(DFloat)
-Couranty = - floatmax(DFloat)
-Courantz = - floatmax(DFloat)
-
-@inbounds for e = nelem
-for n = 1:Np
-ρ, U, V, W, E = Q[n, _ρ, e], Q[n, _U, e], Q[n, _V, e], Q[n, _W, e], Q[n, _E, e]
-ξx = vgeo[n, _ξx, e]
-ηy = vgeo[n, _ηy, e]
-ζz = vgeo[n, _ζz, e]
-z = vgeo[n, _z, e]
-end
-end
-
-#=
-P = (R_gas/c_v)*(E - (U^2 + V^2 + W^2)/(2*ρ) - ρ*gravity*z)
-u, v, w = U/ρ, V/ρ, W/ρ
-dx = 1.0/(2*ξx)
-dy = 1.0/(2*ηy)
-dz = 1.0/(2*ζz)
-
-wave_speedx = (u + sqrt(γ * P / ρ))
-wave_speedy = (v + sqrt(γ * P / ρ))
-wave_speedz = (w + sqrt(γ * P / ρ))
-
-dt_locx = 1.0/wave_speedx/N/dx
-dt_locy = 1.0/wave_speedy/N/dy
-dt_locz = 1.0/wave_speedz/N/dz
-
-loc_Courantx = wave_speedx*dt_locx*N/dx
-loc_Couranty = wave_speedy*dt_locy*N/dy
-loc_Courantz = wave_speedz*dt_locz*N/dz
-
-Courantx = max(Courantx, loc_Courantx)
-Couranty = max(Couranty, loc_Couranty)
-Courantz = max(Courantz, loc_Courantz)
-
-end
-
-CFLx = MPI.Allreduce(Courantx, MPI.MAX, mpicomm)
-CFLy = MPI.Allreduce(Couranty, MPI.MAX, mpicomm)
-CFLz = MPI.Allreduce(Courantz, MPI.MAX, mpicomm)
-CFLmax = max(CFLx, CFLy, CFLz) 
-return (CFLx, CFLy, CFLz, CFLmax) 
-=#
-return nothing
-end
-=#
-        
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
@@ -714,14 +655,36 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 
     @timeit to "Time stepping init" begin
-
-        #Compute max acoustic CFL and adapt dt
-        get_maximum_Courant(Q, grid.vgeo)
-        #(CFLx, CFLy, CFLz, CFLmax) = get_maximum_Courant(Q, grid.vgeo)
-        #@info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-       
+
+        #CFL and dt calculation
+        cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+            DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
+                                                       Q) do R, Q, QV, aux
+                                                           @inbounds let
+                                                               dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
+                                                               z = aux[_a_z]
+                                                               ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+                                                               e_int      = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+                                                               q_tot      = QT / ρ
+                                                               u, v, w    = U/ρ, V/ρ, W/ρ
+                                                               TS         = PhaseEquil(e_int, q_tot, ρ)
+                                                               soundspeed = soundspeed_air(TS)
+                                                               
+                                                               dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
+                                                               R[_a_cfl_coeffx] = (abs(u) + soundspeed) * Npoly / dx
+                                                               R[_a_cfl_coeffy] = (abs(v) + soundspeed) * Npoly / dy 
+                                                               R[_a_cfl_coeffw] = (abs(w) + soundspeed) * Npoly / dz
+                                                               R[_a_cfl_coeffm] = max(R[_a_cfl_coeffx], R[_a_cfl_coeffy])
+                                                           end
+                                                       end
+            CFL_coeff_max = global_max(spacedisc.auxstate, _a_cfl_coeffm) 
+            dt = dt / (dt * CFL_coeff_max) * 0.90
+            ODESolvers.updatedt!(lsrk, dt)
+             @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt CFL_coeff_max
+        end
+        #end CFL and dt calculation
         
         #=eng0 = norm(Q)
         @info @sprintf """Starting
@@ -736,8 +699,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 #energy = norm(Q)
                 #globmean = global_mean(Q, _ρ)
                 @info @sprintf("""Update
-                           simtime = %.16e
-                           runtime = %s""",
+                               simtime = %.16e
+                               runtime = %s""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
@@ -787,15 +750,15 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 
 @info @sprintf """Starting...
-        norm(Q) = %25.16e""" norm(Q)
+            norm(Q) = %25.16e""" norm(Q)
 
 # Initialise the integration computation. Kernels calculate this at every timestep?? 
 @timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
-@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdt))
 
 
 @info @sprintf """Finished...
-        norm(Q) = %25.16e""" norm(Q)
+            norm(Q) = %25.16e""" norm(Q)
 
 #=
 # Print some end of the simulation information
@@ -845,7 +808,7 @@ let
     numelem = (Nex,Ney,Nez)
     dt = 0.0025
     #timeend = 10*dt
-     timeend = 14400
+    timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
