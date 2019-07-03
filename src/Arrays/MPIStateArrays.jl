@@ -323,7 +323,6 @@ function weightedsum(A::MPIStateArray, states=1:size(A, 2))
   T(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
 end
 
-
 function global_max(A::MPIStateArray, states=1:size(A, 2))
   host_array = Array ∈ typeof(A).parameters
   h_A = host_array ? A : Array(A)
