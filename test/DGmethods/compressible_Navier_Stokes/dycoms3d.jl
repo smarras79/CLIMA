@@ -55,7 +55,7 @@ const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
 const _nauxstate = 15
-const _a_z, _a_dx, _a_dy, _a_dz, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_P, _a_q_liq, _a_soundspeed_air, _a_cfl_coeffx, _a_cfl_coeffy, _a_cfl_coeffw, _a_cfl_coeffm = 1:_nauxstate
+const _a_z, _a_dx, _a_dy, _a_dz, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_P, _a_q_liq, _a_soundspeed_air, _a_cfl_coeffx, _a_cfl_coeffy, _a_cfl_coeffz, _a_cfl_coeffm = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -654,37 +654,49 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 
     @timeit to "Time stepping init" begin
-        
-        lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+        safety_factor = 0.85
 
-        #CFL and dt calculation
-        cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
-            DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
-                                                       Q) do R, Q, QV, aux
-                                                           @inbounds let
-                                                               dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
-                                                               z = aux[_a_z]
-                                                               ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-                                                               e_int      = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
-                                                               q_tot      = QT / ρ
-                                                               u, v, w    = U/ρ, V/ρ, W/ρ
-                                                               TS         = PhaseEquil(e_int, q_tot, ρ)
-                                                               soundspeed = soundspeed_air(TS)
-                                                               
-                                                               dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
-                                                               R[_a_cfl_coeffx] = (abs(u) + soundspeed) * Npoly / dx
-                                                               R[_a_cfl_coeffy] = (abs(v) + soundspeed) * Npoly / dy 
-                                                               R[_a_cfl_coeffw] = (abs(w) + soundspeed) * Npoly / dz
-                                                               R[_a_cfl_coeffm] = max(R[_a_cfl_coeffx], R[_a_cfl_coeffy])
-                                                           end
-                                                       end
-            CFL_coeff_max = global_max(spacedisc.auxstate, _a_cfl_coeffm) 
-            dt = dt / (dt * CFL_coeff_max) * 0.90
-            ODESolvers.updatedt!(lsrk, dt)
-            @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt CFL_coeff_max
-        end
-        #end CFL and dt calculation
-        
+        C = dt *  (abs(u) + soundspeed) / dx
+
+        if (C > 1)
+            C = 1
+            dtnew = C/ (abs(u) + soundspeed) / dx
+            
+            lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+            @info @sprintf """ dt BEFORE CHANGE %.8e""" dt 
+            #CFL and dt calculation
+            cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+                DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
+                                                           Q) do R, Q, QV, aux
+                                                               @inbounds let
+                                                                   dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
+                                                                   z = aux[_a_z]
+                                                                   ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+                                                                   e_int      = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+                                                                   q_tot      = QT / ρ
+                                                                   u, v, w    = U/ρ, V/ρ, W/ρ
+                                                                   TS         = PhaseEquil(e_int, q_tot, ρ)
+                                                                   soundspeed = soundspeed_air(TS)
+                                                                   
+                                                                   dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
+                                                                   R[_a_cfl_coeffx] = (abs(u) + soundspeed) / dx
+                                                                   R[_a_cfl_coeffy] = (abs(v) + soundspeed) / dy 
+                                                                   R[_a_cfl_coeffz] = (abs(w) + soundspeed) / dz
+                                                                   R[_a_cfl_coeffm] = max(R[_a_cfl_coeffx], R[_a_cfl_coeffy, R[_a_cfl_coeffz])
+                                                                  end
+                                                                end
+                                                                                          
+                                                              C_max = global_max(spacedisc.auxstate, _a_cfl_coeffm) #global reduction
+                                                              if (C_max * dt >= 1)
+                                                                                          C_max = C_max * safety_factor
+                                                                                          dt = C_max( (abs(u) + soundspeed) / dx)
+                                                              end
+                                                                                          dt_new = dt / (dt * CFL_coeff_max) * 0.90                                                                                     
+                                                                                          ODESolvers.updatedt!(lsrk, dt)
+                                                                                          @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt CFL_coeff_max
+                                                                                          end
+                                                                                          #end CFL and dt calculation
+                                                                                          
         
         #=eng0 = norm(Q)
         @info @sprintf """Starting
