@@ -659,29 +659,29 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 #=
         #CFL and dt calculation
         cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
-            DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
-                                                       Q) do R, Q, QV, aux
-                                                           @inbounds let
-                                                               dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
-                                                               z = aux[_a_z]
-                                                               ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-                                                               e_int      = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
-                                                               q_tot      = QT / ρ
-                                                               u, v, w    = U/ρ, V/ρ, W/ρ
-                                                               TS         = PhaseEquil(e_int, q_tot, ρ)
-                                                               soundspeed = soundspeed_air(TS)
-                                                               
-                                                               dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
-                                                               R[_a_cfl_coeffx] = (abs(u) + soundspeed) * Npoly / dx
-                                                               R[_a_cfl_coeffy] = (abs(v) + soundspeed) * Npoly / dy 
-                                                               R[_a_cfl_coeffw] = (abs(w) + soundspeed) * Npoly / dz
-                                                               R[_a_cfl_coeffm] = max(R[_a_cfl_coeffx], R[_a_cfl_coeffy])
-                                                           end
-                                                       end
-            CFL_coeff_max = global_max(spacedisc.auxstate, _a_cfl_coeffm) 
-            dt = dt / (dt * CFL_coeff_max) * 0.90
-            ODESolvers.updatedt!(lsrk, dt)
-             @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt CFL_coeff_max
+        DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
+        Q) do R, Q, QV, aux
+        @inbounds let
+        dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
+        z = aux[_a_z]
+        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        e_int      = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+        q_tot      = QT / ρ
+        u, v, w    = U/ρ, V/ρ, W/ρ
+        TS         = PhaseEquil(e_int, q_tot, ρ)
+        soundspeed = soundspeed_air(TS)
+        
+        dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
+        R[_a_cfl_coeffx] = (abs(u) + soundspeed) * Npoly / dx
+        R[_a_cfl_coeffy] = (abs(v) + soundspeed) * Npoly / dy 
+        R[_a_cfl_coeffw] = (abs(w) + soundspeed) * Npoly / dz
+        R[_a_cfl_coeffm] = max(R[_a_cfl_coeffx], R[_a_cfl_coeffy])
+        end
+        end
+        CFL_coeff_max = global_max(spacedisc.auxstate, _a_cfl_coeffm) 
+        dt = dt / (dt * CFL_coeff_max) * 0.90
+        ODESolvers.updatedt!(lsrk, dt)
+        @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt CFL_coeff_max
         end
         #end CFL and dt calculation
         =#
