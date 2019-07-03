@@ -708,7 +708,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
 
-        npoststates = 10
+        npoststates = 9
         _int1, _int2, _betaout, _P, _u, _v, _w, _q_liq, _T = 1:npoststates
         postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "_q_liq", "T")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
@@ -727,7 +727,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     R[_v] = v
                     R[_w] = w
                     R[_q_liq] = aux[_a_q_liq]
-                    R[_T] = aux[_a_T]
+                    #R[_T] = aux[_a_T]
                 end
             end
 
