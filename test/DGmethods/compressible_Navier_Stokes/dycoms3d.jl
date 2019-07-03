@@ -656,7 +656,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     @timeit to "Time stepping init" begin
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-
+#=
         #CFL and dt calculation
         cbdt = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(spacedisc.auxstate, spacedisc,
@@ -684,6 +684,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
              @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt CFL_coeff_max
         end
         #end CFL and dt calculation
+        =#
         
         #=eng0 = norm(Q)
         @info @sprintf """Starting
