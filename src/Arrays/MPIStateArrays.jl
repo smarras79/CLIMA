@@ -6,7 +6,7 @@ using StaticArrays
 
 using MPI
 
-export MPIStateArray, euclidean_distance, weightedsum
+export MPIStateArray, euclidean_distance, weightedsum, global_max, global_mean
 
 """
     MPIStateArray{S <: Tuple, T, DeviceArray, N,
@@ -322,6 +322,24 @@ function weightedsum(A::MPIStateArray, states=1:size(A, 2))
   # Need to use anomous function version of sum else MPI.jl using MPI_SUM
   T(MPI.Allreduce([locwsum], (x,y)->x+y, A.mpicomm)[1])
 end
+
+
+function global_max(A::MPIStateArray, states=1:size(A, 2))
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  locmax = maximum(view(h_A, :, states, A.realelems)) 
+  MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
+end
+
+function global_mean(A::MPIStateArray, states=1:size(A,2))
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A) 
+  (Np, nstate, nelem) = size(A) 
+  numpts = (nelem * Np) + 1
+  localsum = sum(view(h_A, :, states, A.realelems)) 
+  MPI.Allreduce([localsum], MPI.SUM, A.mpicomm)[1] / numpts 
+end
+
 
 using Requires
 
