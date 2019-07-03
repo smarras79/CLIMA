@@ -54,8 +54,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _S
 const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 11
-const _a_z, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_P, _a_q_liq, _a_soundspeed_air, _a_cfl_coeffx, _a_cfl_coeffy, _a_cfl_coeffm = 1:_nauxstate
+const _nauxstate = 14
+const _a_z, _a_dx, _a_dy, _a_dz, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_P, _a_q_liq, _a_soundspeed_air, _a_cfl_coeffx, _a_cfl_coeffy, _a_cfl_coeffm = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -351,11 +351,10 @@ end
 #md # calculations. (An example of this will follow - in the Smagorinsky model, 
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
-@inline function auxiliary_state_initialization!(aux, x, y, z)
+@inline function auxiliary_state_initialization!(aux, x, y, z, dx, dy, dz)
     @inbounds begin
         DFloat = eltype(aux)
         aux[_a_z] = z
-
         
         aux[_a_dx] = dx
         aux[_a_dy] = dy
