@@ -98,7 +98,7 @@ const Npoly = 4
 # Define grid size
 #
 Δx    =  250
-Δy    =  1000
+Δy    =  250
 Δz    =  200
 
 #
@@ -110,7 +110,7 @@ const Npoly = 4
 
 # Physical domain extents
 const (xmin, xmax) = (-40000, 40000)
-const (ymin, ymax) = (-30000, 30000)
+const (ymin, ymax) = (-10000, 10000)
 const (zmin, zmax) = (     0, 24000)
 
 #Get Nex, Ney from resolution
@@ -748,8 +748,8 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
 
     θ_c =     5.0
     rx  = 10000.0
-    ry  =  1500.0
-    rz  =  1250.0
+    ry  =  1200.0
+    rz  =  1500.0
     xc  = 0.5*(xmax + xmin)
     yc  = 0.5*(ymax + ymin)
     zc  = 2000.0
@@ -759,7 +759,10 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     if r <= 1.0
         Δθ = θ_c * (cospi(0.5*r))^2
     end
-    θ_liq = datat + Δθ
+
+    randnum1   = rand(seed, DFloat) / 100
+        
+    θ_liq = datat + Δθ*randnum1
     q_tot = dataq
     p     = datap
     T     = air_temperature_from_liquid_ice_pottemp(θ_liq, p, PhasePartition(q_tot))
@@ -767,6 +770,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
 
     # energy definitions
     u, v, w     = datau, datav, zero(DFloat) #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    
     ρu          = ρ * u
     ρv          = ρ * v
     ρw          = ρ * w
