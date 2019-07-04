@@ -97,8 +97,8 @@ const Npoly = 4
 #
 # Define grid size
 #
-Δx    =  200
-Δy    =  200
+Δx    =  250
+Δy    =  250
 Δz    =  200
 
 #
@@ -109,7 +109,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents
-const (xmin, xmax) = (-50000, 50000)
+const (xmin, xmax) = (-40000, 40000)
 const (ymin, ymax) = (-30000, 30000)
 const (zmin, zmax) = (     0, 24000)
 
