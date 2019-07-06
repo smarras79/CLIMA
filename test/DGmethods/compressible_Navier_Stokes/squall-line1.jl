@@ -81,9 +81,9 @@ Problem Description
 # Define grid size
 #
 const numdims = 3
-Δx    =  25
-Δy    =  25
-Δz    =  25
+Δx    =  100
+Δy    =  100
+Δz    =  100
 Npoly = 4
 
 #
