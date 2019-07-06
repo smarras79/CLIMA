@@ -123,15 +123,6 @@ else
     Δy = Ly / ((Ney * Npoly) + 1)
     Δz = Lz / ((Nez * Npoly) + 1)
 end
-
-
-DoF = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate)
-DoFstorage = (Nex*Ney*Nez) *
-             (Npoly+1)^numdims *
-             (_nstate + _nviscstates + _nauxstate + CLIMA.Grids._nvgeo) +
-             (Nex*Ney*Nez) * (Npoly+1)^(numdims-1) *
-             2^numdims*(CLIMA.Grids._nsgeo)
-
 # Equivalent grid-scale
 
 
@@ -647,6 +638,13 @@ let
     DFloat = Float64
     dim = numdims
 
+    
+    DoF = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate)
+    DoFstorage = (Nex*Ney*Nez) *
+        (Npoly+1)^numdims *
+        (_nstate + _nviscstates + _nauxstate + CLIMA.Grids._nvgeo) +
+        (Nex*Ney*Nez) * (Npoly+1)^(numdims-1) *
+        2^numdims*(CLIMA.Grids._nsgeo)
     
 
     @info @sprintf """ ----------------------------------------------------"""
