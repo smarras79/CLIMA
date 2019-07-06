@@ -123,23 +123,6 @@ end
 # Equivalent grid-scale
 
 
-
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """   ______ _      _____ __  ________                  """     
-@info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
-@info @sprintf """  | |    | |      | | |   .   | |  | |               """ 
-@info @sprintf """  | |    | |      | | | |   | | |__| |               """
-@info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
-@info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
-@info @sprintf """                                                     """
-@info @sprintf """ ----------------------------------------------------"""
-@info @sprintf """ 3D Rising Bubble with GRID STRETCHING               """
-@info @sprintf """   Resolution:                                       """ 
-@info @sprintf """     (Δx, Δy, Δz)    = (%.2e, %.2e, %.2e)            """ Δx Δy Δz
-@info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Nex Ney Nez
-@info @sprintf """ ----------------------------------------------------"""
-
-
 # -------------------------------------------------------------------------
 #md ### Auxiliary Function (Not required)
 #md # In this example the auxiliary function is used to store the spatial
@@ -602,6 +585,30 @@ let
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
+
+    
+
+    @info @sprintf """ ----------------------------------------------------"""
+    @info @sprintf """   ______ _      _____ __  ________                  """     
+    @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
+    @info @sprintf """  | |    | |      | | |   .   | |  | |               """ 
+    @info @sprintf """  | |    | |      | | | |   | | |__| |               """
+    @info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
+    @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
+    @info @sprintf """                                                     """
+    @info @sprintf """ ----------------------------------------------------"""
+    @info @sprintf """ 3D Rising Bubble with GRID STRETCHING               """
+    @info @sprintf """   Resolution:                                         """
+    @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
+    @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                    """ Nex Ney Nez
+    @info @sprintf """     DoF = %d                                          """ DoF
+    @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(DFloat))/1000^3
+    @info @sprintf """     Time step dt: %.2e                                """ dt
+    @info @sprintf """     End time  t : %.2e                                """ timeend
+    @info @sprintf """ ------------------------------------------------------"""
+
+
+    
     engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                     DFloat, dt)
 end
