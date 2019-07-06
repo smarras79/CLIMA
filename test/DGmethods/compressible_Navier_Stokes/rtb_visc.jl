@@ -71,29 +71,54 @@ Problem Description
 2 Dimensional falling thermal bubble (cold perturbation in a warm neutral atmosphere)
 """
 
+
+
+#
+# Define grid size
+#
 const numdims = 3
-Δx    = 20
-Δy    = 20
-Δz    = 20
+Δx    =  -20
+Δy    =  20
+Δz    =  20
 Npoly = 4
 
-# Physical domain extents 
-(xmin, xmax) = (0, 1000)
-(ymin, ymax) = (0, 1000)
-# Can be extended to a 3D test case 
-(zmin, zmax) = (0, 1500)
+#
+# OR:
+#
+# Set Δx < 0 and define  Nex, Ney, Nez:
+#
+(Nex, Ney, Nez) = (80, 30, 49)
+
+# Physical domain extents
+const (xmin, xmax) = (0, 1000)
+const (ymin, ymax) = (0, 1000)
+const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
-Lx = xmax - xmin
-Ly = ymax - ymin
-Lz = zmax - zmin
+const Lx = xmax - xmin
+const Ly = ymax - ymin
+const Lz = zmax - ymin
 
-ratiox = (Lx/Δx - 1)/Npoly
-ratioy = (Ly/Δy - 1)/Npoly
-ratioz = (Lz/Δz - 1)/Npoly
-const Nex = ceil(Int64, ratiox)
-const Ney = ceil(Int64, ratioy)
-const Nez = ceil(Int64, ratioz)
+if ( Δx > 0)
+    #
+    # User defines the grid size:
+    #
+    ratiox = (Lx/Δx - 1)/Npoly
+    ratioy = (Ly/Δy - 1)/Npoly
+    ratioz = (Lz/Δz - 1)/Npoly
+    Nex = ceil(Int64, ratiox)
+    Ney = ceil(Int64, ratioy)
+    Nez = ceil(Int64, ratioz)
+
+else
+    #
+    # User defines the number of elements:
+    #
+    Δx = Lx / ((Nex * Npoly) + 1)
+    Δy = Ly / ((Ney * Npoly) + 1)
+    Δz = Lz / ((Nez * Npoly) + 1)
+end
+
 
 # Equivalent grid-scale
 
@@ -572,7 +597,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex, Ney, Nez)
-    dt = 0.005
+    dt = 0.0001
     timeend = dt
     polynomialorder = Npoly
     DFloat = Float64
