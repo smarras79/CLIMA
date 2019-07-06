@@ -553,7 +553,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
         dataq = 0.0
     end
 
-    θ_c =     5.0
+    θ_c =     3.0
     rx  = 10000.0
     ry  =  1200.0
     rz  =  1500.0
@@ -645,7 +645,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
-    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(false,false,false))
+    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
 
     grid = DiscontinuousSpectralElementGrid(topl,
                                             FloatType = DFloat,
