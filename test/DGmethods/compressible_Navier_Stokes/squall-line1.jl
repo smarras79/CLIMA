@@ -91,7 +91,7 @@ Npoly = 4
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
-(Nex, Ney, Nez) = (40, 30, 24)
+(Nex, Ney, Nez) = (3, 3, 24)
 
 # Physical domain extents
 const (xmin, xmax) = (-80000, 80000)
@@ -124,6 +124,13 @@ else
     Δz = Lz / ((Nez * Npoly) + 1)
 end
 
+
+DoF = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate)
+DoFstorage = (Nex*Ney*Nez) *
+             (Npoly+1)^numdims *
+             (_nstate + _nviscstates + _nauxstate + CLIMA.Grids._nvgeo) +
+             (Nex*Ney*Nez) * (Npoly+1)^(numdims-1) *
+             2^numdims*(CLIMA.Grids._nsgeo)
 
 # Equivalent grid-scale
 
