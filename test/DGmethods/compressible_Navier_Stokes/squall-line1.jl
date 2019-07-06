@@ -34,10 +34,10 @@ end
 """
 State labels
 """
-const _nstate = 6
-const _ρ, _U, _V, _W, _E, _QT = 1:_nstate
-const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
-const statenames = ("RHO", "U", "V", "W", "E", "QT")
+const _nstate = 8
+const _ρ, _U, _V, _W, _E, _QT, _QL, _QR = 1:_nstate
+const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT, QLid = _QL, QRid = _QR,)
+const statenames = ("RHO", "U", "V", "W", "E", "QT", "QL", "QR")
 
 
 """
@@ -49,12 +49,12 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 """
 Number of variables of which gradients are required 
 """
-const _ngradstates = 7
+const _ngradstates = 8
 
 """
 Number of states being loaded for gradient computation
 """
-const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
+const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT, _QL, _QR)
 
 
 if !@isdefined integration_testing
@@ -91,11 +91,11 @@ Npoly = 4
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
-(Nex, Ney, Nez) = (3, 3, 24)
+(Nex, Ney, Nez) = (10, 10, 10)
 
 # Physical domain extents
-const (xmin, xmax) = (-80000, 80000)
-const (ymin, ymax) = (-60000, 60000)
+const (xmin, xmax) = (-50000, 50000)
+const (ymin, ymax) = (-50000, 50000)
 const (zmin, zmax) = (     0, 24000)
 
 
@@ -131,13 +131,116 @@ end
 #md # In this example the auxiliary function is used to store the spatial
 #md # coordinates and the equivalent grid lengthscale coefficient. 
 # -------------------------------------------------------------------------
-const _nauxstate = 3
-const _a_x, _a_y, _a_z = 1:_nauxstate
+const _nauxstate = 4
+const _a_x, _a_y, _a_z, _a_sponge = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         aux[_a_x] = x
         aux[_a_y] = y
         aux[_a_z] = z
+        
+        #Sponge
+        csleft  = 0.0
+        csright = 0.0
+        csfront = 0.0
+        csback  = 0.0
+        ctop    = 0.0
+
+        cs_left_right = 0.0
+        cs_front_back = 0.0
+        ct            = 0.9
+
+        #BEGIN  User modification on domain parameters.
+        #Only change the first index of brickrange if your axis are
+        #oriented differently:
+        #x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
+        #TODO z is the vertical coordinate
+        #
+        domain_left  = xmin
+        domain_right = xmax
+
+        domain_front = ymin
+        domain_back  = ymax
+
+        domain_bott  = zmin
+        domain_top   = zmax
+
+        #END User modification on domain parameters.
+
+        # Define Sponge Boundaries
+        xc       = 0.5 * (domain_right + domain_left)
+        yc       = 0.5 * (domain_back  + domain_front)
+        zc       = 0.5 * (domain_top   + domain_bott)
+
+        sponge_type = 2
+        if sponge_type == 1
+
+            bc_zscale   = 7000.0
+            top_sponge  = 0.85 * domain_top
+            zd          = domain_top - bc_zscale
+            xsponger    = domain_right - 0.15 * (domain_right - xc)
+            xspongel    = domain_left  + 0.15 * (xc - domain_left)
+            ysponger    = domain_back  - 0.15 * (domain_back - yc)
+            yspongel    = domain_front + 0.15 * (yc - domain_front)
+
+            #x left and right
+            #xsl
+            if x <= xspongel
+                csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
+            end
+            #xsr
+            if x >= xsponger
+                csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
+            end
+            #y left and right
+            #ysl
+            if y <= yspongel
+                csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
+            end
+            #ysr
+            if y >= ysponger
+                csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
+            end
+
+            #Vertical sponge:
+            if z >= top_sponge
+                ctop = ct * (sinpi(0.5 * (z - top_sponge)/(domain_top - top_sponge)))^4
+            end
+
+        elseif sponge_type == 2
+
+
+            alpha_coe = 0.5
+            bc_zscale = 7500.0
+            zd        = domain_top - bc_zscale
+            xsponger  = domain_right - 0.15 * (domain_right - xc)
+            xspongel  = domain_left  + 0.15 * (xc - domain_left)
+            ysponger  = domain_back  - 0.15 * (domain_back - yc)
+            yspongel  = domain_front + 0.15 * (yc - domain_front)
+
+            #
+            # top damping
+            # first layer: damp lee waves
+            #
+            ctop = 0.0
+            ct   = 0.5
+            if z >= zd
+                zid = (z - zd)/(domain_top - zd) # normalized coordinate
+                if zid >= 0.0 && zid <= 0.5
+                    abstaud = alpha_coe*(1.0 - cos(zid*pi))
+
+                else
+                    abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
+
+                end
+                ctop = ct*abstaud
+            end
+
+        end #sponge_type
+
+        beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
+        beta  = min(beta, 1.0)
+        aux[_a_sponge] = beta
     end
 end
 
@@ -379,6 +482,7 @@ end
     # Typically these sources are imported from modules
     @inbounds begin
         source_geopot!(S, Q, aux, t)
+        source_sponge!(S, Q, aux, t)
     end
 end
 
@@ -391,11 +495,26 @@ end
 end
 
 
+@inline function source_sponge!(S,Q,aux,t)
+    @inbounds begin
+        ρu, ρv, ρw  = Q[_U], Q[_V], Q[_W]
+        beta     = aux[_a_sponge]
+        S[_U] -= beta * ρu
+        S[_V] -= beta * ρv
+        S[_W] -= beta * ρw
+    end
+end
+
+
 # ------------------------------------------------------------------
 # -------------END DEF SOURCES-------------------------------------# 
 
 # initial condition
-function rising_bubble!(dim, Q, t, x, y, z, _...)
+#function rising_bubble!(dim, Q, t, x, y, z, _...)
+function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
+                 spl_pinit, x, y, z, _...)
+    DFloat         = eltype(Q)
+ 
     DFloat                = eltype(Q)
     R_gas::DFloat         = R_d
     c_p::DFloat           = cp_d
@@ -418,11 +537,57 @@ function rising_bubble!(dim, Q, t, x, y, z, _...)
     Δθ::DFloat            =   0.0
     a::DFloat             =  50.0
     s::DFloat             = 100.0
-    if r <= a
-        Δθ = θ_c
-    elseif r > a
-        Δθ = θ_c * exp(-(r - a)^2 / s^2)
+
+    # INITIALISE ARRAYS FOR INTERPOLATED VALUES
+    # --------------------------------------------------
+    xvert          = z
+
+    datat          = DFloat(spl_tinit(xvert))
+    dataq          = DFloat(spl_qinit(xvert))
+    datau          = DFloat(spl_uinit(xvert))
+    datav          = DFloat(spl_vinit(xvert))
+    datap          = DFloat(spl_pinit(xvert))
+    dataq          = dataq / 1000
+
+    if xvert >= 14000
+        dataq = 0.0
     end
+
+    θ_c =     5.0
+    rx  = 10000.0
+    ry  =  1200.0
+    rz  =  1500.0
+    xc  = 0.5*(xmax + xmin)
+    yc  = 0.5*(ymax + ymin)
+    zc  = 2000.0
+    
+    r   = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2 + (z - zc)^2/rz^2)
+    Δθ  = 0.0
+    if r <= 1.0
+        Δθ = θ_c * (cospi(0.5*r))^2
+    end
+
+    θ_liq = datat + Δθ
+    q_tot = dataq
+    p     = datap
+    T     = air_temperature_from_liquid_ice_pottemp(θ_liq, p, PhasePartition(q_tot))
+    ρ     = air_density(T, p)
+
+    # energy definitions
+    u, v, w     = datau, datav, zero(DFloat) #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    
+    U      = ρ * u
+    V      = ρ * v
+    W      = ρ * w
+    e_kin  = (u^2 + v^2 + w^2) / 2
+    e_pot  = grav * xvert
+    e_int  = internal_energy(T, PhasePartition(q_tot))
+    E      = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
+    QT     = ρ * q_tot
+
+     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT], Q[_QL], Q[_QR] = ρ, U, V, W, E, QT, DFloat(0), DFloat(0)
+    
+    #=
     qvar                  = PhasePartition(q_tot)
     θ                     = θ_ref + Δθ # potential temperature
     π_exner               = 1.0 - gravity / (c_p * θ) * z # exner pressure
@@ -437,6 +602,7 @@ function rising_bubble!(dim, Q, t, x, y, z, _...)
     e_int                 = internal_energy(T, qvar)
     E                     = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
+    =#
 end
 
 
@@ -532,7 +698,10 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     spl_pinit    = Spline1D(zinit, pinit; k=1)
     
     # This is a actual state/function that lives on the grid
-    initialcondition(Q, x...) = rising_bubble!(Val(dim), Q, DFloat(0), x...)
+    #initialcondition(Q, x...) = rising_bubble!(Val(dim), Q, DFloat(0), x...)
+    initialcondition(Q, x...) = squall_line!(Val(dim), Q, DFloat(0), spl_tinit,
+                                            spl_qinit, spl_uinit, spl_vinit,
+                                            spl_pinit, x...)
     Q = MPIStateArray(spacedisc, initialcondition)
 
     lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
@@ -568,7 +737,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     step = [0]
     mkpath("vtk-RTB")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
