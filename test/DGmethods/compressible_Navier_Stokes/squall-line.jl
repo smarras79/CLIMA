@@ -116,7 +116,7 @@ const (zmin, zmax) = (     0, 24000)
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
 const Ly = ymax - ymin
-const Lz = zmax - ymin
+const Lz = zmax - zmin
 
 if ( Δx > 0)
     #
