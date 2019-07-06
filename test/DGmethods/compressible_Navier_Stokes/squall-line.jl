@@ -97,7 +97,7 @@ const Npoly = 4
 #
 # Define grid size
 #
-Δx    =  250
+Δx    =  -250
 Δy    =  250
 Δz    =  200
 
@@ -106,11 +106,11 @@ const Npoly = 4
 #
 # Set Δx < 0 and define  Nex, Ney, Nez:
 #
-(Nex, Ney, Nez) = (5, 5, 5)
+(Nex, Ney, Nez) = (40, 30, 24)
 
 # Physical domain extents
-const (xmin, xmax) = (-40000, 40000)
-const (ymin, ymax) = (     0, 1000)
+const (xmin, xmax) = (-80000, 80000)
+const (ymin, ymax) = (-60000, 60000)
 const (zmin, zmax) = (     0, 24000)
 
 #Get Nex, Ney from resolution
@@ -266,14 +266,12 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vq_rai_x, vq_rai_y, vq_rai_z = VF[_q_rai_x], VF[_q_rai_y], VF[_q_rai_z]
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
 
-        # Radiation contribution
-        F_rad = ρ * radiation(aux)
-
+        
         SijSij = VF[_SijSij]
 
         #Dynamic eddy viscosity from Smagorinsky:
-        ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
-        D_e = 3* ν_e / Prandtl_t
+        ν_e    = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
+        D_e    = 200 #ν_e / Prandtl_t
         D_e_ql = 200
         D_e_qi = 200
         D_e_qr = 200
@@ -295,10 +293,8 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[2, _ρe_tot] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
         F[3, _ρe_tot] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
 
-        F[3, _ρe_tot] -= F_rad
-
         # Viscous contributions to mass flux terms
-        F[1, _ρq_tot] -= vq_tot_x * D_e; F[2, _ρq_tot] -= vq_tot_y * D_e; F[3, _ρq_tot] -= vq_tot_z * D_e
+        F[1, _ρq_tot] -= vq_tot_x * D_e;    F[2, _ρq_tot] -= vq_tot_y * D_e;    F[3, _ρq_tot] -= vq_tot_z * D_e
         F[1, _ρq_liq] -= vq_liq_x * D_e_ql; F[2, _ρq_liq] -= vq_liq_y * D_e_ql; F[3, _ρq_liq] -= vq_liq_z * D_e_ql
         F[1, _ρq_ice] -= vq_ice_x * D_e_qi; F[2, _ρq_ice] -= vq_ice_y * D_e_qi; F[3, _ρq_ice] -= vq_ice_z * D_e_qi
         F[1, _ρq_rai] -= vq_rai_x * D_e_qr; F[2, _ρq_rai] -= vq_rai_y * D_e_qr; F[3, _ρq_rai] -= vq_rai_z * D_e_qr
@@ -326,27 +322,6 @@ gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,
         vel[1], vel[2], vel[3] = u, v, w
 
         vel[4], vel[5], vel[6], vel[7], vel[8], vel[9]  = e_tot, q_tot, q_liq, q_ice, q_rai, T
-    end
-end
-
-@inline function radiation(aux)
-    @inbounds begin
-        DFloat = eltype(aux)
-        zero_to_z = aux[_a_02z]
-        z_to_inf = aux[_a_z2inf]
-        z = aux[_a_z]
-        z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
-        Δz_i = max(z - z_i, zero(DFloat))
-        # Constants
-        F_0 = 70
-        F_1 = 22
-        α_z = 1
-        ρ_i = DFloat(1.22)
-        D_subsidence = DFloat(3.75e-6)
-        term1 = F_0 * exp(-z_to_inf)
-        term2 = F_1 * exp(-zero_to_z)
-        term3 = ρ_i * cp_d * D_subsidence * α_z * (DFloat(0.25) * (cbrt(Δz_i))^4 + z_i * cbrt(Δz_i))
-        F_rad = term1 + term2 + term3
     end
 end
 
@@ -962,32 +937,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     p = aux[_a_p]
                     tht = liquid_ice_pottemp(T, p, q)
 
-                    R[out_z] = aux[_a_z]
-                    R[out_p] = p
-                    R[out_beta] = radiation(aux)
-                    R[out_T] = T
-                    R[out_tht] = tht
-
                     R[out_u] = u
                     R[out_v] = v
                     R[out_w] = w
 
                     R[out_q_tot] = q_tot
-                    R[out_q_vap] = q_tot - q_liq - q_ice
                     R[out_q_liq] = q_liq
-                    R[out_q_ice] = q_ice
                     R[out_q_rai] = q_rai
-
-                    R[out_e_tot] = e_tot
-                    R[out_e_int] = e_int
-                    R[out_e_kin] = e_kin
-                    R[out_e_pot] = e_pot
-
-                    if(q_rai > DF(0)) # TODO - ensure positive definite elswhere
-                      R[out_rain_w] = terminal_velocity(q_rai, ρ)
-                    else
-                      R[out_rain_w] = DF(0)
-                    end
+                    
                 end
             end
 
@@ -1058,8 +1015,8 @@ let
     # User defined timestep estimate
     # User defined simulation end time
     # User defined polynomial order
-    numelem = (Nex,Ney,Nez)
-    dt = 0.03
+    numelem = (Nex, Ney, Nez)
+    dt = 0.005
     timeend = 12000 # 2h 30 min
     polynomialorder = Npoly
     DFloat = Float64

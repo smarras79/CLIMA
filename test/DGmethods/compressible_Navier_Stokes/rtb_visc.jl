@@ -581,7 +581,7 @@ let
     # User defined polynomial order 
     numelem = (Nex, Ney, Nez)
     dt = 0.0001
-    timeend = dt
+    timeend = 900
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
@@ -606,8 +606,7 @@ let
     @info @sprintf """     Time step dt: %.2e                                """ dt
     @info @sprintf """     End time  t : %.2e                                """ timeend
     @info @sprintf """ ------------------------------------------------------"""
-
-
+    
     
     engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                     DFloat, dt)
