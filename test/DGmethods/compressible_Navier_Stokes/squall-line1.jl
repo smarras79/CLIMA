@@ -123,6 +123,8 @@ else
     Δy = Ly / ((Ney * Npoly) + 1)
     Δz = Lz / ((Nez * Npoly) + 1)
 end
+
+
 # Equivalent grid-scale
 
 
@@ -258,19 +260,37 @@ end
 @inline function preflux(Q,VF, aux, _...)
     gravity::eltype(Q) = grav
     R_gas::eltype(Q) = R_d
-    @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    ρinv = 1 / ρ
-    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+    @inbounds ρ, U, V, W, E, QT, QL, QR = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT], Q[_QL], Q[_QR]
+
+    DF = eltype(ρ)
+    
+    ρinv    = 1 / ρ
+    x,y,z   = aux[_a_x], aux[_a_y], aux[_a_z]
     u, v, w = ρinv * U, ρinv * V, ρinv * W
-    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z) / ρ
+    e_int   = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z) / ρ
+    
     q_tot = QT / ρ
+    q_liq = QL / ρ
+    q_rai = QR / ρ
+    q_ice = DF(0)
+
+    # compute rain fall speed    
+    #if(q_rai >= DF(0)) #TODO - need a way to prevent negative values
+    #    w_rain = terminal_velocity(q_rai, ρ)
+    #else
+        w_rain = DF(0)
+    #end
+    
     # Establish the current thermodynamic state using the prognostic variables
-    TS = PhaseEquil(e_int, q_tot, ρ)
-    T = air_temperature(TS)
-    P = air_pressure(TS) # Test with dry atmosphere
-    q_liq = PhasePartition(TS).liq
-    θ = virtual_pottemp(TS)
-    (P, u, v, w, ρinv, q_liq,T,θ)
+    q     = PhasePartition(q_tot, q_liq, q_ice)
+    T     = air_temperature(e_int, q)
+    P     = air_pressure(T, ρ, q)
+
+    #TS = PhaseEquil(e_int, q_tot, ρ)
+    #T = air_temperature(TS)
+    #P = air_pressure(TS) # Test with dry atmosphere
+    
+    return (P, u, v, w, w_rain, ρinv, q_tot, q_liq, q_rai)
 end
 
 
@@ -302,16 +322,21 @@ end
 #-------------------------------------------------------------------------
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
-  gravity::eltype(Q) = grav
+@inline function wavespeed(n, Q, aux, t, P, u, v, w, w_rain, ρinv, q_tot, q_liq,
+                           q_rai)
+    
+    gravity::eltype(Q) = grav
+    DF = eltype(Q)
+    
   @inbounds begin 
-    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-    u, v, w = ρinv * U, ρinv * V, ρinv * W
-    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z) / ρ
-    q_tot = QT / ρ
-    TS = PhaseEquil(e_int, q_tot, ρ)
-    abs(n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
+      ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+      
+      x,y,z   = aux[_a_x], aux[_a_y], aux[_a_z]
+      u, v, w = ρinv * U, ρinv * V, ρinv * W
+      e_int   = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z) / ρ
+      TS      = PhaseEquil(e_int, q_tot, ρ)
+      
+      abs(n[1] * u + n[2] * v + n[3] * max(abs(w), abs(w_rain), abs(w - w_rain))) + soundspeed_air(TS)
   end
 end
 
@@ -326,17 +351,20 @@ end
 #md # to cns_flux!
 # -------------------------------------------------------------------------
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
-@inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
+@inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, w_rain, ρinv, q_tot, q_liq, q_rai)
   gravity::eltype(Q) = grav
   @inbounds begin
-    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    ρ, U, V, W, E, QT, QL, QR = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT], Q[_QL], Q[_QR]
+
     # Inviscid contributions
     F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
     F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
     F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
     F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
     F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
-    F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
+    F[1, _QT], F[2, _QT], F[3, _QT] = u * ρ * q_tot, v * ρ * q_tot, w * ρ * q_tot
+    F[1, _QL], F[2, _QL], F[3, _QL] = u * ρ * q_liq, v * ρ * q_liq, w * ρ * q_liq
+    F[1, _QR], F[2, _QR], F[3, _QR] = u * ρ * q_rai, v * ρ * q_rai, (w - w_rain) * ρ * q_rai
 
     #Derivative of T and Q:
     vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
@@ -344,7 +372,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     vρy = VF[_ρy]
     SijSij = VF[_SijSij]
     
-    (ν_e, D_e) = 10, 10 #SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
+    (ν_e, D_e) = 200, 200 #SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
     
     #Richardson contribution:
     f_R = 1 #SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
@@ -375,16 +403,17 @@ end
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,~,aux)...)
-@inline function gradient_vars!(gradient_list, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
+@inline function gradient_vars!(gradient_list, Q, aux, t, P, 
+u, v, w, w_rain, ρinv, q_tot, q_liq, q_rai)
     @inbounds begin
-        y = aux[_a_y]
+         z= aux[_a_z]
         # ordering should match states_for_gradient_transform
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        E, QT = Q[_E], Q[_QT]
+        ρ, U, V, W, E = Q[_ρ],  Q[_U],  Q[_V], Q[_W], Q[_E]
+        QT, QL, QR    = Q[_QT], Q[_QL], Q[_QR]
         ρinv = 1 / ρ
         gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
-        gradient_list[4], gradient_list[5], gradient_list[6] = E, QT, T
-        gradient_list[7] = ρ
+        gradient_list[4], gradient_list[5], gradient_list[6], gradient_list[7] = E, QT, QL, QR
+        gradient_list[8] = ρ
     end
 end
 
@@ -438,7 +467,8 @@ end
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
 
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, ρinvM, q_liqM, TM, θM)
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t,
+                          PM, uM, vM, wM, w_rainM, ρinvM, q_totM, q_liqM, q_raiM)
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
