@@ -81,9 +81,9 @@ Problem Description
 # Define grid size
 #
 const numdims = 3
-Δx    =  -20
-Δy    =  20
-Δz    =  20
+Δx    =  25
+Δy    =  25
+Δz    =  25
 Npoly = 4
 
 #
@@ -94,9 +94,9 @@ Npoly = 4
 (Nex, Ney, Nez) = (10, 10, 10)
 
 # Physical domain extents
-const (xmin, xmax) = (-50000, 50000)
-const (ymin, ymax) = (-50000, 50000)
-const (zmin, zmax) = (     0, 24000)
+const (xmin, xmax) = (-5000, 5000)
+const (ymin, ymax) = (-5000, 5000)
+const (zmin, zmax) = (   0,  5000)
 
 
 #Get Nex, Ney from resolution
@@ -512,7 +512,7 @@ end
     # Typically these sources are imported from modules
     @inbounds begin
         source_geopot!(S, Q, aux, t)
-        source_sponge!(S, Q, aux, t)
+        #source_sponge!(S, Q, aux, t)
     end
 end
 
@@ -528,7 +528,8 @@ end
 @inline function source_sponge!(S,Q,aux,t)
     @inbounds begin
         ρu, ρv, ρw  = Q[_U], Q[_V], Q[_W]
-        beta     = aux[_a_sponge]
+        
+        beta   = aux[_a_sponge]
         S[_U] -= beta * ρu
         S[_V] -= beta * ρv
         S[_W] -= beta * ρw
@@ -556,14 +557,8 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     q_liq::DFloat         = 0
     q_ice::DFloat         = 0 
     # perturbation parameters for rising bubble
-    rx                    = 250
-    rz                    = 250
-    xc                    = 500
-    zc                    = 260
-    r                     = sqrt( (x - xc)^2 + (z - zc)^2 )
-    
     θ_ref::DFloat         = 303.0
-    θ_c::DFloat           =   0.5
+    θ_c::DFloat           =   3.0
     Δθ::DFloat            =   0.0
     a::DFloat             =  50.0
     s::DFloat             = 100.0
@@ -583,15 +578,14 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
         dataq = 0.0
     end
 
-    θ_c =     3.0
-    rx  = 10000.0
-    ry  =  1200.0
-    rz  =  1500.0
+    rx  = 350  #10000.0
+    ry  = 350  # 1200.0
+    rz  = 250  # 1500.0
     xc  = 0.5*(xmax + xmin)
     yc  = 0.5*(ymax + ymin)
-    zc  = 2000.0
+    zc  = 400 #2000.0
     
-    r   = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2 + (z - zc)^2/rz^2)
+    r   = sqrt( (x - xc)^2/rx^2 + 0*(y - yc)^2/ry^2 + (z - zc)^2/rz^2)
     Δθ  = 0.0
     if r <= 1.0
         Δθ = θ_c * (cospi(0.5*r))^2
@@ -831,7 +825,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex, Ney, Nez)
-    dt = 0.0001
+    dt = 0.005
     timeend = 900
     polynomialorder = Npoly
     DFloat = Float64
