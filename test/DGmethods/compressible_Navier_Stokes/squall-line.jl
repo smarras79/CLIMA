@@ -183,7 +183,7 @@ const Δsqr = Δ * Δ
       #if(q_rai >= DF(0)) #TODO - need a way to prevent negative values
       #  rain_w = terminal_velocity(q_rai, ρ)
       #else
-        rain_w = DF(0)
+        rain_w = Float64(0)
       #end
 
       return (u, v, w, rain_w, ρ, q_tot, q_liq, q_ice, q_rai, e_tot)
@@ -215,7 +215,6 @@ end
 # -------------------------------------------------------------------------
 function read_sounding()
     #read in the original squal sounding
-    #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_JCP2013_with_pressure.dat"))
     fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_gabersek.dat"))
     sounding = readdlm(fsounding)
     close(fsounding)
@@ -254,10 +253,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _E_tot],  F[2, _E_tot],  F[3, _E_tot]  = u * (ρ * e_tot + p), v * (ρ * e_tot + p), w * (ρ * e_tot + p)
 
         F[1, _Q_tot], F[2, _Q_tot], F[3, _Q_tot] = u * ρ * q_tot, v * ρ * q_tot, w * ρ * q_tot
-        F[1, _Q_liq], F[2, _Q_liq], F[3, _Q_liq] = u * ρ * q_liq, v * ρ * q_liq, w * ρ * q_liq
-        F[1, _Q_ice], F[2, _Q_ice], F[3, _Q_ice] = u * ρ * q_ice, v * ρ * q_ice, w * ρ * q_ice
-
-        F[1, _Q_rai], F[2, _Q_rai], F[3, _Q_rai] = u * ρ * q_rai, v * ρ * q_rai, (w - rain_w) * ρ * q_rai
+        F[1, _Q_liq], F[2, _Q_liq], F[3, _Q_liq] = 0.0 #u * ρ * q_liq, v * ρ * q_liq, w * ρ * q_liq
+        F[1, _Q_ice], F[2, _Q_ice], F[3, _Q_ice] = 0.0 #u * ρ * q_ice, v * ρ * q_ice, w * ρ * q_ice
+        F[1, _Q_rai], F[2, _Q_rai], F[3, _Q_rai] = 0.0 #u * ρ * q_rai, v * ρ * q_rai, (w - rain_w) * ρ * q_rai
 
         #Derivative of q_tot, q_liq, q_ice, q_rai, T:
         vq_tot_x, vq_tot_y, vq_tot_z = VF[_q_tot_x], VF[_q_tot_y], VF[_q_tot_z]
@@ -294,10 +292,10 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[3, _E_tot] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
 
         # Viscous contributions to mass flux terms
-        F[1, _Q_tot] -= vq_tot_x * D_e;    F[2, _Q_tot] -= vq_tot_y * D_e;    F[3, _Q_tot] -= vq_tot_z * D_e
-        F[1, _Q_liq] -= vq_liq_x * D_e_ql; F[2, _Q_liq] -= vq_liq_y * D_e_ql; F[3, _Q_liq] -= vq_liq_z * D_e_ql
-        F[1, _Q_ice] -= vq_ice_x * D_e_qi; F[2, _Q_ice] -= vq_ice_y * D_e_qi; F[3, _Q_ice] -= vq_ice_z * D_e_qi
-        F[1, _Q_rai] -= vq_rai_x * D_e_qr; F[2, _Q_rai] -= vq_rai_y * D_e_qr; F[3, _Q_rai] -= vq_rai_z * D_e_qr
+        F[1, _Q_tot] -= vq_tot_x * D_e; F[2, _Q_tot] -= vq_tot_y * D_e; F[3, _Q_tot] -= vq_tot_z * D_e
+        F[1, _Q_liq] -= vq_liq_x * D_e; F[2, _Q_liq] -= vq_liq_y * D_e; F[3, _Q_liq] -= vq_liq_z * D_e
+        F[1, _Q_ice] -= vq_ice_x * D_e; F[2, _Q_ice] -= vq_ice_y * D_e; F[3, _Q_ice] -= vq_ice_z * D_e
+        F[1, _Q_rai] -= vq_rai_x * D_e; F[2, _Q_rai] -= vq_rai_y * D_e; F[3, _Q_rai] -= vq_rai_z * D_e
     end
 end
 
@@ -407,11 +405,11 @@ end
         cs_front_back = 0.0
         ct            = 0.9
 
-        #BEGIN  User modification on domain parameters.
-        #Only change the first index of brickrange if your axis are
-        #oriented differently:
-        #x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
-        #TODO z is the vertical coordinate
+        ##BEGIN  User modification on domain parameters.
+        ##Only change the first index of brickrange if your axis are
+        ##oriented differently:
+        ##x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
+        
         #
         domain_left  = xmin
         domain_right = xmax
@@ -547,7 +545,7 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
         #source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
         #                     q_tot, q_liq, q_ice, q_rai, e_tot)
         source_geopot!(S, Q, aux, t)
-        source_sponge!(S, Q, aux, t)
+        #source_sponge!(S, Q, aux, t)
     end
 end
 
@@ -672,7 +670,7 @@ function preodefun!(disc, Q, t)
             
             R[_a_T] = T
             R[_a_p] = p
-            R[_a_soundspeed_air] = soundspeed_air(T, q)
+            R[_a_soundspeed_air] = 340 # soundspeed_air(T, q)
             #u_wavespeed = (abs(u) + soundspeed) / dx
             #v_wavespeed = (abs(v) + soundspeed) / dy 
             #w_wavespeed = (abs(w) + soundspeed) / dz
@@ -800,21 +798,25 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     #Build (stretched) grid:
     brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
 
-
+@info " A"
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
-    @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
-
-    @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
+    #@timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
+    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
+@info " B"
+    #@timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
+    grid = DiscontinuousSpectralElementGrid(topl,
                                                                    FloatType = DFloat,
                                                                    DeviceArray = ArrayType,
                                                                    polynomialorder = N)
-
+@info " C"
     numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
+    @info " D"
     numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
-
+@info " E"
     # spacedisc = data needed for evaluating the right-hand side function
-    @timeit to "Space Disc init" spacedisc = DGBalanceLaw(grid = grid,
+    #@timeit to "Space Disc init" spacedisc = DGBalanceLaw(grid = grid,
+    spacedisc = DGBalanceLaw(grid = grid,
                                                           length_state_vector = _nstate,
                                                           flux! = cns_flux!,
                                                           numerical_flux! = numflux!,
@@ -832,9 +834,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                           auxiliary_state_initialization!(x...),
                                                           source! = source!,
                                                           preodefun! = preodefun!)
-
+@info " F"
     # This is a actual state/function that lives on the grid
-    @timeit to "IC init" begin
+    #@timeit to "IC init" begin
         # ----------------------------------------------------
         # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
         # This driver accepts data in 6 column format
@@ -858,33 +860,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         initialcondition(Q, x...) = squall_line!(Val(dim), Q, DFloat(0), spl_tinit,
                                             spl_qinit, spl_uinit, spl_vinit,
                                             spl_pinit, x...)
-        Q = MPIStateArray(spacedisc, initialcondition)
-    end
+    Q = MPIStateArray(spacedisc, initialcondition)
+    @info " G"
+    #end
 
-    @timeit to "Time stepping init" begin
+    #@timeit to "Time stepping init" begin
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-
-        #=
-        # Courant start
-        #
-        #@show(spacedisc.auxstate)
-        cfl_safety_factor = 0.85
-        Courant_max = dt * global_max(spacedisc.auxstate, _a_timescale)
-        
-        @info @sprintf("""Courant_max = %.16e ------ %.16e """, Courant_max, global_max(spacedisc.auxstate, _a_timescale))
-
-        if (Courant_max >= 1)
-            dt = dt / Courant_max * cfl_safety_factor
-        else
-            dt = cfl_safety_factor / Courant_max * dt
-        end
-
-        ODESolvers.updatedt!(lsrk, dt)
-        @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt Courant_max
-        #
-        # Courant end
-        =#
+    @info " H"
         
         #=eng0 = norm(Q)
         @info @sprintf """Starting
@@ -907,7 +890,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                             Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
             end
         end
-
+@info " III"
         #npoststates = 18
         #out_z, out_u, out_v, out_w, out_e_tot, out_e_int, out_e_kin, out_e_pot, out_p, out_beta, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai, out_rain_w, out_tht = 1:npoststates
         #postnames = ("height", "u", "v", "w", "e_tot", "e_int", "e_kin", "e_pot", "p", "beta", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai", "rain_w", "theta")
@@ -917,7 +900,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postnames = ("u", "v", "w", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai")
         
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
-
+@info " F"
         step = [0]
         mkpath("./CLIMA-output-scratch/vtk-sq-3d")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(3600) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
@@ -947,7 +930,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     
                 end
             end
-
+@info " G"
             outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq-3d/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
@@ -957,14 +940,15 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             step[1] += 1
             nothing
         end
-    end
+    #end
 
 @info @sprintf """Starting...
             norm(Q) = %25.16e""" norm(Q)
 
 # Initialise the integration computation. Kernels calculate this at every timestep??
-@timeit to "initial integral" integral_computation(spacedisc, Q, 0)
-@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+#@timeit to "initial integral" integral_computation(spacedisc, Q, 0)
+#@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
 @info @sprintf """Finished...
@@ -1042,10 +1026,10 @@ let
         @info @sprintf """     End time  t : %.2e                                """ timeend
         @info @sprintf """ ------------------------------------------------------"""
     end
-
+@info " HHH"
     engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                     DFloat, dt)
-
+@info " GGG"
     show(to)
 end
 
