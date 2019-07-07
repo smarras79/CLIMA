@@ -975,9 +975,10 @@ cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
         end
     #end
 =#
+
 @info @sprintf """Starting...
             norm(Q) = %25.16e""" norm(Q)
-
+ @info " M"
 # Initialise the integration computation. Kernels calculate this at every timestep??
 #@timeit to "initial integral" integral_computation(spacedisc, Q, 0)
 #@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
@@ -986,7 +987,7 @@ solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 @info @sprintf """Finished...
             norm(Q) = %25.16e""" norm(Q)
-
+ @info " N"
 #=
 # Print some end of the simulation information
 engf = norm(Q)
@@ -1025,8 +1026,11 @@ let
             ll == "WARN"  ? Logging.Warn  :
             ll == "ERROR" ? Logging.Error : Logging.Info
         global_logger(ConsoleLogger(stderr, loglevel))
+         @info " O"
     else
+         @info " P"
         global_logger(NullLogger())
+         @info " Q"
     end
     # User defined number of elements
     # User defined timestep estimate
