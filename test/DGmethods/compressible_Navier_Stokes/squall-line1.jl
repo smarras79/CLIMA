@@ -99,8 +99,8 @@ Npoly = 4
 (Nex, Ney, Nez) = (10, 10, 15)
 
 # Physical domain extents
-const (xmin, xmax) = (-25000,  25000)
-const (ymin, ymax) = (     0,   1000)
+const (xmin, xmax) = (-30000,  30000)
+const (ymin, ymax) = (     0,   2000)
 const (zmin, zmax) = (0, 24000)
 
 #Get Nex, Ney from resolution
@@ -856,7 +856,7 @@ postnames = ("P", "u", "v", "w", "q_tot", "q_liq", "T", "THETA")
 postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
 step = [0]
-mkpath("./CLIMA-output-scratch/vtk-RTB")
+mkpath("./CLIMA-output-scratch/vtk-sq")
 cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
@@ -865,7 +865,7 @@ cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
                                                    end
                                                end
 
-    outprefix = @sprintf("./CLIMA-output-scratch/vtk-RTB/cns_%dD_mpirank%04d_step%04d", dim,
+    outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq/sql_%dD_mpirank%04d_step%04d", dim,
                          MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, spacedisc, statenames,
@@ -921,8 +921,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex, Ney, Nez)
-    dt = 0.05
-    timeend = 1000
+    dt = 0.025
+    timeend = 9000
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
