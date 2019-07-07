@@ -823,7 +823,7 @@ initialcondition(Q, x...) = squall_line!(Val(dim), Q, DFloat(0), spl_tinit,
                                          spl_pinit, x...)
 
 Q = MPIStateArray(spacedisc, initialcondition)
-
+@show(size(Q))
 lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
 eng0 = norm(Q)
@@ -836,17 +836,19 @@ cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
     if s
         starttime[] = now()
     else
-        energy = norm(Q)
+        #energy = norm(Q)
+        #maxq_t = norm(Q[:,_q_tot, :])
+        #maxq_l = norm(Q[:,_q_liq, :])
+        #maxq_r = norm(Q[:,_q_rai, :])
         #globmean = global_mean(Q, _ρ)
         @info @sprintf("""Update
                              simtime = %.16e
-                             runtime = %s
-                             norm(Q) = %.16e""", 
+                             runtime = %s""", 
                        ODESolvers.gettime(lsrk),
                        Dates.format(convert(Dates.DateTime,
                                             Dates.now()-starttime[]),
-                                    Dates.dateformat"HH:MM:SS"),
-                       energy )#, globmean)
+                                    Dates.dateformat"HH:MM:SS"))
+                       #, energy , globmean)
     end
 end
 
@@ -921,7 +923,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex, Ney, Nez)
-    dt = 0.1
+    dt = 0.001
     timeend = 9000
     polynomialorder = Npoly
     DFloat = Float64
