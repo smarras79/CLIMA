@@ -283,16 +283,17 @@ end
     P       = air_pressure(TS) # Test with dry atmosphere
     q_liq   = PhasePartition(TS).liq
     θ       = virtual_pottemp(TS)
-    (P, u, v, w, ρinv, q_liq,T,θ)
+    (P, u, v, w, q_tot, q_liq,T,θ)
 end
 
 #-------------------------------------------------------------------------
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
+@inline function wavespeed(n, Q, aux, t, P, u, v, w, q_tot, q_liq, T, θ)
     gravity::eltype(Q) = grav
     @inbounds begin 
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        ρinv              = 1 / ρ
         x,y,z             = aux[_a_x], aux[_a_y], aux[_a_z]
         u, v, w           = ρinv * U, ρinv * V, ρinv * W
         e_int             = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z) / ρ
@@ -337,7 +338,7 @@ end
 #md # to cns_flux!
 # -------------------------------------------------------------------------
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
-@inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
+@inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, q_tot, q_liq, T, θ)
     gravity::eltype(Q) = grav
     @inbounds begin
         ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
@@ -411,9 +412,9 @@ end
 const _ngradstates = 9 #this should be equal to the max index in gradoet_vars!
 # Compute the velocity from the state
 gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,~,aux)...)
-@inline function gradient_vars!(gradient_list, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
+@inline function gradient_vars!(gradient_list, Q, aux, t, P, u, v, w, q_tot, q_liq, T, θ)
     @inbounds begin
-        y = aux[_a_y]
+        
         # ordering should match states_for_gradient_transform
         ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
         QT = Q[_QT]
@@ -489,7 +490,7 @@ end
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
 
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, ρinvM, q_liqM, TM, θM)
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, q_totM, q_liqM, TM, θM)
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         
@@ -850,21 +851,21 @@ cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
 end
 
 npoststates = 8
-_P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-postnames = ("P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+_P, _u, _v, _w, _q_tot, _q_liq, _T, _θ = 1:npoststates
+postnames = ("P", "u", "v", "w", "q_tot", "q_liq", "T", "THETA")
 postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
 step = [0]
-mkpath("vtk-RTB")
+mkpath("./CLIMA-output-scratch/vtk-RTB")
 cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
                                                    @inbounds let
-                                                       (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (preflux(Q, QV, aux))
+                                                       (R[_P], R[_u], R[_v], R[_w], R[_q_tot], R[_q_liq], R[_T], R[_θ]) = (preflux(Q, QV, aux))
                                                    end
                                                end
 
-    outprefix = @sprintf("vtk-RTB/cns_%dD_mpirank%04d_step%04d", dim,
+    outprefix = @sprintf("./CLIMA-output-scratch/vtk-RTB/cns_%dD_mpirank%04d_step%04d", dim,
                          MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, spacedisc, statenames,
