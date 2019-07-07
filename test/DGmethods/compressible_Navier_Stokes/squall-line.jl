@@ -42,13 +42,20 @@ using CLIMA.PlanetParameters
 using CLIMA.Microphysics
 
 # State labels
-const _nstate = 9
-const _ρ, _U, _V, _W, _E_tot, _Q_tot, _Q_liq, _Q_ice, _Q_rai =1:_nstate
-const stateid = (ρid = _ρ, U_id = _U, V_id = _V, W_id = _W,
+const _nstate = 6
+#const _ρ, _U, _V, _W, _E_tot, _Q_tot, _Q_liq, _Q_ice, _Q_rai =1:_nstate
+const _ρ, _U, _V, _W, _E_tot, _Q_tot =1:_nstate
+
+#=const stateid = (ρid = _ρ, U_id = _U, V_id = _V, W_id = _W,
                  E_tot_id = _E_tot, Q_tot_id = _Q_tot, Q_liq_id = _Q_liq,
                  Q_ice_id = _Q_ice, Q_rai_id = _Q_rai)
 const statenames = ("ρ", "U", "V", "W", "E_tot", "Q_tot", "Q_liq",
                     "Q_ice", "Q_rai")
+=#
+const stateid = (ρid = _ρ, U_id = _U, V_id = _V, W_id = _W,
+                 E_tot_id = _E_tot, Q_tot_id = _Q_tot)
+
+const statenames = ("ρ", "U", "V", "W", "E_tot", "Q_tot")
 
 # Viscous state labels
 const _nviscstates = 22
@@ -253,15 +260,15 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _E_tot],  F[2, _E_tot],  F[3, _E_tot]  = u * (ρ * e_tot + p), v * (ρ * e_tot + p), w * (ρ * e_tot + p)
 
         F[1, _Q_tot], F[2, _Q_tot], F[3, _Q_tot] = u * ρ * q_tot, v * ρ * q_tot, w * ρ * q_tot
-        F[1, _Q_liq], F[2, _Q_liq], F[3, _Q_liq] = 0.0 #u * ρ * q_liq, v * ρ * q_liq, w * ρ * q_liq
-        F[1, _Q_ice], F[2, _Q_ice], F[3, _Q_ice] = 0.0 #u * ρ * q_ice, v * ρ * q_ice, w * ρ * q_ice
-        F[1, _Q_rai], F[2, _Q_rai], F[3, _Q_rai] = 0.0 #u * ρ * q_rai, v * ρ * q_rai, (w - rain_w) * ρ * q_rai
+ #       F[1, _Q_liq], F[2, _Q_liq], F[3, _Q_liq] = 0.0 #u * ρ * q_liq, v * ρ * q_liq, w * ρ * q_liq
+ #       F[1, _Q_ice], F[2, _Q_ice], F[3, _Q_ice] = 0.0 #u * ρ * q_ice, v * ρ * q_ice, w * ρ * q_ice
+ #       F[1, _Q_rai], F[2, _Q_rai], F[3, _Q_rai] = 0.0 #u * ρ * q_rai, v * ρ * q_rai, (w - rain_w) * ρ * q_rai
 
         #Derivative of q_tot, q_liq, q_ice, q_rai, T:
         vq_tot_x, vq_tot_y, vq_tot_z = VF[_q_tot_x], VF[_q_tot_y], VF[_q_tot_z]
-        vq_liq_x, vq_liq_y, vq_liq_z = VF[_q_liq_x], VF[_q_liq_y], VF[_q_liq_z]
-        vq_ice_x, vq_ice_y, vq_ice_z = VF[_q_ice_x], VF[_q_ice_y], VF[_q_ice_z]
-        vq_rai_x, vq_rai_y, vq_rai_z = VF[_q_rai_x], VF[_q_rai_y], VF[_q_rai_z]
+ #       vq_liq_x, vq_liq_y, vq_liq_z = VF[_q_liq_x], VF[_q_liq_y], VF[_q_liq_z]
+ #       vq_ice_x, vq_ice_y, vq_ice_z = VF[_q_ice_x], VF[_q_ice_y], VF[_q_ice_z]
+ #       vq_rai_x, vq_rai_y, vq_rai_z = VF[_q_rai_x], VF[_q_rai_y], VF[_q_rai_z]
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
 
         
@@ -293,9 +300,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
         # Viscous contributions to mass flux terms
         F[1, _Q_tot] -= vq_tot_x * D_e; F[2, _Q_tot] -= vq_tot_y * D_e; F[3, _Q_tot] -= vq_tot_z * D_e
-        F[1, _Q_liq] -= vq_liq_x * D_e; F[2, _Q_liq] -= vq_liq_y * D_e; F[3, _Q_liq] -= vq_liq_z * D_e
-        F[1, _Q_ice] -= vq_ice_x * D_e; F[2, _Q_ice] -= vq_ice_y * D_e; F[3, _Q_ice] -= vq_ice_z * D_e
-        F[1, _Q_rai] -= vq_rai_x * D_e; F[2, _Q_rai] -= vq_rai_y * D_e; F[3, _Q_rai] -= vq_rai_z * D_e
+  #      F[1, _Q_liq] -= vq_liq_x * D_e; F[2, _Q_liq] -= vq_liq_y * D_e; F[3, _Q_liq] -= vq_liq_z * D_e
+  #      F[1, _Q_ice] -= vq_ice_x * D_e; F[2, _Q_ice] -= vq_ice_y * D_e; F[3, _Q_ice] -= vq_ice_z * D_e
+  #      F[1, _Q_rai] -= vq_rai_x * D_e; F[2, _Q_rai] -= vq_rai_y * D_e; F[3, _Q_rai] -= vq_rai_z * D_e
     end
 end
 
@@ -339,10 +346,10 @@ end
 
         # compute gradients of moist vars and temperature
         dq_tot_dx, dq_tot_dy, dq_tot_dz = grad_vel[1, 5], grad_vel[2, 5], grad_vel[3, 5]
-        dq_liq_dx, dq_liq_dy, dq_liq_dz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
-        dq_ice_dx, dq_ice_dy, dq_ice_dz = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
-        dq_rai_dx, dq_rai_dy, dq_rai_dz = grad_vel[1, 8], grad_vel[2, 8], grad_vel[3, 8]
-        dTdx,      dTdy,      dTdz      = grad_vel[1, 9], grad_vel[2, 9], grad_vel[3, 9]
+        #dq_liq_dx, dq_liq_dy, dq_liq_dz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
+        #dq_ice_dx, dq_ice_dy, dq_ice_dz = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
+        #dq_rai_dx, dq_rai_dy, dq_rai_dz = grad_vel[1, 8], grad_vel[2, 8], grad_vel[3, 8]
+        dTdx,      dTdy,      dTdz      = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
 
         # virtual potential temperature gradient: for richardson calculation
         # strains
@@ -373,9 +380,9 @@ end
 
         # TODO: Viscous stresse come from SubgridScaleTurbulence module
         VF[_q_tot_x], VF[_q_tot_y], VF[_q_tot_z] = dq_tot_dx, dq_tot_dy, dq_tot_dz
-        VF[_q_liq_x], VF[_q_liq_y], VF[_q_liq_z] = dq_liq_dx, dq_liq_dy, dq_liq_dz
-        VF[_q_ice_x], VF[_q_ice_y], VF[_q_ice_z] = dq_ice_dx, dq_ice_dy, dq_ice_dz
-        VF[_q_rai_x], VF[_q_rai_y], VF[_q_rai_z] = dq_rai_dx, dq_rai_dy, dq_rai_dz
+ #       VF[_q_liq_x], VF[_q_liq_y], VF[_q_liq_z] = dq_liq_dx, dq_liq_dy, dq_liq_dz
+ #       VF[_q_ice_x], VF[_q_ice_y], VF[_q_ice_z] = dq_ice_dx, dq_ice_dy, dq_ice_dz
+ #       VF[_q_rai_x], VF[_q_rai_y], VF[_q_rai_z] = dq_rai_dx, dq_rai_dy, dq_rai_dz
         VF[_Tx],      VF[_Ty],      VF[_Tz]      = dTdx,      dTdy,      dTdz
         VF[_SijSij] = SijSij
     end
@@ -652,13 +659,18 @@ function preodefun!(disc, Q, t)
     DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
         @inbounds let
             ρ, U, V, W, E_tot, Q_tot, Q_liq, Q_ice, Q_rai =
-              Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E_tot], Q[_Q_tot], Q[_Q_liq],
-              Q[_Q_ice], Q[_Q_rai]
-
+                Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E_tot], Q[_Q_tot]
+            #=, 
+            Q[_Q_liq],
+            Q[_Q_ice],
+            Q[_Q_rai]
+=#
             z = aux[_a_z]
             #dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
 
-            q_tot = Q_tot / ρ; q_liq = Q_liq / ρ; q_ice = Q_ice / ρ
+            q_tot = Q_tot/ρ; q_liq = Q_liq/ρ; q_ice = Q_ice/ρ
+            q_liq = 0.0
+            q_ice = 0.0
             u = U / ρ; v = V / ρ; w = W / ρ
             e_tot = E_tot / ρ
 
@@ -749,7 +761,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     Q_tot      = ρ * q_tot
 
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E_tot], Q[_Q_tot],
-                Q[_Q_liq], Q[_Q_ice], Q[_Q_rai] = ρ, U, V, W, E_tot, Q_tot, DFloat(0), DFloat(0), DFloat(0)
+                Q[_Q_liq], Q[_Q_ice], Q[_Q_rai] = ρ, U, V, W, E_tot, Q_tot, 0 .* Q_tot, 0 .* Q_tot, 0 .* Q_tot 
 end
 
 function grid_stretching(DFloat,
@@ -891,10 +903,10 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 @info " III"
 
-    npoststates = 6
-_u, _v, _w, _q_tot, _q_liq, _q_rai = 1:npoststates
-postnames = ("u", "v", "w", "q_tot", "q_liq", "q_rai")
-postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+#npoststates = 6
+#_u, _v, _w, _q_tot, _q_liq, _q_rai = 1:npoststates
+#postnames = ("u", "v", "w", "q_tot", "q_liq", "q_rai")
+#postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
 step = [0]
 mkpath("vtk-RTB")
@@ -984,7 +996,8 @@ end
 # Initialise the integration computation. Kernels calculate this at every timestep??
 #@timeit to "initial integral" integral_computation(spacedisc, Q, 0)
 #@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+#solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+solve!(Q, lsrk; timeend=timeend)
 
 
 #@info @sprintf """Finished...
