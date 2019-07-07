@@ -171,11 +171,11 @@ const Δsqr = Δ * Δ
     @inbounds begin
 
       # unpack model variables
-        ρ, U, V, W, E_tot                 = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E_tot]
-        Q_tot, Q_liq, Q_ice, Q_rai        = Q[_Q_tot], Q[_Q_liq], Q[_Q_ice], Q[_Q_rai]
-        u, v, w                           = U/ρ, V/ρ, W/ρ       
-        e_tot                             = E_tot/ρ
-        q_tot, q_liq, q_ice, q_rai, e_tot = Q_tot/ρ, Q_liq/ρ, Q_ice/ρ, Q_rai/ρ
+        ρ, U, V, W, E_tot          = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E_tot]
+        Q_tot, Q_liq, Q_ice, Q_rai = Q[_Q_tot], Q[_Q_liq], Q[_Q_ice], Q[_Q_rai]
+        u, v, w                    = U/ρ, V/ρ, W/ρ       
+        e_tot                      = E_tot/ρ
+        q_tot, q_liq, q_ice, q_rai = Q_tot/ρ, Q_liq/ρ, Q_ice/ρ, Q_rai/ρ
 
 
       # compute rain fall speed
