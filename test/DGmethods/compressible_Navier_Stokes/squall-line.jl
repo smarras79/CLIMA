@@ -891,10 +891,38 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
 @info " III"
+         npoststates = 6
+    _u, _v, _w, _q_tot, _q_liq, _q_rai = 1:npoststates
+    postnames = ("u", "v", "w", "q_tot", "q_liq", "q_rai")
+    postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+
+    step = [0]
+    mkpath("vtk-RTB")
+cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+     @info " III1"
+        DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
+                                                   Q) do R, Q, QV, aux
+                                                       @inbounds let
+                                                           (R[_u], R[_v], R[_w], R[_w_rain], R[_ρ], R[_q_tot], R[_q_liq], R[_q_ice], R[_q_rai], R[_e_tot]) = (preflux(Q, QV, aux))
+                                                       end
+                                                   end
+ @info " III2"
+        outprefix = @sprintf("vtk-RTB/cns_%dD_mpirank%04d_step%04d", dim,
+                             MPI.Comm_rank(mpicomm), step[1])
+        @debug "doing VTK output" outprefix
+        writevtk(outprefix, Q, spacedisc, statenames,
+                 postprocessarray, postnames)
+         @info " III3"
+        step[1] += 1
+        nothing
+    end
+     @info " L"
+
         #npoststates = 18
         #out_z, out_u, out_v, out_w, out_e_tot, out_e_int, out_e_kin, out_e_pot, out_p, out_beta, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai, out_rain_w, out_tht = 1:npoststates
         #postnames = ("height", "u", "v", "w", "e_tot", "e_int", "e_kin", "e_pot", "p", "beta", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai", "rain_w", "theta")
 
+#=
         npoststates = 9
         out_u, out_v, out_w, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai = 1:npoststates
         postnames = ("u", "v", "w", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai")
@@ -946,7 +974,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             nothing
         end
     #end
-
+=#
 @info @sprintf """Starting...
             norm(Q) = %25.16e""" norm(Q)
 
