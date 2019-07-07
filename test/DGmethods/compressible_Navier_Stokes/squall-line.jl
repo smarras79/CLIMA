@@ -865,8 +865,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     #end
 
     #@timeit to "Time stepping init" begin
-        
-        lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+    
+    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
     @info " H"
         
         #=eng0 = norm(Q)
