@@ -137,8 +137,8 @@ end
 #md # In this example the auxiliary function is used to store the spatial
 #md # coordinates and the equivalent grid lengthscale coefficient. 
 # -------------------------------------------------------------------------
-const _nauxstate = 3
-const _a_x, _a_y, _a_z = 1:_nauxstate
+const _nauxstate = 4
+const _a_x, _a_y, _a_z, _a_sponge = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         aux[_a_x] = x
