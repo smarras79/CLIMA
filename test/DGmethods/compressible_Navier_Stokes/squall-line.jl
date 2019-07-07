@@ -891,6 +891,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
 @info " III"
+#=
 npoststates = 6
 _u, _v, _w, _q_tot, _q_liq, _q_rai = 1:npoststates
 postnames = ("u", "v", "w", "q_tot", "q_liq", "q_rai")
@@ -899,6 +900,7 @@ postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 step = [0]
 mkpath("vtk-RTB")
 cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+=#
     @info " III1"
     #=DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
