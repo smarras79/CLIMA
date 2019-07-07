@@ -97,9 +97,9 @@ const Npoly = 4
 #
 # Define grid size
 #
-Δx    =  500
-Δy    =  500
-Δz    =  200
+Δx    =  1000
+Δy    =  1000
+Δz    =  500
 
 #
 # OR:
