@@ -358,7 +358,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vρy = VF[_ρy]
         SijSij = VF[_SijSij]
         
-        (ν_e, D_e) = 10, 10 #SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
+        (ν_e, D_e) = 200, 200 #SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
         
         #Richardson contribution:
         f_R = 1 #SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
@@ -377,7 +377,12 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
         F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
         F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz
+
+        # Viscous contributions to mass flux terms
+        F[1, _QT] -=  vqx * D_e
+        F[2, _QT] -=  vqy * D_e
+        F[3, _QT] -=  vqz * D_e
     end
 end
 
@@ -443,8 +448,9 @@ end
         VF[_τ13] = 2 * S13
         VF[_τ23] = 2 * S23
         
-        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
         VF[_ρx], VF[_ρy], VF[_ρz] = dρdx, dρdy, dρdz
+        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
+        VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
         VF[_SijSij] = SijSij
     end
 end
