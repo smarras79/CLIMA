@@ -573,12 +573,12 @@ end
       
     ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
     QT, QL, QR     = Q[_QT], Q[_QL], Q[_QR]
-    u, v, w = U/ρ, V/ρ, W/ρ
-    e_tot = E/ρ
+    u, v, w        = U/ρ, V/ρ, W/ρ
+    e_tot          = E/ρ
       
     q_tot = QT/ρ
     q_liq = QL/ρ
-    q_rai = QR/ρ
+    q_rai = 0. *QR/ρ
     q_ice = 0 .*q_tot
     #rain_w  = 
     #q_liq, q_ice, q_rai, e_tot
@@ -618,17 +618,19 @@ end
 
     src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap# + src_q_rai_acnv_ice + src_q_rai_accr_ice
 
-    S[_QL] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
+#    S[_QL] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
     #S[_QI] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
       
-    S[_QR] += ρ * src_q_rai_tot
-    S[_QT] -= ρ * src_q_rai_tot
+#    S[_QR] += ρ * src_q_rai_tot
+#    S[_QT] -= ρ * src_q_rai_tot
       
-    S[_E] -= (
+#=    S[_E] -= (
         src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
         (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0))# -
         #(src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))
                   ) * ρ
+=#
+      
     #end
   end
 end
@@ -848,7 +850,7 @@ cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
                        Dates.format(convert(Dates.DateTime,
                                             Dates.now()-starttime[]),
                                     Dates.dateformat"HH:MM:SS"))
-                       #, energy , globmean)
+                       #, energy, globmean)
     end
 end
 
