@@ -86,8 +86,8 @@ const k_μ       = cp_d / Prandtl
 # Define grid size
 #
 const numdims = 3
-Δx    =  50
-Δy    =  100
+Δx    =  250
+Δy    =  500
 Δz    =  200
 Npoly = 4
 
@@ -99,8 +99,8 @@ Npoly = 4
 (Nex, Ney, Nez) = (10, 10, 15)
 
 # Physical domain extents
-const (xmin, xmax) = (-5000,  5000)
-const (ymin, ymax) = (-5000,  5000)
+const (xmin, xmax) = (-50000,  50000)
+const (ymin, ymax) = (     0,   1000)
 const (zmin, zmax) = (0, 24000)
 
 #Get Nex, Ney from resolution
@@ -273,17 +273,17 @@ end
     gravity::eltype(Q) = grav
     R_gas::eltype(Q) = R_d
     @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    ρinv = 1 / ρ
-    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+    ρinv    = 1 / ρ
+    x,y,z   = aux[_a_x], aux[_a_y], aux[_a_z]
     u, v, w = ρinv * U, ρinv * V, ρinv * W
-    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z) / ρ
-    q_tot = QT / ρ
+    e_int   = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z) / ρ
+    q_tot   = QT / ρ
     # Establish the current thermodynamic state using the prognostic variables
-    TS = PhaseEquil(e_int, q_tot, ρ)
-    T = air_temperature(TS)
-    P = air_pressure(TS) # Test with dry atmosphere
-    q_liq = PhasePartition(TS).liq
-    θ = virtual_pottemp(TS)
+    TS      = PhaseEquil(e_int, q_tot, ρ)
+    T       = air_temperature(TS)
+    P       = air_pressure(TS) # Test with dry atmosphere
+    q_liq   = PhasePartition(TS).liq
+    θ       = virtual_pottemp(TS)
     (P, u, v, w, ρinv, q_liq,T,θ)
 end
 
@@ -294,16 +294,14 @@ end
     gravity::eltype(Q) = grav
     @inbounds begin 
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-        u, v, w = ρinv * U, ρinv * V, ρinv * W
-        e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z) / ρ
-        q_tot = QT / ρ
-        TS = PhaseEquil(e_int, q_tot, ρ)
+        x,y,z             = aux[_a_x], aux[_a_y], aux[_a_z]
+        u, v, w           = ρinv * U, ρinv * V, ρinv * W
+        e_int             = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z) / ρ
+        q_tot             = QT / ρ
+        TS                = PhaseEquil(e_int, q_tot, ρ)
         abs(n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
     end
 end
-
-
 
 # -------------------------------------------------------------------------
 # ### read sounding
@@ -569,17 +567,17 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
 
     # perturbation parameters for rising bubble
     
-    θ_c =     5.0
-    rx   = 250
-    ry   = 250
-    rz   = 250
-    #rx  = 10000.0
-    #ry  =  1200.0
-    #rz  =  1500.0
+    θ_c =     3.0
+    #rx   = 250
+    #ry   = 250
+    #rz   = 250
+    rx  = 10000.0
+    ry  =  1200.0
+    rz  =  1500.0
     xc  = 0.5*(xmax + xmin)
     yc  = 0.5*(ymax + ymin)
-    #zc  = 2000.0
-    zc = 340
+    zc  = 2000.0
+    #zc = 340
     r   = sqrt( (x - xc)^2/rx^2 + 0*(y - yc)^2/ry^2 + (z - zc)^2/rz^2)
     Δθ  = 0.0
     if r <= 1.0
