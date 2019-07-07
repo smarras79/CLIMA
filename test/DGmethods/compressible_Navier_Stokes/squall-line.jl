@@ -548,7 +548,6 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
         #                     q_tot, q_liq, q_ice, q_rai, e_tot)
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
-        source_geostrophic!(S, Q, aux, t)
     end
 end
 
@@ -909,9 +908,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
 
-        npoststates = 18
-        out_z, out_u, out_v, out_w, out_e_tot, out_e_int, out_e_kin, out_e_pot, out_p, out_beta, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai, out_rain_w, out_tht = 1:npoststates
-        postnames = ("height", "u", "v", "w", "e_tot", "e_int", "e_kin", "e_pot", "p", "beta", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai", "rain_w", "theta")
+        #npoststates = 18
+        #out_z, out_u, out_v, out_w, out_e_tot, out_e_int, out_e_kin, out_e_pot, out_p, out_beta, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai, out_rain_w, out_tht = 1:npoststates
+        #postnames = ("height", "u", "v", "w", "e_tot", "e_int", "e_kin", "e_pot", "p", "beta", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai", "rain_w", "theta")
+
+        npoststates = 9
+        out_u, out_v, out_w, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai = 1:npoststates
+        postnames = ("u", "v", "w", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai")
+        
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
@@ -920,7 +924,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     DF = eltype(Q)
-
+                    
                     u, v, w, rain_w, ρ, q_tot, q_liq, q_ice, q_rai, e_tot =
                       preflux(Q, QV, aux)
 
@@ -1012,7 +1016,7 @@ let
     # User defined simulation end time
     # User defined polynomial order
     numelem = (Nex, Ney, Nez)
-    dt = 0.005
+    dt = 0.01
     timeend = 12000 # 2h 30 min
     polynomialorder = Npoly
     DFloat = Float64
