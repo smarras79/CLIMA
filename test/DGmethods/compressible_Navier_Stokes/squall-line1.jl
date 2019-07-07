@@ -536,7 +536,7 @@ end
 
     # Typically these sources are imported from modules
     @inbounds begin
-        source_microphysics!(S, Q, aux, t)
+        #source_microphysics!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
         source_geopot!(S, Q, aux, t)       
     end
@@ -925,7 +925,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex, Ney, Nez)
-    dt = 0.0075
+    dt = 0.01
     timeend = 9000
     polynomialorder = Npoly
     DFloat = Float64
