@@ -682,7 +682,7 @@ function preodefun!(disc, Q, t)
             
             R[_a_T] = T
             R[_a_p] = p
-            R[_a_soundspeed_air] = 340 # soundspeed_air(T, q)
+            R[_a_soundspeed_air] = soundspeed_air(T, q)
             #u_wavespeed = (abs(u) + soundspeed) / dx
             #v_wavespeed = (abs(v) + soundspeed) / dy 
             #w_wavespeed = (abs(w) + soundspeed) / dz

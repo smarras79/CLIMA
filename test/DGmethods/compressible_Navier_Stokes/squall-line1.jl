@@ -341,7 +341,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
     gravity::eltype(Q) = grav
     @inbounds begin
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+        QT, QL, QR    = Q[_QT], Q[_QL], Q[_QR]
+        
         # Inviscid contributions
         F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
         F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
@@ -491,7 +493,10 @@ end
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, ρinvM, q_liqM, TM, θM)
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
-        ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
+        
+        ρM, UM, VM, WM, EM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E]
+             QTM, QLM, QRM = QM[_QT], QM[_QL], QM[_QR]
+        
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
