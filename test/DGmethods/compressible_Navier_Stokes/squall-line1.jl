@@ -86,9 +86,9 @@ Problem Description
 # Define grid size
 #
 const numdims = 3
-Δx    =  -20
-Δy    =  20
-Δz    =  20
+Δx    =  100
+Δy    =  100
+Δz    =  200
 Npoly = 4
 
 #
@@ -99,9 +99,9 @@ Npoly = 4
 (Nex, Ney, Nez) = (10, 10, 15)
 
 # Physical domain extents
-const (xmin, xmax) = (0, 1000)
-const (ymin, ymax) = (0, 1000)
-const (zmin, zmax) = (0, 1500)
+const (xmin, xmax) = (-5000,  5000)
+const (ymin, ymax) = (-5000,  5000)
+const (zmin, zmax) = (0, 24000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
