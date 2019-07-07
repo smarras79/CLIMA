@@ -37,8 +37,8 @@ else
 end
 
 """
-State labels
-"""
+    State labels
+    """
 const _nstate = 6
 const _ρ, _U, _V, _W, _E, _QT = 1:_nstate
 const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
@@ -46,19 +46,19 @@ const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 
 """
-Viscous state labels
-"""
+    Viscous state labels
+    """
 const _nviscstates = 16
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _ρx, _ρy, _ρz, _SijSij = 1:_nviscstates
 
 """
-Number of variables of which gradients are required 
-"""
+    Number of variables of which gradients are required 
+    """
 const _ngradstates = 7
 
 """
-Number of states being loaded for gradient computation
-"""
+    Number of states being loaded for gradient computation
+    """
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
 
@@ -69,16 +69,16 @@ if !@isdefined integration_testing
 end
 
 """
-Problem constants 
-"""
+    Problem constants 
+    """
 const Prandtl   = 71 // 100
 const k_μ       = cp_d / Prandtl
 
 """
-Problem Description
--------------------
-2 Dimensional falling thermal bubble (cold perturbation in a warm neutral atmosphere)
-"""
+    Problem Description
+    -------------------
+    2 Dimensional falling thermal bubble (cold perturbation in a warm neutral atmosphere)
+    """
 
 
 
@@ -86,7 +86,7 @@ Problem Description
 # Define grid size
 #
 const numdims = 3
-Δx    =  100
+Δx    =  50
 Δy    =  100
 Δz    =  200
 Npoly = 4
@@ -144,6 +144,117 @@ const _a_x, _a_y, _a_z = 1:_nauxstate
         aux[_a_x] = x
         aux[_a_y] = y
         aux[_a_z] = z
+
+
+        #
+        # Sponge (to be moved to its own module
+        #
+        csleft  = 0.0
+        csright = 0.0
+        csfront = 0.0
+        csback  = 0.0
+        ctop    = 0.0
+
+        cs_left_right = 0.0
+        cs_front_back = 0.0
+        ct            = 0.9
+
+        ##BEGIN  User modification on domain parameters.
+        ##Only change the first index of brickrange if your axis are
+        ##oriented differently:
+        ##x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
+        
+        #
+        domain_left  = xmin
+        domain_right = xmax
+
+        domain_front = ymin
+        domain_back  = ymax
+
+        domain_bott  = zmin
+        domain_top   = zmax
+
+        #END User modification on domain parameters.
+
+        # Define Sponge Boundaries
+        xc       = 0.5 * (domain_right + domain_left)
+        yc       = 0.5 * (domain_back  + domain_front)
+        zc       = 0.5 * (domain_top   + domain_bott)
+
+        sponge_type = 2
+        if sponge_type == 1
+
+            bc_zscale   = 7000.0
+            top_sponge  = 0.85 * domain_top
+            zd          = domain_top - bc_zscale
+            xsponger    = domain_right - 0.15 * (domain_right - xc)
+            xspongel    = domain_left  + 0.15 * (xc - domain_left)
+            ysponger    = domain_back  - 0.15 * (domain_back - yc)
+            yspongel    = domain_front + 0.15 * (yc - domain_front)
+
+            #x left and right
+            #xsl
+            if x <= xspongel
+                csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
+            end
+            #xsr
+            if x >= xsponger
+                csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
+            end
+            #y left and right
+            #ysl
+            if y <= yspongel
+                csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
+            end
+            #ysr
+            if y >= ysponger
+                csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
+            end
+
+            #Vertical sponge:
+            if z >= top_sponge
+                ctop = ct * (sinpi(0.5 * (z - top_sponge)/(domain_top - top_sponge)))^4
+            end
+
+        elseif sponge_type == 2
+
+
+            alpha_coe = 0.5
+            bc_zscale = 7500.0
+            zd        = domain_top - bc_zscale
+            xsponger  = domain_right - 0.15 * (domain_right - xc)
+            xspongel  = domain_left  + 0.15 * (xc - domain_left)
+            ysponger  = domain_back  - 0.15 * (domain_back - yc)
+            yspongel  = domain_front + 0.15 * (yc - domain_front)
+
+            #
+            # top damping
+            # first layer: damp lee waves
+            #
+            ctop = 0.0
+            ct   = 0.5
+            if z >= zd
+                zid = (z - zd)/(domain_top - zd) # normalized coordinate
+                if zid >= 0.0 && zid <= 0.5
+                    abstaud = alpha_coe*(1.0 - cos(zid*pi))
+
+                else
+                    abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
+
+                end
+                ctop = ct*abstaud
+            end
+
+        end #sponge_type
+
+        beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
+        beta  = min(beta, 1.0)
+        aux[_a_sponge] = beta
+
+        #
+        # END sponge
+        #
+        
     end
 end
 
@@ -180,16 +291,16 @@ end
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
 @inline function wavespeed(n, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
-  gravity::eltype(Q) = grav
-  @inbounds begin 
-    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
-    u, v, w = ρinv * U, ρinv * V, ρinv * W
-    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z) / ρ
-    q_tot = QT / ρ
-    TS = PhaseEquil(e_int, q_tot, ρ)
-    abs(n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
-  end
+    gravity::eltype(Q) = grav
+    @inbounds begin 
+        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+        u, v, w = ρinv * U, ρinv * V, ρinv * W
+        e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * gravity * z) / ρ
+        q_tot = QT / ρ
+        TS = PhaseEquil(e_int, q_tot, ρ)
+        abs(n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
+    end
 end
 
 
@@ -230,44 +341,44 @@ end
 # -------------------------------------------------------------------------
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
-  gravity::eltype(Q) = grav
-  @inbounds begin
-    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    # Inviscid contributions
-    F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
-    F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
-    F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
-    F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
-    F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
-    F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
+    gravity::eltype(Q) = grav
+    @inbounds begin
+        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        # Inviscid contributions
+        F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
+        F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
+        F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
+        F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
+        F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
+        F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
 
-    #Derivative of T and Q:
-    vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
-    vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-    vρy = VF[_ρy]
-    SijSij = VF[_SijSij]
-    
-    (ν_e, D_e) = 10, 10 #SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
-    
-    #Richardson contribution:
-    f_R = 1 #SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
-    
-    # Multiply stress tensor by viscosity coefficient:
-    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
-    τ12 = τ21 = VF[_τ12] * ν_e 
-    τ13 = τ31 = VF[_τ13] * ν_e               
-    τ23 = τ32 = VF[_τ23] * ν_e
-    
-    # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-    F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
-    F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
-    F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
+        #Derivative of T and Q:
+        vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
+        vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+        vρy = VF[_ρy]
+        SijSij = VF[_SijSij]
+        
+        (ν_e, D_e) = 10, 10 #SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
+        
+        #Richardson contribution:
+        f_R = 1 #SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
+        
+        # Multiply stress tensor by viscosity coefficient:
+        τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
+        τ12 = τ21 = VF[_τ12] * ν_e 
+        τ13 = τ31 = VF[_τ13] * ν_e               
+        τ23 = τ32 = VF[_τ23] * ν_e
+        
+        # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
+        F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
+        F[1, _V] -= τ21 * f_R ; F[2, _V] -= τ22 * f_R ; F[3, _V] -= τ23 * f_R
+        F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
 
-    # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
-  end
+        # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + ν_e * k_μ * vTx 
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + ν_e * k_μ * vTy
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz 
+    end
 end
 
 # -------------------------------------------------------------------------
@@ -357,16 +468,16 @@ end
 end
 
 """
-Boundary correction for Neumann boundaries
-"""
+    Boundary correction for Neumann boundaries
+    """
 @inline function stresses_boundary_penalty!(VF, _...) 
-  compute_stresses!(VF, 0) 
+    compute_stresses!(VF, 0) 
 end
 
 
 """
-Gradient term flux correction 
-"""
+    Gradient term flux correction 
+    """
 @inline function stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
     @inbounds begin
         n_Δgradient_list = similar(VF, Size(3, _ngradstates))
@@ -384,7 +495,19 @@ end
 
     # Typically these sources are imported from modules
     @inbounds begin
-        source_geopot!(S, Q, aux, t)
+        source_sponge!(S, Q, aux, t)
+        source_geopot!(S, Q, aux, t)       
+    end
+end
+
+
+@inline function source_sponge!(S,Q,aux,t)
+    @inbounds begin
+        U, V, W  = Q[_U], Q[_V], Q[_W]
+        beta     = aux[_a_sponge]
+        S[_U] -= beta * U
+        S[_V] -= beta * V
+        S[_W] -= beta * W
     end
 end
 
@@ -403,7 +526,7 @@ end
 # initial condition
 #function rising_bubble!(dim, Q, t, x, y, z, _...)
 function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
-                          spl_pinit, x, y, z, _...)
+                      spl_pinit, x, y, z, _...)
     
     DFloat                = eltype(Q)
     R_gas::DFloat         = R_d
@@ -452,7 +575,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     #zc  = 2000.0
     zc = 340
     r   = sqrt( (x - xc)^2/rx^2 + 0*(y - yc)^2/ry^2 + (z - zc)^2/rz^2)
-     Δθ  = 0.0
+    Δθ  = 0.0
     if r <= 1.0
         Δθ = θ_c * (cospi(0.5*r))^2
     end
@@ -578,87 +701,87 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     
     # This is a actual state/function that lives on the grid
     #initialcondition(Q, x...) = rising_bubble!(Val(dim), Q, DFloat(0), x...)
-    initialcondition(Q, x...) = squall_line!(Val(dim), Q, DFloat(0), spl_tinit,
-                                                 spl_qinit, spl_uinit, spl_vinit,
-                                                 spl_pinit, x...)
+initialcondition(Q, x...) = squall_line!(Val(dim), Q, DFloat(0), spl_tinit,
+                                         spl_qinit, spl_uinit, spl_vinit,
+                                         spl_pinit, x...)
 
-    Q = MPIStateArray(spacedisc, initialcondition)
+Q = MPIStateArray(spacedisc, initialcondition)
 
-    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
-    eng0 = norm(Q)
-    @info @sprintf """Starting
-      norm(Q₀) = %.16e""" eng0
+eng0 = norm(Q)
+@info @sprintf """Starting
+          norm(Q₀) = %.16e""" eng0
 
-    # Set up the information callback
-    starttime = Ref(now())
-    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
-        if s
-            starttime[] = now()
-        else
-            energy = norm(Q)
-            #globmean = global_mean(Q, _ρ)
-            @info @sprintf("""Update
-                         simtime = %.16e
-                         runtime = %s
-                         norm(Q) = %.16e""", 
-                           ODESolvers.gettime(lsrk),
-                           Dates.format(convert(Dates.DateTime,
-                                                Dates.now()-starttime[]),
-                                        Dates.dateformat"HH:MM:SS"),
-                           energy )#, globmean)
-        end
-    end
-
-    npoststates = 8
-    _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    postnames = ("P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
-    postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
-
-    step = [0]
-    mkpath("vtk-RTB")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
-        DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
-                                                   Q) do R, Q, QV, aux
-                                                       @inbounds let
-                                                           (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (preflux(Q, QV, aux))
-                                                       end
-                                                   end
-
-        outprefix = @sprintf("vtk-RTB/cns_%dD_mpirank%04d_step%04d", dim,
-                             MPI.Comm_rank(mpicomm), step[1])
-        @debug "doing VTK output" outprefix
-        writevtk(outprefix, Q, spacedisc, statenames,
-                 postprocessarray, postnames)
-        
-        step[1] += 1
-        nothing
-    end
-    
-    solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-
-
-    # Print some end of the simulation information
-    engf = norm(Q)
-    if integration_testing
-        Qe = MPIStateArray(spacedisc,
-                           (Q, x...) -> initialcondition!(Val(dim), Q,
-                                                          DFloat(timeend), x...))
-        engfe = norm(Qe)
-        errf = euclidean_distance(Q, Qe)
-        @info @sprintf """Finished
-        norm(Q)                 = %.16e
-        norm(Q) / norm(Q₀)      = %.16e
-        norm(Q) - norm(Q₀)      = %.16e
-        norm(Q - Qe)            = %.16e
-        norm(Q - Qe) / norm(Qe) = %.16e
-        """ engf engf/eng0 engf-eng0 errf errf / engfe
+# Set up the information callback
+starttime = Ref(now())
+cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+    if s
+        starttime[] = now()
     else
-        @info @sprintf """Finished
-        norm(Q)            = %.16e
-        norm(Q) / norm(Q₀) = %.16e
-        norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
+        energy = norm(Q)
+        #globmean = global_mean(Q, _ρ)
+        @info @sprintf("""Update
+                             simtime = %.16e
+                             runtime = %s
+                             norm(Q) = %.16e""", 
+                       ODESolvers.gettime(lsrk),
+                       Dates.format(convert(Dates.DateTime,
+                                            Dates.now()-starttime[]),
+                                    Dates.dateformat"HH:MM:SS"),
+                       energy )#, globmean)
     end
+end
+
+npoststates = 8
+_P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+postnames = ("P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+
+step = [0]
+mkpath("vtk-RTB")
+cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
+                                               Q) do R, Q, QV, aux
+                                                   @inbounds let
+                                                       (R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (preflux(Q, QV, aux))
+                                                   end
+                                               end
+
+    outprefix = @sprintf("vtk-RTB/cns_%dD_mpirank%04d_step%04d", dim,
+                         MPI.Comm_rank(mpicomm), step[1])
+    @debug "doing VTK output" outprefix
+    writevtk(outprefix, Q, spacedisc, statenames,
+             postprocessarray, postnames)
+    
+    step[1] += 1
+    nothing
+end
+
+solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+
+
+# Print some end of the simulation information
+engf = norm(Q)
+if integration_testing
+    Qe = MPIStateArray(spacedisc,
+                       (Q, x...) -> initialcondition!(Val(dim), Q,
+                                                      DFloat(timeend), x...))
+    engfe = norm(Qe)
+    errf = euclidean_distance(Q, Qe)
+    @info @sprintf """Finished
+            norm(Q)                 = %.16e
+            norm(Q) / norm(Q₀)      = %.16e
+            norm(Q) - norm(Q₀)      = %.16e
+            norm(Q - Qe)            = %.16e
+            norm(Q - Qe) / norm(Qe) = %.16e
+            """ engf engf/eng0 engf-eng0 errf errf / engfe
+else
+    @info @sprintf """Finished
+            norm(Q)            = %.16e
+            norm(Q) / norm(Q₀) = %.16e
+            norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
+end
 integration_testing ? errf : (engf / eng0)
 end
 
