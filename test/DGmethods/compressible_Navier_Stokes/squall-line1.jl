@@ -857,7 +857,7 @@ postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
 step = [0]
 mkpath("./CLIMA-output-scratch/vtk-RTB")
-cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
                                                    @inbounds let
