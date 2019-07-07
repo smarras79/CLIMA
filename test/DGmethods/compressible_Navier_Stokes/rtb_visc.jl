@@ -601,8 +601,6 @@ let
     @info @sprintf """   Resolution:                                         """
     @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
     @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                    """ Nex Ney Nez
-    @info @sprintf """     DoF = %d                                          """ DoF
-    @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(DFloat))/1000^3
     @info @sprintf """     Time step dt: %.2e                                """ dt
     @info @sprintf """     End time  t : %.2e                                """ timeend
     @info @sprintf """ ------------------------------------------------------"""

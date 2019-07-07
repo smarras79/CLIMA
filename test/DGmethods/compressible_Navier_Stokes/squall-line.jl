@@ -898,7 +898,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     step = [0]
     mkpath("vtk-RTB")
-cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
      @info " III1"
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
