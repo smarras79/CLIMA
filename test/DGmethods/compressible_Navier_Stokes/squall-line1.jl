@@ -682,7 +682,7 @@ let
     # User defined polynomial order 
     numelem = (Nex, Ney, Nez)
     dt = 0.0001
-    timeend = 900
+    timeend = 2*dt
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
