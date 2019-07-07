@@ -39,27 +39,27 @@ end
 """
     State labels
     """
-const _nstate = 6
-const _ρ, _U, _V, _W, _E, _QT = 1:_nstate
-const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
-const statenames = ("RHO", "U", "V", "W", "E", "QT")
+const _nstate = 8
+const _ρ, _U, _V, _W, _E, _QT, _QL, _QR = 1:_nstate
+const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT, QLid = _QL, QRid = _QR)
+const statenames = ("RHO", "U", "V", "W", "E", "QT", "QL", "QR")
 
 
 """
     Viscous state labels
     """
-const _nviscstates = 16
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _ρx, _ρy, _ρz, _SijSij = 1:_nviscstates
-
-"""
-    Number of variables of which gradients are required 
-    """
-const _ngradstates = 7
+const _nviscstates = 22
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _SijSij,
+_Tx, _Ty, _Tz,
+_ρx, _ρy, _ρz,
+_qtx, _qty, _qtz,
+_qlx, _qly, _qlz,
+_qrx, _qry, _qrz = 1:_nviscstates
 
 """
     Number of states being loaded for gradient computation
     """
-const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
+const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT, _QL, _QR)
 
 
 if !@isdefined integration_testing
@@ -99,7 +99,7 @@ Npoly = 4
 (Nex, Ney, Nez) = (10, 10, 15)
 
 # Physical domain extents
-const (xmin, xmax) = (-50000,  50000)
+const (xmin, xmax) = (-25000,  25000)
 const (ymin, ymax) = (     0,   1000)
 const (zmin, zmax) = (0, 24000)
 
@@ -348,13 +348,18 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
         F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
         F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
-        F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
+        F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT
+        F[1, _QL], F[2, _QL], F[3, _QL] = u * QL  , v * QL     , w * QL
+        F[1, _QR], F[2, _QR], F[3, _QR] = u * QR  , v * QR     , w * QR 
 
         #Derivative of T and Q:
-        vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
+        vqtx, vqty, vqtz = VF[_qtx], VF[_qty], VF[_qtz]
+        vqlx, vqly, vqlz = VF[_qlx], VF[_qly], VF[_qlz]
+        vqrx, vqry, vqrz = VF[_qrx], VF[_qry], VF[_qrz]
+        
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-        vρy = VF[_ρy]
-        SijSij = VF[_SijSij]
+        vρy           = VF[_ρy]
+        SijSij        = VF[_SijSij]
         
         (ν_e, D_e) = 200, 200 #SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
         
@@ -378,9 +383,17 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + ν_e * k_μ * vTz
 
         # Viscous contributions to mass flux terms
-        F[1, _QT] -=  vqx * D_e
-        F[2, _QT] -=  vqy * D_e
-        F[3, _QT] -=  vqz * D_e
+        F[1, _QT] -=  vqtx * D_e
+        F[2, _QT] -=  vqty * D_e
+        F[3, _QT] -=  vqtz * D_e
+        
+        F[1, _QL] -=  vqlx * D_e
+        F[2, _QL] -=  vqly * D_e
+        F[3, _QL] -=  vqlz * D_e
+       
+        F[1, _QR] -=  vqrx * D_e
+        F[2, _QR] -=  vqry * D_e
+        F[3, _QR] -=  vqrz * D_e
     end
 end
 
@@ -390,18 +403,28 @@ end
 #md # function is not required in general, but provides useful functionality 
 #md # in some cases. 
 # -------------------------------------------------------------------------
+
+"""
+    Number of variables of which gradients are required 
+    """
+const _ngradstates = 9 #this should be equal to the max index in gradoet_vars!
 # Compute the velocity from the state
 gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,~,aux)...)
 @inline function gradient_vars!(gradient_list, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
     @inbounds begin
         y = aux[_a_y]
         # ordering should match states_for_gradient_transform
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        E, QT = Q[_E], Q[_QT]
-        ρinv = 1 / ρ
+        ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+        QT = Q[_QT]
+        QL = Q[_QL]
+        QR = Q[_QR]
+        
         gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
-        gradient_list[4], gradient_list[5], gradient_list[6] = E, QT, T
+        gradient_list[4], gradient_list[6] = E, T
+        gradient_list[5] = QT
         gradient_list[7] = ρ
+        gradient_list[8] = QL
+        gradient_list[9] = QR
     end
 end
 
@@ -412,16 +435,22 @@ end
 #md # populate the viscous flux array VF. SijSij is calculated in addition
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
 #md # (pending)
-@inline function compute_stresses!(VF, grad_vars, _...)
+@inline function compute_stresses!(VF, gradient_list, _...)
     gravity::eltype(VF) = grav
     @inbounds begin
-        dudx, dudy, dudz = grad_vars[1, 1], grad_vars[2, 1], grad_vars[3, 1]
-        dvdx, dvdy, dvdz = grad_vars[1, 2], grad_vars[2, 2], grad_vars[3, 2]
-        dwdx, dwdy, dwdz = grad_vars[1, 3], grad_vars[2, 3], grad_vars[3, 3]
+        dudx, dudy, dudz = gradient_list[1, 1], gradient_list[2, 1], gradient_list[3, 1]
+        dvdx, dvdy, dvdz = gradient_list[1, 2], gradient_list[2, 2], gradient_list[3, 2]
+        dwdx, dwdy, dwdz = gradient_list[1, 3], gradient_list[2, 3], gradient_list[3, 3]
+
         # compute gradients of moist vars and temperature
-        dqdx, dqdy, dqdz = grad_vars[1, 5], grad_vars[2, 5], grad_vars[3, 5]
-        dTdx, dTdy, dTdz = grad_vars[1, 6], grad_vars[2, 6], grad_vars[3, 6]
-        dρdx, dρdy, dρdz = grad_vars[1, 7], grad_vars[2, 7], grad_vars[3, 7]
+        dqtdx, dqtdy, dqtdz = gradient_list[1, 5], gradient_list[2, 5], gradient_list[3, 5]
+
+        dTdx, dTdy, dTdz = gradient_list[1, 6], gradient_list[2, 6], gradient_list[3, 6]
+        dρdx, dρdy, dρdz = gradient_list[1, 7], gradient_list[2, 7], gradient_list[3, 7]
+        
+        dqldx, dqldy, dqldz = gradient_list[1, 8], gradient_list[2, 8], gradient_list[3, 8]
+        dqrdx, dqrdy, dqrdz = gradient_list[1, 9], gradient_list[2, 9], gradient_list[3, 9]
+        
         # virtual potential temperature gradient: for richardson calculation
         # strains
         # --------------------------------------------
@@ -446,9 +475,12 @@ end
         VF[_τ13] = 2 * S13
         VF[_τ23] = 2 * S23
         
-        VF[_ρx], VF[_ρy], VF[_ρz] = dρdx, dρdy, dρdz
-        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
-        VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
+        VF[_ρx], VF[_ρy], VF[_ρz]    = dρdx, dρdy, dρdz
+        VF[_Tx], VF[_Ty], VF[_Tz]    = dTdx, dTdy, dTdz
+        VF[_qtx], VF[_qty], VF[_qtz] = dqtdx, dqtdy, dqtdz
+        VF[_qlx], VF[_qly], VF[_qlz] = dqldx, dqldy, dqldz
+        VF[_qrx], VF[_qry], VF[_qrz] = dqrdx, dqrdy, dqrdz
+        
         VF[_SijSij] = SijSij
     end
 end
@@ -519,8 +551,67 @@ end
     gravity::eltype(Q) = grav
     @inbounds begin
         ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-        S[_V] += - ρ * gravity
+        S[_W] += - ρ * gravity
     end
+end
+
+@inline function source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
+                             q_tot, q_liq, q_ice, q_rai, e_tot)
+
+  DF = eltype(Q)
+
+  @inbounds begin
+
+    z = aux[_a_z]
+
+    #TODO - tmp
+    q_tot = max(DF(0), q_tot)
+    q_liq = max(DF(0), q_liq)
+    q_ice = max(DF(0), q_ice)
+    q_rai = max(DF(0), q_rai)
+
+    # current state
+    e_int = e_tot - 1//2 * (u^2 + v^2 + w^2) - grav * z
+    q     = PhasePartition(q_tot, q_liq, q_ice)
+    T     = air_temperature(e_int, q)
+    p     = air_pressure(T, ρ, q)
+    # equilibrium state at current T
+    q_eq = PhasePartition_equil(T, ρ, q_tot)
+
+    # cloud water condensation/evaporation
+    src_q_liq = conv_q_vap_to_q_liq(q_eq, q)
+    #src_q_ice = conv_q_vap_to_q_ice(q_eq, q)
+    S[_QL] += ρ * src_q_liq
+    #S[_QI] += ρ * src_q_ice
+
+    # tendencies from rain
+    # TODO - ensure positive definite
+    # TODO - temporary handling ice
+    #if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
+
+    src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
+
+    src_q_rai_acnv_liq = conv_q_liq_to_q_rai_acnv(q.liq)
+    src_q_rai_accr_liq = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
+
+    #src_q_rai_acnv_ice = conv_q_liq_to_q_rai_acnv(q.ice)
+    #src_q_rai_accr_ice = conv_q_liq_to_q_rai_accr(q.ice, q_rai, ρ)
+
+    src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap# + src_q_rai_acnv_ice + src_q_rai_accr_ice
+
+    S[_QL] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
+    #S[_QI] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
+      
+    S[_QR] += ρ * src_q_rai_tot
+    S[_QT] -= ρ * src_q_rai_tot
+      
+    S[_E] -= (
+        src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
+        (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0))# -
+        #(src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))
+                  ) * ρ
+    #end
+  end
 end
 
 
@@ -808,8 +899,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex, Ney, Nez)
-    dt = 0.0001
-    timeend = 2*dt
+    dt = 0.01
+    timeend = 1000
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims

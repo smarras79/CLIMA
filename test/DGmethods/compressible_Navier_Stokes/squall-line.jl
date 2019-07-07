@@ -602,10 +602,10 @@ end
 
     S[_Q_liq] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
     #S[_Q_ice] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
-
+      
     S[_Q_rai] += ρ * src_q_rai_tot
     S[_Q_tot] -= ρ * src_q_rai_tot
-
+      
     S[_E_tot] -= (
                     src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
                     (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0))# -
@@ -673,7 +673,7 @@ function preodefun!(disc, Q, t)
             q_ice = 0.0
             u = U / ρ; v = V / ρ; w = W / ρ
             e_tot = E_tot / ρ
-
+            
             e_int = e_tot - 1//2 * (u^2 + v^2 + w^2) - grav * z
             q     = PhasePartition(q_tot, q_liq, q_ice)
             T     = air_temperature(e_int, q)
