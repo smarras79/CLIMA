@@ -23,8 +23,8 @@ const to = TimerOutput()
 
 #using CLIMA.SubgridScaleTurbulence
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0
-#using CLIMA.Microphysics
+using CLIMA.PlanetParameters
+using CLIMA.Microphysics
 
 if haspkg("CuArrays")
     using CUDAdrv
@@ -127,8 +127,7 @@ else
     Δy = Ly / ((Ney * Npoly) + 1)
     Δz = Lz / ((Nez * Npoly) + 1)
 end
-
-
+const stretch_on = 0
 # Equivalent grid-scale
 
 
@@ -345,11 +344,11 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         QT, QL, QR    = Q[_QT], Q[_QL], Q[_QR]
         
         # Inviscid contributions
-        F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
-        F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
-        F[1, _V], F[2, _V], F[3, _V] = u * V      , v * V + P  , w * V
-        F[1, _W], F[2, _W], F[3, _W] = u * W      , v * W      , w * W + P
-        F[1, _E], F[2, _E], F[3, _E] = u * (E + P), v * (E + P), w * (E + P)
+        F[1, _ρ], F[2, _ρ], F[3, _ρ]    = U          , V          , W
+        F[1, _U], F[2, _U], F[3, _U]    = u * U  + P , v * U      , w * U
+        F[1, _V], F[2, _V], F[3, _V]    = u * V      , v * V + P  , w * V
+        F[1, _W], F[2, _W], F[3, _W]    = u * W      , v * W      , w * W + P
+        F[1, _E], F[2, _E], F[3, _E]    = u * (E + P), v * (E + P), w * (E + P)
         F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT
         F[1, _QL], F[2, _QL], F[3, _QL] = u * QL  , v * QL     , w * QL
         F[1, _QR], F[2, _QR], F[3, _QR] = u * QR  , v * QR     , w * QR 
@@ -392,7 +391,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _QL] -=  vqlx * D_e
         F[2, _QL] -=  vqly * D_e
         F[3, _QL] -=  vqlz * D_e
-       
+        
         F[1, _QR] -=  vqrx * D_e
         F[2, _QR] -=  vqry * D_e
         F[3, _QR] -=  vqrz * D_e
@@ -536,6 +535,7 @@ end
 
     # Typically these sources are imported from modules
     @inbounds begin
+        source_microphysics!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
         source_geopot!(S, Q, aux, t)       
     end
@@ -560,15 +560,28 @@ end
     end
 end
 
-@inline function source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
-                             q_tot, q_liq, q_ice, q_rai, e_tot)
+#@inline function source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
+#                                      q_tot, q_liq, q_ice, q_rai, e_tot)
+@inline function source_microphysics!(S, Q, aux, t)
 
   DF = eltype(Q)
 
   @inbounds begin
 
     z = aux[_a_z]
-
+      
+    ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+    QT, QL, QR     = Q[_QT], Q[_QL], Q[_QR]
+    u, v, w = U/ρ, V/ρ, W/ρ
+    e_tot = E/ρ
+      
+    q_tot = QT/ρ
+    q_liq = QL/ρ
+    q_rai = QR/ρ
+    q_ice = 0 .*q_tot  
+    #rain_w  = 
+    #q_liq, q_ice, q_rai, e_tot
+      
     #TODO - tmp
     q_tot = max(DF(0), q_tot)
     q_liq = max(DF(0), q_liq)
@@ -663,7 +676,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
 
     # perturbation parameters for rising bubble
     
-    θ_c =     3.0
+    θ_c = 3.0
     #rx   = 250
     #ry   = 250
     #rz   = 250
@@ -681,7 +694,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     end
 
     # energy definitions
-    u, v, w     = datau, datav, zero(DFloat) #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    u, v, w     = 0*datau, 0*datav, 0*datav #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     
     θ_liq = datat + Δθ
     q_tot = dataq
@@ -697,8 +710,10 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     e_int      = internal_energy(T, PhasePartition(q_tot))
     E          = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
     Q_tot      = ρ * q_tot
+    Q_liq      = 0 .*Q_tot
+    Q_rai      = 0 .*Q_tot
     
-    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, Q_tot
+    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT], Q[_QL], Q[_QR]= ρ, U, V, W, E, Q_tot, Q_liq, Q_rai
 end
 
 
@@ -710,29 +725,30 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     x_range = range(DFloat(xmin), length=Ne[1]   + 1, DFloat(xmax))
     y_range = range(DFloat(ymin), length=Ne[2]   + 1, DFloat(ymax))
     z_range = range(DFloat(zmin), length=Ne[end] + 1, DFloat(zmax))
-
     
     #-----------------------------------------------------------------
     # Build grid stretching along each direction
     # (ONLY Z for now. We need to decide what function we want to use for x and y)
     #-----------------------------------------------------------------
-    xstretch_flg, ystretch_flg, zstretch_flg = 0, 0, 1
-    xstretch_coe, ystretch_coe, zstretch_coe = 1.5, 1.5, 2.6
-    (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching_cube(xmin, xmax,
-                                                                                     ymin, ymax,
-                                                                                     zmin, zmax,
-                                                                                     Ne,
-                                                                                     xstretch_flg, ystretch_flg, zstretch_flg,
-                                                                                     xstretch_coe, ystretch_coe, zstretch_coe,
-                                                                                     dim)
-    
+    if stretch_on == 1
+        xstretch_flg, ystretch_flg, zstretch_flg = 0, 0, 1
+        xstretch_coe, ystretch_coe, zstretch_coe = 1.5, 1.5, 2.6
+        (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching_cube(xmin, xmax,
+                                                                                         ymin, ymax,
+                                                                                         zmin, zmax,
+                                                                                         Ne,
+                                                                                         xstretch_flg, ystretch_flg, zstretch_flg,
+                                                                                         xstretch_coe, ystretch_coe, zstretch_coe,
+                                                                                         dim)
+        
+        #-----------------------------------------------------------------
+        
+        x_range, y_range, z_range = x_range_stretched, y_range_stretched, z_range_stretched      
+    end
     #-----------------------------------------------------------------
-    x_range, y_range, z_range = x_range_stretched, y_range_stretched, z_range_stretched
-    #
     # END grid stretching 
     #-----------------------------------------------------------------
-
-
+    
     
     #-----------------------------------------------------------------
     #Build grid:
@@ -904,7 +920,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex, Ney, Nez)
-    dt = 0.01
+    dt = 0.05
     timeend = 1000
     polynomialorder = Npoly
     DFloat = Float64
