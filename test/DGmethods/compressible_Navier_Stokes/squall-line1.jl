@@ -99,9 +99,9 @@ Npoly = 4
 (Nex, Ney, Nez) = (10, 10, 15)
 
 # Physical domain extents
-const (xmin, xmax) = (-30000,  30000)
-const (ymin, ymax) = (     0,   2000)
-const (zmin, zmax) = (0, 24000)
+const (xmin, xmax) = (-12500,  12500)
+const (ymin, ymax) = (     0,  10000)
+const (zmin, zmax) = (0, 22000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -579,7 +579,7 @@ end
     q_tot = QT/ρ
     q_liq = QL/ρ
     q_rai = QR/ρ
-    q_ice = 0 .*q_tot  
+    q_ice = 0 .*q_tot
     #rain_w  = 
     #q_liq, q_ice, q_rai, e_tot
       
@@ -921,7 +921,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex, Ney, Nez)
-    dt = 0.025
+    dt = 0.1
     timeend = 9000
     polynomialorder = Npoly
     DFloat = Float64
