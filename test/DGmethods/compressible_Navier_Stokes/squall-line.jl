@@ -33,7 +33,7 @@ else
     const ArrayType = Array
 end
 
-# Prognostic equations: ρ, (ρu), (ρv), (ρw), (ρe_tot), (ρq_tot)
+# Prognostic equations: ρ, (U), (V), (W), (E_tot), (Q_tot)
 # For the dry example shown here, we load the moist thermodynamics module
 # and consider the dry equation set to be the same as the moist equations but
 # with total specific humidity = 0.
@@ -43,12 +43,12 @@ using CLIMA.Microphysics
 
 # State labels
 const _nstate = 9
-const _ρ, _ρu, _ρv, _ρw, _ρe_tot, _ρq_tot, _ρq_liq, _ρq_ice, _ρq_rai =1:_nstate
-const stateid = (ρid = _ρ, ρu_id = _ρu, ρv_id = _ρv, ρw_id = _ρw,
-                 ρe_tot_id = _ρe_tot, ρq_tot_id = _ρq_tot, ρq_liq_id = _ρq_liq,
-                 ρq_ice_id = _ρq_ice, ρq_rai_id = _ρq_rai)
-const statenames = ("ρ", "ρu", "ρv", "ρw", "ρe_tot", "ρq_tot", "ρq_liq",
-                    "ρq_ice", "ρq_rai")
+const _ρ, _U, _V, _W, _E_tot, _Q_tot, _Q_liq, _Q_ice, _Q_rai =1:_nstate
+const stateid = (ρid = _ρ, U_id = _U, V_id = _V, W_id = _W,
+                 E_tot_id = _E_tot, Q_tot_id = _Q_tot, Q_liq_id = _Q_liq,
+                 Q_ice_id = _Q_ice, Q_rai_id = _Q_rai)
+const statenames = ("ρ", "U", "V", "W", "E_tot", "Q_tot", "Q_liq",
+                    "Q_ice", "Q_rai")
 
 # Viscous state labels
 const _nviscstates = 22
@@ -61,8 +61,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23,
 
 # Gradient state labels
 const _ngradstates = 9
-const _states_for_gradient_transform = (_ρ, _ρu, _ρv, _ρw, _ρe_tot, _ρq_tot,
-                                        _ρq_liq, _ρq_ice, _ρq_rai)
+const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E_tot, _Q_tot,
+                                        _Q_liq, _Q_ice, _Q_rai)
 
 const _nauxstate = 11
 const _a_z, _a_dx, _a_dy, _a_dz, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_p, _a_soundspeed_air, _a_timescale = 1:_nauxstate
@@ -171,20 +171,20 @@ const Δsqr = Δ * Δ
     @inbounds begin
 
       # unpack model variables
-      ρ, ρu, ρv, ρw, ρq_tot, ρq_liq, ρq_ice, ρq_rai, ρe_tot =
-        Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρq_tot], Q[_ρq_liq], Q[_ρq_ice],
-        Q[_ρq_rai], Q[_ρe_tot]
-      u, v, w, q_tot, q_liq, q_ice, q_rai, e_tot =
-        ρu / ρ, ρv / ρ, ρw / ρ, ρq_tot / ρ, ρq_liq / ρ, ρq_ice / ρ, ρq_rai / ρ,
-        ρe_tot / ρ
+        ρ, U, V, W, E_tot                 = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+        Q_tot, Q_liq, Q_ice, Q_rai        = Q[_Q_tot], Q[_Q_liq], Q[_Q_ice], Q[_Q_rai]
+        u, v, w                           = U/ρ, V/ρ, W/ρ       
+        e_tot                             = E_tot/ρ
+        q_tot, q_liq, q_ice, q_rai, e_tot = Q_tot/ρ, Q_liq/ρ, Q_ice/ρ, Q_rai/ρ
+
 
       # compute rain fall speed
       DF = eltype(ρ)
-      if(q_rai >= DF(0)) #TODO - need a way to prevent negative values
-        rain_w = terminal_velocity(q_rai, ρ)
-      else
+      #if(q_rai >= DF(0)) #TODO - need a way to prevent negative values
+      #  rain_w = terminal_velocity(q_rai, ρ)
+      #else
         rain_w = DF(0)
-      end
+      #end
 
       return (u, v, w, rain_w, ρ, q_tot, q_liq, q_ice, q_rai, e_tot)
     end
@@ -193,8 +193,8 @@ end
 #-------------------------------------------------------------------------
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, u, v, w, rain_w, ρ, q_tot, q_liq,
-                           q_ice, q_rai, e_tot)
+@inline function wavespeed(n, Q, aux, t, u, v, w, rain_w, ρ,
+                           q_tot, q_liq, q_ice, q_rai, e_tot)
     @inbounds begin
         (n[1] * u + n[2] * v + n[3] * max(abs(w), abs(rain_w), abs(w-rain_w))) +
           aux[_a_soundspeed_air]
@@ -247,17 +247,17 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         # Inviscid contributions
         F[1, _ρ],  F[2, _ρ],  F[3, _ρ]  = ρ * u, ρ * v, ρ * w
 
-        F[1, _ρu],  F[2, _ρu],  F[3, _ρu]  = u * ρ * u  + p , v * ρ * u      , w * ρ * u
-        F[1, _ρv],  F[2, _ρv],  F[3, _ρv]  = u * ρ * v      , v * ρ * v + p  , w * ρ * v
-        F[1, _ρw],  F[2, _ρw],  F[3, _ρw]  = u * ρ * w      , v * ρ * w      , w * ρ * w + p
+        F[1, _U],  F[2, _U],  F[3, _U]  = u * ρ * u  + p , v * ρ * u      , w * ρ * u
+        F[1, _V],  F[2, _V],  F[3, _V]  = u * ρ * v      , v * ρ * v + p  , w * ρ * v
+        F[1, _W],  F[2, _W],  F[3, _W]  = u * ρ * w      , v * ρ * w      , w * ρ * w + p
 
-        F[1, _ρe_tot],  F[2, _ρe_tot],  F[3, _ρe_tot]  = u * (ρ * e_tot + p), v * (ρ * e_tot + p), w * (ρ * e_tot + p)
+        F[1, _E_tot],  F[2, _E_tot],  F[3, _E_tot]  = u * (ρ * e_tot + p), v * (ρ * e_tot + p), w * (ρ * e_tot + p)
 
-        F[1, _ρq_tot], F[2, _ρq_tot], F[3, _ρq_tot] = u * ρ * q_tot, v * ρ * q_tot, w * ρ * q_tot
-        F[1, _ρq_liq], F[2, _ρq_liq], F[3, _ρq_liq] = u * ρ * q_liq, v * ρ * q_liq, w * ρ * q_liq
-        F[1, _ρq_ice], F[2, _ρq_ice], F[3, _ρq_ice] = u * ρ * q_ice, v * ρ * q_ice, w * ρ * q_ice
+        F[1, _Q_tot], F[2, _Q_tot], F[3, _Q_tot] = u * ρ * q_tot, v * ρ * q_tot, w * ρ * q_tot
+        F[1, _Q_liq], F[2, _Q_liq], F[3, _Q_liq] = u * ρ * q_liq, v * ρ * q_liq, w * ρ * q_liq
+        F[1, _Q_ice], F[2, _Q_ice], F[3, _Q_ice] = u * ρ * q_ice, v * ρ * q_ice, w * ρ * q_ice
 
-        F[1, _ρq_rai], F[2, _ρq_rai], F[3, _ρq_rai] = u * ρ * q_rai, v * ρ * q_rai, (w - rain_w) * ρ * q_rai
+        F[1, _Q_rai], F[2, _Q_rai], F[3, _Q_rai] = u * ρ * q_rai, v * ρ * q_rai, (w - rain_w) * ρ * q_rai
 
         #Derivative of q_tot, q_liq, q_ice, q_rai, T:
         vq_tot_x, vq_tot_y, vq_tot_z = VF[_q_tot_x], VF[_q_tot_y], VF[_q_tot_z]
@@ -283,21 +283,21 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         τ23 = τ32 = VF[_τ23] * ν_e
 
         # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-        F[1, _ρu] -= τ11; F[2, _ρu] -= τ12; F[3, _ρu] -= τ13
-        F[1, _ρv] -= τ21; F[2, _ρv] -= τ22; F[3, _ρv] -= τ23
-        F[1, _ρw] -= τ31; F[2, _ρw] -= τ32; F[3, _ρw] -= τ33
+        F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
+        F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
+        F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
 
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
         # TODO should it also depend on q_tot gradients?
-        F[1, _ρe_tot] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
-        F[2, _ρe_tot] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
-        F[3, _ρe_tot] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
+        F[1, _E_tot] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
+        F[2, _E_tot] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
+        F[3, _E_tot] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
 
         # Viscous contributions to mass flux terms
-        F[1, _ρq_tot] -= vq_tot_x * D_e;    F[2, _ρq_tot] -= vq_tot_y * D_e;    F[3, _ρq_tot] -= vq_tot_z * D_e
-        F[1, _ρq_liq] -= vq_liq_x * D_e_ql; F[2, _ρq_liq] -= vq_liq_y * D_e_ql; F[3, _ρq_liq] -= vq_liq_z * D_e_ql
-        F[1, _ρq_ice] -= vq_ice_x * D_e_qi; F[2, _ρq_ice] -= vq_ice_y * D_e_qi; F[3, _ρq_ice] -= vq_ice_z * D_e_qi
-        F[1, _ρq_rai] -= vq_rai_x * D_e_qr; F[2, _ρq_rai] -= vq_rai_y * D_e_qr; F[3, _ρq_rai] -= vq_rai_z * D_e_qr
+        F[1, _Q_tot] -= vq_tot_x * D_e;    F[2, _Q_tot] -= vq_tot_y * D_e;    F[3, _Q_tot] -= vq_tot_z * D_e
+        F[1, _Q_liq] -= vq_liq_x * D_e_ql; F[2, _Q_liq] -= vq_liq_y * D_e_ql; F[3, _Q_liq] -= vq_liq_z * D_e_ql
+        F[1, _Q_ice] -= vq_ice_x * D_e_qi; F[2, _Q_ice] -= vq_ice_y * D_e_qi; F[3, _Q_ice] -= vq_ice_z * D_e_qi
+        F[1, _Q_rai] -= vq_rai_x * D_e_qr; F[2, _Q_rai] -= vq_rai_y * D_e_qr; F[3, _Q_rai] -= vq_rai_z * D_e_qr
     end
 end
 
@@ -317,7 +317,7 @@ gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,
 
         # TODO
         # ordering should match states_for_gradient_transform
-        #_states_for_gradient_transform = (_ρ, _ρu, _ρv, _ρw, _ρe_tot, _ρq_tot, _ρq_liq, _ρq_ice, _ρq_rai)
+        #_states_for_gradient_transform = (_ρ, _U, _V, _W, _E_tot, _Q_tot, _Q_liq, _Q_ice, _Q_rai)
 
         vel[1], vel[2], vel[3] = u, v, w
 
@@ -507,13 +507,13 @@ end
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t,
                           u, v, w, rain_wM, ρ, q_tot, q_liq, q_ice, q_rai, e_tot)
     @inbounds begin
-        ρu_M, ρv_M, ρw_M = QM[_ρu], QM[_ρv], QM[_ρw]
+        U_M, V_M, W_M = QM[_U], QM[_V], QM[_W]
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
-        ρu_nM = nM[1] * ρu_M + nM[2] * ρv_M + nM[3] * ρw_M
-        QP[_ρu] = ρu_M - 2 * nM[1] * ρu_nM
-        QP[_ρv] = ρv_M - 2 * nM[2] * ρu_nM
-        QP[_ρw] = ρw_M - 2 * nM[3] * ρu_nM
+        U_nM = nM[1] * U_M + nM[2] * V_M + nM[3] * W_M
+        QP[_U] = U_M - 2 * nM[1] * U_nM
+        QP[_V] = V_M - 2 * nM[2] * U_nM
+        QP[_W] = W_M - 2 * nM[3] * U_nM
         VFP .= 0
         nothing
     end
@@ -544,8 +544,8 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
 
     # Typically these sources are imported from modules
     @inbounds begin
-        source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
-                             q_tot, q_liq, q_ice, q_rai, e_tot)
+        #source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
+        #                     q_tot, q_liq, q_ice, q_rai, e_tot)
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
         source_geostrophic!(S, Q, aux, t)
@@ -578,8 +578,8 @@ end
     # cloud water condensation/evaporation
     src_q_liq = conv_q_vap_to_q_liq(q_eq, q)
     #src_q_ice = conv_q_vap_to_q_ice(q_eq, q)
-    S[_ρq_liq] += ρ * src_q_liq
-    #S[_ρq_ice] += ρ * src_q_ice
+    S[_Q_liq] += ρ * src_q_liq
+    #S[_Q_ice] += ρ * src_q_ice
 
     # tendencies from rain
     # TODO - ensure positive definite
@@ -596,13 +596,13 @@ end
 
     src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap# + src_q_rai_acnv_ice + src_q_rai_accr_ice
 
-    S[_ρq_liq] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
-    #S[_ρq_ice] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
+    S[_Q_liq] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
+    #S[_Q_ice] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
 
-    S[_ρq_rai] += ρ * src_q_rai_tot
-    S[_ρq_tot] -= ρ * src_q_rai_tot
+    S[_Q_rai] += ρ * src_q_rai_tot
+    S[_Q_tot] -= ρ * src_q_rai_tot
 
-    S[_ρe_tot] -= (
+    S[_E_tot] -= (
                     src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
                     (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0))# -
                     #(src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))
@@ -620,33 +620,33 @@ end
     v_geostrophic = DFloat(-5.5)
     @inbounds begin
         ρ = Q[_ρ]
-        ρu = Q[_ρu]
-        ρv = Q[_ρv]
-        S[_ρu] -= f_coriolis * (ρu - ρ * u_geostrophic)
-        S[_ρv] -= f_coriolis * (ρu - ρ * v_geostrophic)
+        U = Q[_U]
+        V = Q[_V]
+        S[_U] -= f_coriolis * (U - ρ * u_geostrophic)
+        S[_V] -= f_coriolis * (U - ρ * v_geostrophic)
     end
 end
 
 @inline function source_sponge!(S,Q,aux,t)
     @inbounds begin
-        ρu, ρv, ρw  = Q[_ρu], Q[_ρv], Q[_ρw]
+        U, V, W  = Q[_U], Q[_V], Q[_W]
         beta     = aux[_a_sponge]
-        S[_ρu] -= beta * ρu
-        S[_ρv] -= beta * ρv
-        S[_ρw] -= beta * ρw
+        S[_U] -= beta * U
+        S[_V] -= beta * V
+        S[_W] -= beta * W
     end
 end
 
 @inline function source_geopot!(S,Q,aux,t)
-    @inbounds S[_ρw] += - Q[_ρ] * grav
+    @inbounds S[_W] += - Q[_ρ] * grav
 end
 
 # Test integral exactly according to the isentropic vortex example
 @inline function integral_knl(val, Q, aux)
     κ = 85
     @inbounds begin
-        ρ, ρq_liq = Q[_ρ], Q[_ρq_liq]
-        q_liq = ρq_liq / ρ
+        ρ, Q_liq = Q[_ρ], Q[_Q_liq]
+        q_liq = Q_liq / ρ
         val[1] = ρ * κ * q_liq
     end
 end
@@ -654,16 +654,16 @@ end
 function preodefun!(disc, Q, t)
     DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
         @inbounds let
-            ρ, ρu, ρv, ρw, ρe_tot, ρq_tot, ρq_liq, ρq_ice, ρq_rai =
-              Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot], Q[_ρq_liq],
-              Q[_ρq_ice], Q[_ρq_rai]
+            ρ, U, V, W, E_tot, Q_tot, Q_liq, Q_ice, Q_rai =
+              Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E_tot], Q[_Q_tot], Q[_Q_liq],
+              Q[_Q_ice], Q[_Q_rai]
 
             z = aux[_a_z]
             #dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
 
-            q_tot = ρq_tot / ρ; q_liq = ρq_liq / ρ; q_ice = ρq_ice / ρ
-            u = ρu / ρ; v = ρv / ρ; w = ρw / ρ
-            e_tot = ρe_tot / ρ
+            q_tot = Q_tot / ρ; q_liq = Q_liq / ρ; q_ice = Q_ice / ρ
+            u = U / ρ; v = V / ρ; w = W / ρ
+            e_tot = E_tot / ρ
 
             e_int = e_tot - 1//2 * (u^2 + v^2 + w^2) - grav * z
             q     = PhasePartition(q_tot, q_liq, q_ice)
@@ -742,17 +742,17 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     # energy definitions
     u, v, w     = datau, datav, zero(DFloat) #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     
-    ρu          = ρ * u
-    ρv          = ρ * v
-    ρw          = ρ * w
+    U          = ρ * u
+    V          = ρ * v
+    W          = ρ * w
     e_kin       = (u^2 + v^2 + w^2) / 2
     e_pot       = grav * xvert
     e_int       = internal_energy(T, PhasePartition(q_tot))
-    ρe_tot      = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
-    ρq_tot      = ρ * q_tot
+    E_tot      = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
+    Q_tot      = ρ * q_tot
 
-    @inbounds Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot],
-                Q[_ρq_liq], Q[_ρq_ice], Q[_ρq_rai] = ρ, ρu, ρv, ρw, ρe_tot, ρq_tot, DFloat(0), DFloat(0), DFloat(0)
+    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E_tot], Q[_Q_tot],
+                Q[_Q_liq], Q[_Q_ice], Q[_Q_rai] = ρ, U, V, W, E_tot, Q_tot, DFloat(0), DFloat(0), DFloat(0)
 end
 
 function grid_stretching(DFloat,
