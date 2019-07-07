@@ -837,62 +837,61 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 @info " F"
     # This is a actual state/function that lives on the grid
     #@timeit to "IC init" begin
-        # ----------------------------------------------------
-        # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
-        # This driver accepts data in 6 column format
-        # ----------------------------------------------------
-        (sounding, _, ncols) = read_sounding()
+    # ----------------------------------------------------
+    # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
+    # This driver accepts data in 6 column format
+    # ----------------------------------------------------
+    (sounding, _, ncols) = read_sounding()
 
-        # WARNING: Not all sounding data is formatted/scaled
-        # the same. Care required in assigning array values
-        # height theta qv    u     v     pressure
-        zinit, tinit, qinit, uinit, vinit, pinit  =
-            sounding[:, 1], sounding[:, 2], sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
-        #------------------------------------------------------
-        # GET SPLINE FUNCTION
-        #------------------------------------------------------
-        spl_tinit    = Spline1D(zinit, tinit; k=1)
-        spl_qinit    = Spline1D(zinit, qinit; k=1)
-        spl_uinit    = Spline1D(zinit, uinit; k=1)
-        spl_vinit    = Spline1D(zinit, vinit; k=1)
-        spl_pinit    = Spline1D(zinit, pinit; k=1)
+    # WARNING: Not all sounding data is formatted/scaled
+    # the same. Care required in assigning array values
+    # height theta qv    u     v     pressure
+    zinit, tinit, qinit, uinit, vinit, pinit  =
+        sounding[:, 1], sounding[:, 2], sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
+    #------------------------------------------------------
+    # GET SPLINE FUNCTION
+    #------------------------------------------------------
+    spl_tinit    = Spline1D(zinit, tinit; k=1)
+    spl_qinit    = Spline1D(zinit, qinit; k=1)
+    spl_uinit    = Spline1D(zinit, uinit; k=1)
+    spl_vinit    = Spline1D(zinit, vinit; k=1)
+    spl_pinit    = Spline1D(zinit, pinit; k=1)
 
-        initialcondition(Q, x...) = squall_line!(Val(dim), Q, DFloat(0), spl_tinit,
-                                            spl_qinit, spl_uinit, spl_vinit,
-                                            spl_pinit, x...)
+    initialcondition(Q, x...) = squall_line!(Val(dim), Q, DFloat(0), spl_tinit,
+                                             spl_qinit, spl_uinit, spl_vinit,
+                                             spl_pinit, x...)
     Q = MPIStateArray(spacedisc, initialcondition)
     @info " G"
     #end
 
     #@timeit to "Time stepping init" begin
-    
     lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
     @info " H"
         
-        #=eng0 = norm(Q)
-        @info @sprintf """Starting
-        norm(Q₀) = %.16e""" eng0
-        =#
-        # Set up the information callback
-        starttime = Ref(now())
-        cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
-            if s
-                starttime[] = now()
-            else
-                #energy = norm(Q)
-                #globmean = global_mean(Q, _ρ)
-                @info @sprintf("""Update
-                               simtime = %.16e
-                               runtime = %s""",
-                               ODESolvers.gettime(lsrk),
-                               Dates.format(convert(Dates.DateTime,
-                                                    Dates.now()-starttime[]),
-                                            Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
-            end
+    #=eng0 = norm(Q)
+    @info @sprintf """Starting
+    norm(Q₀) = %.16e""" eng0
+    =#
+    # Set up the information callback
+    starttime = Ref(now())
+    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+        if s
+            starttime[] = now()
+        else
+            #energy = norm(Q)
+            #globmean = global_mean(Q, _ρ)
+            @info @sprintf("""Update
+                                   simtime = %.16e
+                                   runtime = %s""",
+                           ODESolvers.gettime(lsrk),
+                           Dates.format(convert(Dates.DateTime,
+                                                Dates.now()-starttime[]),
+                                        Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
         end
+    end
 @info " III"
-#=
-npoststates = 6
+
+    npoststates = 6
 _u, _v, _w, _q_tot, _q_liq, _q_rai = 1:npoststates
 postnames = ("u", "v", "w", "q_tot", "q_liq", "q_rai")
 postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
@@ -900,7 +899,7 @@ postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 step = [0]
 mkpath("vtk-RTB")
 cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
-=#
+
     @info " III1"
     #=DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
