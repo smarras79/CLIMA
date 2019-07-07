@@ -907,27 +907,32 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     DF = eltype(Q)
-                    
+              @info " F1"      
                     u, v, w, rain_w, ρ, q_tot, q_liq, q_ice, q_rai, e_tot =
                       preflux(Q, QV, aux)
-
+@info " F2"
                     e_kin = 1//2 * (u^2 + v^2 + w^2)
+                    @info " F3"
                     e_pot = grav * aux[_a_z]
+                    @info " F4"
                     e_int = e_tot - e_kin - e_pot
+                    @info " F5"
                     q = PhasePartition(q_tot, q_liq, q_ice)
-
+@info " F6"
                     T = air_temperature(e_int, q)
+                    @info " F7"
                     p = aux[_a_p]
+                    @info " F8"
                     tht = liquid_ice_pottemp(T, p, q)
-
+@info " F9"
                     R[out_u] = u
                     R[out_v] = v
                     R[out_w] = w
-
+@info " F10"
                     R[out_q_tot] = q_tot
                     R[out_q_liq] = q_liq
                     R[out_q_rai] = q_rai
-                    
+          @info " F11"          
                 end
             end
 @info " G"
