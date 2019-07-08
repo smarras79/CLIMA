@@ -1004,8 +1004,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 # Initialise the integration computation. Kernels calculate this at every timestep??
 #@timeit to "initial integral" integral_computation(spacedisc, Q, 0)
-#@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=cbinfo)
+@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
 @info @sprintf """Finished...
