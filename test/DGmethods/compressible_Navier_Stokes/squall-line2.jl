@@ -316,6 +316,7 @@ end
 #-------------------------------------------------------------------------
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
+#===
 @inline function wavespeed2(n, Q, aux, t, P, u, v, w, q_tot, q_liq, T, θ)
     gravity::eltype(Q) = grav
     @inbounds begin 
@@ -329,6 +330,7 @@ end
         abs(n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
     end
 end
+===#
 
 # -------------------------------------------------------------------------
 # ### read sounding
@@ -569,7 +571,7 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
 
     # Typically these sources are imported from modules
     @inbounds begin
-        source_microphysics!(S, Q, aux, t, u, v, w, w_rai, ρ, q_tot, q_liq, q_rai, e_tot)
+        #source_microphysics!(S, Q, aux, t, u, v, w, w_rai, ρ, q_tot, q_liq, q_rai, e_tot)
         source_sponge!(S, Q, aux, t)
         source_geopot!(S, Q, aux, t)       
     end
