@@ -709,7 +709,7 @@ function preodefun!(disc, Q, t)
         end
     end
 
-    integral_computation(disc, Q, t)
+    #integral_computation(disc, Q, t)
 end
 
 function integral_computation(disc, Q, t)
@@ -937,12 +937,12 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         npoststates = 18
         out_z, out_u, out_v, out_w, out_e_tot, out_e_int, out_e_kin, out_e_pot, out_p, out_beta, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai, out_rain_w, out_tht = 1:npoststates
         postnames = ("height", "u", "v", "w", "e_tot", "e_int", "e_kin", "e_pot", "p", "beta", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai", "rain_w", "theta")
-        postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+        #postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        mkpath("./CLIMA-output-scratch/vtk-sq-working")
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(3600) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
-            DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
+        #mkpath("./CLIMA-output-scratch/vtk-sq-working")
+        #=cbvtk = GenericCallbacks.EveryXSimulationSteps(3600) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
+              DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     DF = eltype(Q)
 
@@ -985,7 +985,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                       R[out_rain_w] = DF(0)
                     end
                 end
-            end
+              end #end DGBalanceLawDiscretizations.dof_iteration
 
             outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq-working/sql_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
@@ -995,14 +995,15 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
             step[1] += 1
             nothing
-        end
+        end 
+=#
     end
 
 @info @sprintf """Starting...
             norm(Q) = %25.16e""" norm(Q)
 
 # Initialise the integration computation. Kernels calculate this at every timestep??
-@timeit to "initial integral" integral_computation(spacedisc, Q, 0)
+#@timeit to "initial integral" integral_computation(spacedisc, Q, 0)
 @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
