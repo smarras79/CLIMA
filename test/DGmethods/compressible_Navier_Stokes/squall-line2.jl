@@ -920,7 +920,7 @@ cbvtk = GenericCallbacks.EveryXSimulationSteps(3600) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
                                                    @inbounds let
-                                                       (R[_u], R[_v], R[_w], R[_w_rai_out], R[_ρ_out], R[_qt_out], R[_ql_out], R[_qr_out], R[_et_out]) = (preflux(Q, QV, aux))
+                                                       (R[_u_out], R[_v_out], R[_w_out], R[_w_rai_out], R[_ρ_out], R[_qt_out], R[_ql_out], R[_qr_out], R[_et_out]) = (preflux(Q, QV, aux))
                                                    end
                                                end
     outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq2/sql_%dD_mpirank%04d_step%04d", dim,
