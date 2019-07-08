@@ -67,7 +67,7 @@ end
 @parameter cp_over_prandtl cp_d / Prandtl_t "cp_over_prandtl"
 
 # Random number seed
-#const seed = MersenneTwister(0)
+const seed = MersenneTwister(0)
 
 # Problem description 
 # --------------------
@@ -557,11 +557,11 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     datap          = DFloat(spl_pinit(xvert))
     dataq          = dataq / 1000
 
-    #randnum1   = rand(seed, DFloat) / 100
-    #randnum2   = rand(seed, DFloat) / 100
+    randnum1   = rand(seed, DFloat) / 100
+    randnum2   = rand(seed, DFloat) / 100
 
-    θ_liq = datat + datat #randnum1 * datat
-    q_tot = dataq + dataq #randnum2 * dataq
+    θ_liq = datat + randnum1 * datat
+    q_tot = dataq + randnum2 * dataq
     P     = datap
     T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
     ρ     = air_density(T, P)
