@@ -415,14 +415,14 @@ end
 #md # calculations. (An example of this will follow - in the Smagorinsky model,
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
-@inline function auxiliary_state_initialization!(aux, x, y, z, dx, dy, dz)
+@inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         DFloat = eltype(aux)
         aux[_a_z] = z
 
-        aux[_a_dx] = dx
-        aux[_a_dy] = dy
-        aux[_a_dz] = dz
+        #aux[_a_dx] = dx
+        #aux[_a_dy] = dy
+        #aux[_a_dz] = dz
 
         #Sponge
         csleft  = 0.0
@@ -687,7 +687,7 @@ function preodefun!(disc, Q, t)
               Q[_ρq_ice], Q[_ρq_rai]
 
             z = aux[_a_z]
-            dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
+            #dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
 
             q_tot = ρq_tot / ρ; q_liq = ρq_liq / ρ; q_ice = ρq_ice / ρ
             u = ρu / ρ; v = ρv / ρ; w = ρw / ρ
