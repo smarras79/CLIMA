@@ -820,8 +820,12 @@ end
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 
+    x_range_stretched = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)))
+    y_range_stretched = (range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
+    z_range_stretched = (range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
+    
     #Build stretching along each direction
-    (x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, 0, 0, 1)
+    #(x_range_stretched, y_range_stretched, z_range_stretched) = grid_stretching(DFloat, xmin, xmax, ymin, ymax, zmin, zmax, Ne, 0, 0, 1)
 
     #Build (stretched) grid:
     brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
@@ -911,7 +915,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
         step = [0]
         mkpath("./CLIMA-output-scratch/vtk-sq-working")
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
