@@ -907,6 +907,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
 
+#=
     npoststates = 9
     out_u, out_v, out_w, out_p, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_rai = 1:npoststates
     postnames = ( "u", "v", "w", "p",  "T", "q_tot", "q_vap", "q_liq", "q_rai")
@@ -969,8 +970,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         step[1] += 1
         nothing
     end
+=#
 
-#=
 npoststates = 9
 _u_out, _v_out, _w_out, _w_rai_out, _ρ_out, _qt_out, _ql_out, _qr_out, _et_out = 1:npoststates
 postnames = ("u", "v", "w", "_w_rai_out", "_ρ_out", "q_tot", "q_liq", "q_rai", "E")
@@ -995,7 +996,6 @@ cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
     step[1] += 1
     nothing
 end
-=#
 
 solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
