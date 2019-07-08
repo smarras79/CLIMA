@@ -686,9 +686,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 @inbounds let
                     F_rad_out = radiation(aux)
                     u, v, w = preflux(Q, QV, aux)
-                    R[_int1] = aux[_a_02z]
-                    R[_int2] = aux[_a_z2inf]
-                    R[_betaout] = F_rad_out
+                    #R[_int1] = aux[_a_02z]
+                    #R[_int2] = aux[_a_z2inf]
+                    #R[_betaout] = F_rad_out
                     R[_P] = aux[_a_P]
                     R[_u] = u
                     R[_v] = v
@@ -703,14 +703,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
                      postprocessarray, postnames)
-            #= 
-            pvtuprefix = @sprintf("vtk/cns_%dD_step%04d", dim, step[1])
-            prefixes = ntuple(i->
-            @sprintf("vtk/cns_%dD_mpirank%04d_step%04d",
-            dim, i-1, step[1]),
-            MPI.Comm_size(mpicomm))
-            writepvtu(pvtuprefix, prefixes, postnames)
-            =# 
+           
             step[1] += 1
             nothing
         end
@@ -720,12 +713,12 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         norm(Q) = %25.16e""" norm(Q)
 
 # Initialise the integration computation. Kernels calculate this at every timestep?? 
-@timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
+#@timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
 @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
-@info @sprintf """Finished...
-        norm(Q) = %25.16e""" norm(Q)
+#@info @sprintf """Finished...
+#        norm(Q) = %25.16e""" norm(Q)
 
 #=
 # Print some end of the simulation information
