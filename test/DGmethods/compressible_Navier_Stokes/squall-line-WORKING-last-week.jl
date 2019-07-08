@@ -934,7 +934,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
 
-        npoststates = 8
+        npoststates = 7
         out_u, out_v, out_w, out_T, out_q_tot, out_q_liq, out_q_rai = 1:npoststates
         postnames = ("u", "v", "w", "T", "q_tot", "q_liq",  "q_rai")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
@@ -958,32 +958,17 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     p   = aux[_a_p]
                     tht = liquid_ice_pottemp(T, p, q)
 
-                    R[out_z] = aux[_a_z]
-                    R[out_p] = p
-                    #R[out_beta] = radiation(aux)
                     R[out_T] = T
-                    R[out_tht] = tht
-
+                    
                     R[out_u] = u
                     R[out_v] = v
                     R[out_w] = w
 
                     R[out_q_tot] = q_tot
-                    R[out_q_vap] = q_tot - q_liq - q_ice
                     R[out_q_liq] = q_liq
-                    R[out_q_ice] = q_ice
+                    #R[out_q_ice] = q_ice
                     R[out_q_rai] = q_rai
-
-                    R[out_e_tot] = e_tot
-                    R[out_e_int] = e_int
-                    R[out_e_kin] = e_kin
-                    R[out_e_pot] = e_pot
-
-                    if(q_rai > DF(0)) # TODO - ensure positive definite elswhere
-                      R[out_rain_w] = terminal_velocity(q_rai, ρ)
-                    else
-                      R[out_rain_w] = DF(0)
-                    end
+                    
                 end
               end #end DGBalanceLawDiscretizations.dof_iteration
 
