@@ -48,10 +48,9 @@ const statenames = ("RHO", "U", "V", "W", "E", "QT", "QL", "QR")
 """
     Viscous state labels
     """
-const _nviscstates = 22
+const _nviscstates = 19
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _SijSij,
 _Tx, _Ty, _Tz,
-_ρx, _ρy, _ρz,
 _qtx, _qty, _qtz,
 _qlx, _qly, _qlz,
 _qrx, _qry, _qrz = 1:_nviscstates
@@ -136,8 +135,8 @@ const stretch_on = 0
 #md # In this example the auxiliary function is used to store the spatial
 #md # coordinates and the equivalent grid lengthscale coefficient. 
 # -------------------------------------------------------------------------
-const _nauxstate = 6
-const _a_x, _a_y, _a_z, _a_sponge, _a_p, _a_soundspeed_air = 1:_nauxstate
+const _nauxstate = 7
+const _a_x, _a_y, _a_z, _a_sponge, _a_p, _a_T, _a_soundspeed_air = 1:_nauxstate
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         aux[_a_x] = x
@@ -366,11 +365,17 @@ end
 #md # to cns_flux!
 # -------------------------------------------------------------------------
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
-@inline function cns_flux!(F, Q, VF, aux, t, u, v, w, w_rai, ρ, q_tot, q_liq, q_rai, e_tot)
+@inline function cns_flux!(F, Q, VF, aux, t,
+                           u, v, w, w_rai, ρ,
+                           q_tot, q_liq, q_rai, e_tot)
+#@inline function cns_flux!(F, Q, VF, aux, t, u, v, w, w_rai, ρ, q_tot, q_liq, q_rai, e_tot)
+    
+    
     gravity::eltype(Q) = grav
     @inbounds begin
         ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
         QT, QL, QR    = Q[_QT], Q[_QL], Q[_QR]
+        P = aux[_a_p]
         
         # Inviscid contributions
         F[1, _ρ], F[2, _ρ], F[3, _ρ]    = U          , V          , W
@@ -378,6 +383,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _V], F[2, _V], F[3, _V]    = u * V      , v * V + P  , w * V
         F[1, _W], F[2, _W], F[3, _W]    = u * W      , v * W      , w * W + P
         F[1, _E], F[2, _E], F[3, _E]    = u * (E + P), v * (E + P), w * (E + P)
+        
         F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT
         F[1, _QL], F[2, _QL], F[3, _QL] = u * QL  , v * QL     , w * QL
         F[1, _QR], F[2, _QR], F[3, _QR] = u * QR  , v * QR     , w * QR 
@@ -388,13 +394,13 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         vqrx, vqry, vqrz = VF[_qrx], VF[_qry], VF[_qrz]
         
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-        vρy           = VF[_ρy]
+        #vρz           = VF[_ρz]
         SijSij        = VF[_SijSij]
         
         (ν_e, D_e) = 200, 200 #SubgridScaleTurbulence.standard_smagorinsky(SijSij, Δsqr)
         
         #Richardson contribution:
-        f_R = 1 #SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρy)
+        f_R = 1 #SubgridScaleTurbulence.buoyancy_correction(SijSij, ρ, vρz)
         
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -437,24 +443,26 @@ end
 """
     Number of variables of which gradients are required 
     """
-const _ngradstates = 9 #this should be equal to the max index in gradoet_vars!
+const _ngradstates = 8 #this should be equal to the max index in gradoet_vars!
 # Compute the velocity from the state
 gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,~,aux)...)
 @inline function gradient_vars!(gradient_list, Q, aux, t, u, v, w, w_rai, ρ, q_tot, q_liq, q_rai, e_tot)
     @inbounds begin
         
         # ordering should match states_for_gradient_transform
-        ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-        QT = Q[_QT]
-        QL = Q[_QL]
-        QR = Q[_QR]
+        #ρ, U, V, W, E = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
+        #QT = Q[_QT]
+        #QL = Q[_QL]
+        #QR = Q[_QR]
+        T = aux[_a_T]
         
         gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
-        gradient_list[4], gradient_list[6] = E, T
-        gradient_list[5] = QT
-        gradient_list[7] = ρ
-        gradient_list[8] = QL
-        gradient_list[9] = QR
+        gradient_list[4], gradient_list[5], gradient_list[6], gradient_list[7], gradient_list[8] = e_tot, q_tot, q_liq, q_rai, T
+        #gradient_list[4], gradient_list[6] = E, T
+        #gradient_list[5] = QT        
+        #gradient_list[6] = QL
+        #gradient_list[7] = QR
+        #gradient_list[8] = ρ
     end
 end
 
@@ -474,12 +482,9 @@ end
 
         # compute gradients of moist vars and temperature
         dqtdx, dqtdy, dqtdz = gradient_list[1, 5], gradient_list[2, 5], gradient_list[3, 5]
-
-        dTdx, dTdy, dTdz = gradient_list[1, 6], gradient_list[2, 6], gradient_list[3, 6]
-        dρdx, dρdy, dρdz = gradient_list[1, 7], gradient_list[2, 7], gradient_list[3, 7]
-        
-        dqldx, dqldy, dqldz = gradient_list[1, 8], gradient_list[2, 8], gradient_list[3, 8]
-        dqrdx, dqrdy, dqrdz = gradient_list[1, 9], gradient_list[2, 9], gradient_list[3, 9]
+        dqldx, dqldy, dqldz = gradient_list[1, 6], gradient_list[2, 6], gradient_list[3, 6]
+        dqrdx, dqrdy, dqrdz = gradient_list[1, 7], gradient_list[2, 7], gradient_list[3, 7]
+        dTdx,  dTdy,  dTdz  = gradient_list[1, 8], gradient_list[2, 8], gradient_list[3, 8]
         
         # virtual potential temperature gradient: for richardson calculation
         # strains
@@ -505,7 +510,6 @@ end
         VF[_τ13] = 2 * S13
         VF[_τ23] = 2 * S23
         
-        VF[_ρx], VF[_ρy], VF[_ρz]    = dρdx, dρdy, dρdz
         VF[_Tx], VF[_Ty], VF[_Tz]    = dTdx, dTdy, dTdz
         VF[_qtx], VF[_qty], VF[_qtz] = dqtdx, dqtdy, dqtdz
         VF[_qlx], VF[_qly], VF[_qlz] = dqldx, dqldy, dqldz
@@ -518,7 +522,7 @@ end
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
 
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, q_totM, q_liqM, TM, θM)
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, w_rainM, q_totM, q_liqM, TM, θM)
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         
@@ -558,15 +562,14 @@ end
 end
 # -------------------------------------------------------------------------
 
-@inline function source!(S,Q,aux,t)
+source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
+@inline function source!(S, Q, aux, t, u, v, w, w_rai, ρ, q_tot, q_liq, q_rai, e_tot)
     # Initialise the final block source term 
     S .= 0
 
     # Typically these sources are imported from modules
     @inbounds begin
-        source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
-                             q_tot, q_liq, q_rai, e_tot)
-        
+        source_microphysics!(S, Q, aux, t, u, v, w, w_rai, ρ, q_tot, q_liq, q_rai, e_tot)
         source_sponge!(S, Q, aux, t)
         source_geopot!(S, Q, aux, t)       
     end
@@ -591,39 +594,28 @@ end
     end
 end
 
-#@inline function source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
-#                                      q_tot, q_liq, q_ice, q_rai, e_tot)
-@inline function source_microphysics!(S, Q, aux, t)
+
+###
+@inline function source_microphysics!(S, Q, aux, t, u, v, w, w_rai, ρ,
+                             q_tot, q_liq, q_rai, e_tot)
 
   DF = eltype(Q)
 
   @inbounds begin
 
     z = aux[_a_z]
-      
-    ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-    QT, QL, QR     = Q[_QT], Q[_QL], Q[_QR]
-    u, v, w        = U/ρ, V/ρ, W/ρ
-    e_tot          = E/ρ
-      
-    q_tot = QT/ρ
-    q_liq = QL/ρ
-    q_rai = 0. *QR/ρ
-    q_ice = 0 .*q_tot
-    #rain_w  = 
-    #q_liq, q_ice, q_rai, e_tot
-      
+    p = aux[_a_p]
+
     #TODO - tmp
     q_tot = max(DF(0), q_tot)
     q_liq = max(DF(0), q_liq)
-    q_ice = max(DF(0), q_ice)
+    q_ice = 0 .* q_tot #max(DF(0), q_ice)
     q_rai = max(DF(0), q_rai)
 
     # current state
     e_int = e_tot - 1//2 * (u^2 + v^2 + w^2) - grav * z
     q     = PhasePartition(q_tot, q_liq, q_ice)
     T     = air_temperature(e_int, q)
-    p     = air_pressure(T, ρ, q)
     # equilibrium state at current T
     q_eq = PhasePartition_equil(T, ρ, q_tot)
 
@@ -631,7 +623,7 @@ end
     src_q_liq = conv_q_vap_to_q_liq(q_eq, q)
     #src_q_ice = conv_q_vap_to_q_ice(q_eq, q)
     S[_QL] += ρ * src_q_liq
-    #S[_QI] += ρ * src_q_ice
+    #S[_ρq_ice] += ρ * src_q_ice
 
     # tendencies from rain
     # TODO - ensure positive definite
@@ -648,22 +640,21 @@ end
 
     src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap# + src_q_rai_acnv_ice + src_q_rai_accr_ice
 
-#    S[_QL] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
-    #S[_QI] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
-      
-#    S[_QR] += ρ * src_q_rai_tot
-#    S[_QT] -= ρ * src_q_rai_tot
-      
-#=    S[_E] -= (
-        src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
-        (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0))# -
-        #(src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))
+    S[_QL] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
+    #S[_ρq_ice] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
+
+    S[_QR] += ρ * src_q_rai_tot
+    S[_QT] -= ρ * src_q_rai_tot
+
+    S[_E] -= (
+                    src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
+                    (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0))# -
+                    #(src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))
                   ) * ρ
-=#
-      
     #end
   end
 end
+###
 
 
 function preodefun!(disc, Q, t)
@@ -775,7 +766,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     e_pot      = grav * xvert
     e_int      = internal_energy(T, PhasePartition(q_tot))
     E          = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
-    Q_tot      = ρ * q_tot
+    Q_tot      = 0 .*ρ * q_tot
     Q_liq      = 0 .*Q_tot
     Q_rai      = 0 .*Q_tot
     
@@ -917,22 +908,23 @@ cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
     end
 end
 
-npoststates = 8
-_u_out, _v_out, _w_out, _w_rai_out, _qt_out, _ql_out, _qr_out, _et_out = 1:npoststates
+npoststates = 9
+_u_out, _v_out, _w_out, _w_rai_out, _ρ_out, _qt_out, _ql_out, _qr_out, _et_out = 1:npoststates
 postnames = ("u", "v", "w", "q_tot", "q_liq", "q_rai")
 postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
 step = [0]
-mkpath("/central/scratch/smarras/vtk-sq")
+mkpath("vtk-sq")
+#mkpath("./CLIMA-output-scratch/vtk-sq2")
 cbvtk = GenericCallbacks.EveryXSimulationSteps(3600) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
                                                    @inbounds let
-                                                       (R[_u], R[_v], R[_w], R[_w_rai_out], R[_qt_out], R[_ql_out], R[_qr_out], R[_et_out]) = (preflux(Q, QV, aux))
+                                                       (R[_u], R[_v], R[_w], R[_w_rai_out], R[_ρ_out], R[_qt_out], R[_ql_out], R[_qr_out], R[_et_out]) = (preflux(Q, QV, aux))
                                                    end
                                                end
-
-    outprefix = @sprintf("/central/scratch/smarras/vtk-sq/sql_%dD_mpirank%04d_step%04d", dim,
+    outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq2/sql_%dD_mpirank%04d_step%04d", dim,
+#    outprefix = @sprintf("vtk-sq/sql_%dD_mpirank%04d_step%04d", dim,
                          MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, spacedisc, statenames,
