@@ -893,31 +893,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
      @info @sprintf """ H"""
-        #=
-        # Courant start
-        #
-        #@show(spacedisc.auxstate)
-        cfl_safety_factor = 0.85
-        Courant_max = dt * global_max(spacedisc.auxstate, _a_timescale)
-        
-        @info @sprintf("""Courant_max = %.16e ------ %.16e """, Courant_max, global_max(spacedisc.auxstate, _a_timescale))
-
-        if (Courant_max >= 1)
-            dt = dt / Courant_max * cfl_safety_factor
-        else
-            dt = cfl_safety_factor / Courant_max * dt
-        end
-
-        ODESolvers.updatedt!(lsrk, dt)
-        @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt Courant_max
-        #
-        # Courant end
-        =#
-        
-        #=eng0 = norm(Q)
-        @info @sprintf """Starting
-        norm(Q₀) = %.16e""" eng0
-        =#
+       
         # Set up the information callback
         starttime = Ref(now())
         cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
@@ -943,15 +919,15 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         out_u, out_v, out_w, out_T, out_q_tot, out_q_liq, out_q_rai = 1:npoststates
         postnames = ("u", "v", "w", "T", "q_tot", "q_liq",  "q_rai")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
-    @info @sprintf """ L"""
+   # @info @sprintf """ L"""
         step = [0]
         mkpath("./CLIMA-output-scratch/vtk-sq-working")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
-                @info @sprintf """ M"""
-  #=          DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
-                 @info @sprintf """ N"""
+            @info @sprintf """ M"""
+            DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
+     #            @info @sprintf """ N"""
                 @inbounds let
-                  #=  DF = eltype(Q)
+                    DF = eltype(Q)
 
                     u, v, w, rain_w, ρ, q_tot, q_liq, q_ice, q_rai, e_tot =
                       preflux(Q, QV, aux)
@@ -965,24 +941,25 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     p   = aux[_a_p]
                     tht = liquid_ice_pottemp(T, p, q)
 =#
-                    R[out_T] = 0.0 #T
+                    R[out_T] = T
                     
-                    R[out_u] = 0.0 #u
-                    R[out_v] = 0.0 #v
-                    R[out_w] = 0.0 #w
+                    R[out_u] = u
+                    R[out_v] = v
+                    R[out_w] = w
 
-                    R[out_q_tot] = 0.0 #q_tot
-                    R[out_q_liq] = 0.0 #q_liq
+                    R[out_q_tot] = q_tot
+                    R[out_q_liq] = q_liq
                     #R[out_q_ice] = q_ice
-                    R[out_q_rai] = 0.0 #q_rai
+                    R[out_q_rai] = q_rai
                     
                 end
               end #end DGBalanceLawDiscretizations.dof_iteration
-=#
+
             outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq-working/sql_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
-            #writevtk(outprefix, Q, spacedisc, statenames,  postprocessarray, postnames)
+            writevtk(outprefix, Q, spacedisc, statenames,
+                     postprocessarray, postnames)
  @info @sprintf """ O"""
             step[1] += 1
             nothing
