@@ -948,7 +948,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         mkpath("./CLIMA-output-scratch/vtk-sq-working")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
                 @info @sprintf """ M"""
-            DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
+  #=          DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                  @info @sprintf """ N"""
                 @inbounds let
                   #=  DF = eltype(Q)
@@ -978,7 +978,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     
                 end
               end #end DGBalanceLawDiscretizations.dof_iteration
-
+=#
             outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq-working/sql_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
