@@ -940,7 +940,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     T   = air_temperature(e_int, q)
                     p   = aux[_a_p]
                     tht = liquid_ice_pottemp(T, p, q)
-=#
+                    
                     R[out_T] = T
                     
                     R[out_u] = u
