@@ -118,8 +118,10 @@ else
     Δz = Lz / ((Nez * Npoly) + 1)
 end
 
-DoF = (Nex*Npoly+1)*(Ney*Npoly+1)*(Nez*Npoly+1)*(_nstate + _nviscstates)
-Memory_need_estimate = DoF*16
+
+DoF = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate)
+DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstate + CLIMA.Grids._nvgeo) +
+    (Nex*Ney*Nez)*(Npoly+1)^(numdims-1)*2^numdims*(CLIMA.Grids._nsgeo)
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
@@ -572,10 +574,14 @@ end
     This function specifies the initial conditions
     for the dycoms driver. 
     """
-function dycoms!(dim, Q, t, x, y, z, _...)
+#function dycoms!(dim, Q, t, x, y, z, _...)
+function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
+                 spl_pinit, x, y, z, _...)
+    
     DFloat         = eltype(Q)
     p0::DFloat      = MSLP
-    
+
+    #=
     # ----------------------------------------------------
     # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
     # This driver accepts data in 6 column format
@@ -599,6 +605,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     spl_uinit    = Spline1D(zinit, uinit; k=1)
     spl_vinit    = Spline1D(zinit, vinit; k=1)
     spl_pinit    = Spline1D(zinit, pinit; k=1)
+    =#
     # --------------------------------------------------
     # INITIALISE ARRAYS FOR INTERPOLATED VALUES
     # --------------------------------------------------
@@ -681,9 +688,34 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              source! = source!,
                              preodefun! = integral_computation)
 
+     # This is a actual state/function that lives on the grid
+    # ----------------------------------------------------
+    # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
+    # This driver accepts data in 6 column format
+    # ----------------------------------------------------
+    (sounding, _, ncols) = read_sounding()
+
+    # WARNING: Not all sounding data is formatted/scaled
+    # the same. Care required in assigning array values
+    # height theta qv    u     v     pressure
+    zinit, tinit, qinit, uinit, vinit, pinit  =
+        sounding[:, 1], sounding[:, 2], sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
+    #------------------------------------------------------
+    # GET SPLINE FUNCTION
+    #------------------------------------------------------
+    spl_tinit    = Spline1D(zinit, tinit; k=1)
+    spl_qinit    = Spline1D(zinit, qinit; k=1)
+    spl_uinit    = Spline1D(zinit, uinit; k=1)
+    spl_vinit    = Spline1D(zinit, vinit; k=1)
+    spl_pinit    = Spline1D(zinit, pinit; k=1)
+
+    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit,
+                                        spl_qinit, spl_uinit, spl_vinit,
+                                        spl_pinit, x...)
+    Q = MPIStateArray(spacedisc, initialcondition)     
     # This is a actual state/function that lives on the grid
-    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
-    Q = MPIStateArray(spacedisc, initialcondition)
+    #initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
+    #Q = MPIStateArray(spacedisc, initialcondition)
     
     lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
@@ -802,24 +834,24 @@ let
     dim = numdims
 
     if MPI.Comm_rank(mpicomm) == 0
-        @info @sprintf """ ----------------------------------------------------"""
-        @info @sprintf """   ______ _      _____ __  ________                  """     
-        @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |               """  
-        @info @sprintf """  | |    | |      | | |   .   | |  | |               """ 
-        @info @sprintf """  | |    | |      | | | |   | | |__| |               """
-        @info @sprintf """  | |____| |____ _| |_| |   | | |  | |               """
-        @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|               """
-        @info @sprintf """                                                     """
-        @info @sprintf """ ----------------------------------------------------"""
-        @info @sprintf """ Dycoms                                              """
-        @info @sprintf """   Resolution:                                       """ 
-        @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)             """ Δx Δy Δz
-        @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                  """ Nex Ney Nez
-        @info @sprintf """     DoF = %d                                        """ DoF
-        @info @sprintf """     Minimum necessary memory to run this test: %d   """ Memory_need_estimate
-        @info @sprintf """     Time step dt: %.2e                              """ dt
-        @info @sprintf """     End time  t : %d                                """ timeend
-        @info @sprintf """ ----------------------------------------------------"""
+        @info @sprintf """ ------------------------------------------------------"""
+        @info @sprintf """   ______ _      _____ __  ________                    """     
+        @info @sprintf """  |  ____| |    |_   _|  ...  |  __  |                 """  
+        @info @sprintf """  | |    | |      | | |   .   | |  | |                 """ 
+        @info @sprintf """  | |    | |      | | | |   | | |__| |                 """
+        @info @sprintf """  | |____| |____ _| |_| |   | | |  | |                 """
+        @info @sprintf """  | _____|______|_____|_|   |_|_|  |_|                 """
+        @info @sprintf """                                                       """
+        @info @sprintf """ ------------------------------------------------------"""
+        @info @sprintf """ Dycoms                                                """
+        @info @sprintf """   Resolution:                                         """ 
+        @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
+        @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                    """ Nex Ney Nez
+        @info @sprintf """     DoF = %d                                          """ DoF
+        @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(DFloat))/1000^3
+        @info @sprintf """     Time step dt: %.2e                                """ dt
+        @info @sprintf """     End time  t : %d                                  """ timeend
+        @info @sprintf """ ------------------------------------------------------"""
     end
     
     engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
