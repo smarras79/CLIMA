@@ -86,9 +86,9 @@ const k_μ       = cp_d / Prandtl
 # Define grid size
 #
 const numdims = 3
-Δx    =  250
-Δy    =  500
-Δz    =  200
+Δx    =   250
+Δy    =  1000
+Δz    =   200
 Npoly = 4
 
 #
@@ -99,9 +99,9 @@ Npoly = 4
 (Nex, Ney, Nez) = (10, 10, 15)
 
 # Physical domain extents
-const (xmin, xmax) = (-12500,  12500)
-const (ymin, ymax) = (     0,  1000)
-const (zmin, zmax) = (0, 22000)
+const (xmin, xmax) = (-30000,  30000)
+const (ymin, ymax) = (     0,   5000)
+const (zmin, zmax) = (     0,  24000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -860,8 +860,8 @@ postnames = ("P", "u", "v", "w", "q_tot", "q_liq", "T", "THETA")
 postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
 step = [0]
-mkpath("./CLIMA-output-scratch/vtk-sq")
-cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+mkpath("/central/scratch/smarras/vtk-sq")
+cbvtk = GenericCallbacks.EveryXSimulationSteps(3600) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
                                                    @inbounds let
@@ -869,7 +869,7 @@ cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
                                                    end
                                                end
 
-    outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq/sql_%dD_mpirank%04d_step%04d", dim,
+    outprefix = @sprintf("/central/scratch/smarras/vtk-sq/sql_%dD_mpirank%04d_step%04d", dim,
                          MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
     writevtk(outprefix, Q, spacedisc, statenames,
