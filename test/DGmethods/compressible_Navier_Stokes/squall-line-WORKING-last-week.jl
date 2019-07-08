@@ -826,19 +826,20 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     #Build (stretched) grid:
     brickrange = (x_range_stretched, y_range_stretched, z_range_stretched)
 
+     @info @sprintf """ A"""
 
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
     @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
-
+     @info @sprintf """ B"""
     @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
                                                                    FloatType = DFloat,
                                                                    DeviceArray = ArrayType,
                                                                    polynomialorder = N)
-
+     @info @sprintf """ C"""
     numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
     numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
-
+     @info @sprintf """ D"""
     # spacedisc = data needed for evaluating the right-hand side function
     @timeit to "Space Disc init" spacedisc = DGBalanceLaw(grid = grid,
                                                           length_state_vector = _nstate,
@@ -858,7 +859,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                           auxiliary_state_initialization!(x...),
                                                           source! = source!,
                                                           preodefun! = preodefun!)
-
+     @info @sprintf """ E"""
     # This is a actual state/function that lives on the grid
     @timeit to "IC init" begin
         # ----------------------------------------------------
@@ -885,12 +886,13 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                             spl_qinit, spl_uinit, spl_vinit,
                                             spl_pinit, x...)
         Q = MPIStateArray(spacedisc, initialcondition)
+             @info @sprintf """ F"""
     end
-
+     @info @sprintf """ G"""
     @timeit to "Time stepping init" begin
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-
+     @info @sprintf """ H"""
         #=
         # Courant start
         #
@@ -919,11 +921,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         # Set up the information callback
         starttime = Ref(now())
         cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+                 @info @sprintf """ IIII"""
             if s
                 starttime[] = now()
+                   @info @sprintf """ IIII 1"""
             else
                 #energy = norm(Q)
                 #globmean = global_mean(Q, _ρ)
+                   @info @sprintf """ IIII 2"""
                 @info @sprintf("""Update
                                simtime = %.16e
                                runtime = %s""",
@@ -938,11 +943,13 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         out_u, out_v, out_w, out_T, out_q_tot, out_q_liq, out_q_rai = 1:npoststates
         postnames = ("u", "v", "w", "T", "q_tot", "q_liq",  "q_rai")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
-
+    @info @sprintf """ L"""
         step = [0]
         mkpath("./CLIMA-output-scratch/vtk-sq-working")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
-              DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
+                @info @sprintf """ M"""
+            DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
+                 @info @sprintf """ N"""
                 @inbounds let
                     DF = eltype(Q)
 
@@ -977,7 +984,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
                      postprocessarray, postnames)
-
+ @info @sprintf """ O"""
             step[1] += 1
             nothing
         end 
@@ -986,14 +993,15 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 @info @sprintf """Starting...
             norm(Q) = %25.16e""" norm(Q)
-
+ @info @sprintf """ P"""
 # Initialise the integration computation. Kernels calculate this at every timestep??
 #@timeit to "initial integral" integral_computation(spacedisc, Q, 0)
 @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-
+ @info @sprintf """ Q"""
 
 @info @sprintf """Finished...
             norm(Q) = %25.16e""" norm(Q)
+ @info @sprintf """ R"""
 
 #=
 # Print some end of the simulation information
@@ -1033,8 +1041,10 @@ let
             ll == "WARN"  ? Logging.Warn  :
             ll == "ERROR" ? Logging.Error : Logging.Info
         global_logger(ConsoleLogger(stderr, loglevel))
+         @info @sprintf """ S"""
     else
         global_logger(NullLogger())
+         @info @sprintf """ T"""
     end
     # User defined number of elements
     # User defined timestep estimate
@@ -1070,8 +1080,9 @@ let
 
     engf_eng0 = run(mpicomm, dim, numelem[1:dim], polynomialorder, timeend,
                     DFloat, dt)
-
+ @info @sprintf """ U"""
     show(to)
+     @info @sprintf """ V"""
 end
 
 isinteractive() || MPI.Finalize()
