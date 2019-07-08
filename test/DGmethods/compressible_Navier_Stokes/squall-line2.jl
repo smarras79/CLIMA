@@ -874,40 +874,103 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     
     # This is a actual state/function that lives on the grid
     #initialcondition(Q, x...) = rising_bubble!(Val(dim), Q, DFloat(0), x...)
-initialcondition(Q, x...) = squall_line!(Val(dim), Q, DFloat(0), spl_tinit,
+    initialcondition(Q, x...) = squall_line!(Val(dim), Q, DFloat(0), spl_tinit,
                                          spl_qinit, spl_uinit, spl_vinit,
                                          spl_pinit, x...)
 
-Q = MPIStateArray(spacedisc, initialcondition)
-@show(size(Q))
-lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+    Q = MPIStateArray(spacedisc, initialcondition)    
+    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
 
-eng0 = norm(Q)
-@info @sprintf """Starting
+    eng0 = norm(Q)
+    @info @sprintf """Starting
           norm(Q₀) = %.16e""" eng0
 
-# Set up the information callback
-starttime = Ref(now())
-cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
-    if s
-        starttime[] = now()
-    else
-        #energy = norm(Q)
-        #maxq_t = norm(Q[:,_QT, :])
-        #maxq_l = norm(Q[:,_QL, :])
-        #maxq_r = norm(Q[:,_QR, :])
-        #globmean = global_mean(Q, _ρ)
-        @info @sprintf("""Update
-                             simtime = %.16e
-                             runtime = %s""", 
-                       ODESolvers.gettime(lsrk),
-                       Dates.format(convert(Dates.DateTime,
-                                            Dates.now()-starttime[]),
-                                    Dates.dateformat"HH:MM:SS"))
-                       #, energy, globmean)
+    # Set up the information callback
+    starttime = Ref(now())
+    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+        if s
+            starttime[] = now()
+        else
+            #energy = norm(Q)
+            #maxq_t = norm(Q[:,_QT, :])
+            #maxq_l = norm(Q[:,_QL, :])
+            #maxq_r = norm(Q[:,_QR, :])
+            #globmean = global_mean(Q, _ρ)
+            @info @sprintf("""Update
+                                     simtime = %.16e
+                                     runtime = %s""", 
+                           ODESolvers.gettime(lsrk),
+                           Dates.format(convert(Dates.DateTime,
+                                                Dates.now()-starttime[]),
+                                        Dates.dateformat"HH:MM:SS"))
+            #, energy, globmean)
+        end
     end
-end
 
+    npoststates = 9
+    out_u, out_v, out_w, out_p, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_rai = 1:npoststates
+    postnames = ( "u", "v", "w", "p",  "T", "q_tot", "q_vap", "q_liq", "q_rai")
+    postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+
+    step = [0]
+    mkpath("./CLIMA-output-scratch/vtk-sq2")
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(3600) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
+        DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
+            @inbounds let
+                DF = eltype(Q)
+                
+                u, v, w, rain_w, ρ, q_tot, q_liq, q_ice, q_rai, e_tot =
+                    preflux(Q, QV, aux)
+                
+                e_kin = 1//2 * (u^2 + v^2 + w^2)
+                e_pot = grav * aux[_a_z]
+                e_int = e_tot - e_kin - e_pot
+                q = PhasePartition(q_tot, q_liq, q_ice)
+
+                T   = air_temperature(e_int, q)
+                p   = aux[_a_p]
+                #tht = liquid_ice_pottemp(T, p, q)
+
+                #R[out_z] = aux[_a_z]
+                R[out_p] = p
+                #R[out_beta] = radiation(aux)
+                R[out_T] = T
+                #R[out_tht] = tht
+
+                R[out_u] = u
+                R[out_v] = v
+                R[out_w] = w
+
+                R[out_q_tot] = q_tot
+                R[out_q_vap] = q_tot - q_liq - q_ice
+                R[out_q_liq] = q_liq
+                #R[out_q_ice] = q_ice
+                R[out_q_rai] = q_rai
+
+                #R[out_e_tot] = e_tot
+                #R[out_e_int] = e_int
+                #R[out_e_kin] = e_kin
+                #R[out_e_pot] = e_pot
+
+                #if(q_rai > DF(0)) # TODO - ensure positive definite elswhere
+                #  R[out_rain_w] = terminal_velocity(q_rai, ρ)
+                #else
+                #  R[out_rain_w] = DF(0)
+                #end
+            end
+        end
+
+        outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq2/sql_%dD_mpirank%04d_step%04d", dim,
+                             MPI.Comm_rank(mpicomm), step[1])
+        @debug "doing VTK output" outprefix
+        writevtk(outprefix, Q, spacedisc, statenames,
+                 postprocessarray, postnames)
+
+        step[1] += 1
+        nothing
+    end
+
+#=
 npoststates = 9
 _u_out, _v_out, _w_out, _w_rai_out, _ρ_out, _qt_out, _ql_out, _qr_out, _et_out = 1:npoststates
 postnames = ("u", "v", "w", "_w_rai_out", "_ρ_out", "q_tot", "q_liq", "q_rai", "E")
@@ -932,6 +995,7 @@ cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
     step[1] += 1
     nothing
 end
+=#
 
 solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
