@@ -914,8 +914,7 @@ postnames = ("u", "v", "w", "_w_rai_out", "_ρ_out", "q_tot", "q_liq", "q_rai", 
 postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
 step = [0]
-mkpath("vtk-sq")
-#mkpath("./CLIMA-output-scratch/vtk-sq2")
+mkpath("./CLIMA-output-scratch/vtk-sq2")
 cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
