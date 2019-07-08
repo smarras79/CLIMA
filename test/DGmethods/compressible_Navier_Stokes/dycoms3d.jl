@@ -725,15 +725,16 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             if s
                 starttime[] = now()
             else
-                #energy = norm(Q)
+                energy = norm(Q)
                 #globmean = global_mean(Q, _ρ)
                 @info @sprintf("""Update
-                           simtime = %.16e
-                           runtime = %s""",
+                                   simtime = %.16e
+                                   runtime = %s
+                                   norm(Q) = %.16e""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
-                                            Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
+                                            Dates.dateformat"HH:MM:SS"), energy )#, globmean)
             end
         end
 
@@ -782,7 +783,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         norm(Q) = %25.16e""" norm(Q)
 
 # Initialise the integration computation. Kernels calculate this at every timestep?? 
-@timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
+#@timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
 @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
