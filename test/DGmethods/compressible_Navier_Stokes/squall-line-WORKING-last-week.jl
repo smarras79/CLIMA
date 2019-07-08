@@ -951,7 +951,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                  @info @sprintf """ N"""
                 @inbounds let
-                    DF = eltype(Q)
+                  #=  DF = eltype(Q)
 
                     u, v, w, rain_w, ρ, q_tot, q_liq, q_ice, q_rai, e_tot =
                       preflux(Q, QV, aux)
@@ -964,17 +964,17 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     T   = air_temperature(e_int, q)
                     p   = aux[_a_p]
                     tht = liquid_ice_pottemp(T, p, q)
-
-                    R[out_T] = T
+=#
+                    R[out_T] = 0.0 #T
                     
-                    R[out_u] = u
-                    R[out_v] = v
-                    R[out_w] = w
+                    R[out_u] = 0.0 #u
+                    R[out_v] = 0.0 #v
+                    R[out_w] = 0.0 #w
 
-                    R[out_q_tot] = q_tot
-                    R[out_q_liq] = q_liq
+                    R[out_q_tot] = 0.0 #q_tot
+                    R[out_q_liq] = 0.0 #q_liq
                     #R[out_q_ice] = q_ice
-                    R[out_q_rai] = q_rai
+                    R[out_q_rai] = 0.0 #q_rai
                     
                 end
               end #end DGBalanceLawDiscretizations.dof_iteration
@@ -982,8 +982,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq-working/sql_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
-            writevtk(outprefix, Q, spacedisc, statenames,
-                     postprocessarray, postnames)
+            #writevtk(outprefix, Q, spacedisc, statenames,  postprocessarray, postnames)
  @info @sprintf """ O"""
             step[1] += 1
             nothing
