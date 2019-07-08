@@ -1,7 +1,5 @@
 #
-# revision 2f6b8f6
-#
-# 2f6b8f6ae62695265769086c54b827f3c0242208
+# revision c3767e4efa9e7a9cfe0df4128b937e1f297a5693
 #
 # Load Modules
 using MPI
@@ -101,8 +99,8 @@ const Npoly = 4
 #
 # Define grid size
 #
-Δx    =  200
-Δy    =  200
+Δx    =  250
+Δy    = 1000
 Δz    =  200
 
 #
@@ -113,9 +111,9 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents
-const (xmin, xmax) = (-50000, 50000)
-const (ymin, ymax) = (-30000, 30000)
-const (zmin, zmax) = (     0, 24000)
+const (xmin, xmax) = (-30000,30000)
+const (ymin, ymax) = (0,  5000)
+const (zmin, zmax) = (0, 24000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -277,10 +275,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
         #Dynamic eddy viscosity from Smagorinsky:
         ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
-        D_e = 3* ν_e / Prandtl_t
-        D_e_ql = 200
-        D_e_qi = 200
-        D_e_qr = 200
+        D_e = 200.0 # ν_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -303,9 +298,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
         # Viscous contributions to mass flux terms
         F[1, _ρq_tot] -= vq_tot_x * D_e; F[2, _ρq_tot] -= vq_tot_y * D_e; F[3, _ρq_tot] -= vq_tot_z * D_e
-        F[1, _ρq_liq] -= vq_liq_x * D_e_ql; F[2, _ρq_liq] -= vq_liq_y * D_e_ql; F[3, _ρq_liq] -= vq_liq_z * D_e_ql
-        F[1, _ρq_ice] -= vq_ice_x * D_e_qi; F[2, _ρq_ice] -= vq_ice_y * D_e_qi; F[3, _ρq_ice] -= vq_ice_z * D_e_qi
-        F[1, _ρq_rai] -= vq_rai_x * D_e_qr; F[2, _ρq_rai] -= vq_rai_y * D_e_qr; F[3, _ρq_rai] -= vq_rai_z * D_e_qr
+        F[1, _ρq_liq] -= vq_liq_x * D_e; F[2, _ρq_liq] -= vq_liq_y * D_e; F[3, _ρq_liq] -= vq_liq_z * D_e
+        F[1, _ρq_ice] -= vq_ice_x * D_e; F[2, _ρq_ice] -= vq_ice_y * D_e; F[3, _ρq_ice] -= vq_ice_z * D_e
+        F[1, _ρq_rai] -= vq_rai_x * D_e; F[2, _ρq_rai] -= vq_rai_y * D_e; F[3, _ρq_rai] -= vq_rai_z * D_e
     end
 end
 
@@ -753,12 +748,13 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     θ_c =     5.0
     rx  = 10000.0
     ry  =  1500.0
-    rz  =  1250.0
+    rz  =  1500.0
     xc  = 0.5*(xmax + xmin)
     yc  = 0.5*(ymax + ymin)
     zc  = 2000.0
-    
-    r   = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2 + (z - zc)^2/rz^2)
+
+    cylinder_flg = 0.0
+    r   = sqrt( (x - xc)^2/rx^2 + cylinder_flg*(y - yc)^2/ry^2 + (z - zc)^2/rz^2)
     Δθ  = 0.0
     if r <= 1.0
         Δθ = θ_c * (cospi(0.5*r))^2
@@ -944,7 +940,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        mkpath("./CLIMA-output-scratch/vtk-sq-LAST-WEEK")
+        mkpath("./vtk")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(3600) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
@@ -991,7 +987,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 end
             end
 
-            outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq-LAST-WEEK/squall_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("./vtk/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
@@ -1059,8 +1055,8 @@ let
     # User defined simulation end time
     # User defined polynomial order
     numelem = (Nex,Ney,Nez)
-    dt = 0.03
-    timeend = 12000 # 2h 30 min
+    dt = 0.025
+    timeend = 9000 # 2h 30 min
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
