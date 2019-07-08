@@ -744,7 +744,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(150) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     F_rad_out = radiation(aux)
@@ -783,7 +783,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         norm(Q) = %25.16e""" norm(Q)
 
 # Initialise the integration computation. Kernels calculate this at every timestep?? 
-#@timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
+@timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
 @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
