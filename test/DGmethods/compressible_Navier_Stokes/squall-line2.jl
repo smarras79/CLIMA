@@ -571,7 +571,7 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
 
     # Typically these sources are imported from modules
     @inbounds begin
-        #source_microphysics!(S, Q, aux, t, u, v, w, w_rai, ρ, q_tot, q_liq, q_rai, e_tot)
+        source_microphysics!(S, Q, aux, t, u, v, w, w_rai, ρ, q_tot, q_liq, q_rai, e_tot)
         source_sponge!(S, Q, aux, t)
         source_geopot!(S, Q, aux, t)       
     end
@@ -981,7 +981,7 @@ postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
 step = [0]
 mkpath("./CLIMA-output-scratch/vtk-sq2")
-cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
                                                    @inbounds let
