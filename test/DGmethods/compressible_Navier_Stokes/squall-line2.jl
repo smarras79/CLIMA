@@ -639,7 +639,7 @@ end
 
     #src_q_rai_acnv_ice = conv_q_liq_to_q_rai_acnv(q.ice)
     #src_q_rai_accr_ice = conv_q_liq_to_q_rai_accr(q.ice, q_rai, ρ)
-
+      
     src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap# + src_q_rai_acnv_ice + src_q_rai_accr_ice
 
     S[_QL] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
@@ -768,7 +768,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     e_pot      = grav * xvert
     e_int      = internal_energy(T, PhasePartition(q_tot))
     E          = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
-    Q_tot      = 0 .*ρ * q_tot
+    Q_tot      = ρ * q_tot
     Q_liq      = 0 .*Q_tot
     Q_rai      = 0 .*Q_tot
     
