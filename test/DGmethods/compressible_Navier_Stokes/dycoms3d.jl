@@ -654,7 +654,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
     @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
-
     @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
                                                                    FloatType = DFloat,
                                                                    DeviceArray = ArrayType,
