@@ -981,7 +981,7 @@ postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
 step = [0]
 mkpath("./CLIMA-output-scratch/vtk-sq2")
-cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
     DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                Q) do R, Q, QV, aux
                                                    @inbounds let
@@ -996,6 +996,7 @@ cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
              postprocessarray, postnames)
     
     step[1] += 1
+    @info @sprintf(""" VTK written at time step %d: """, step[1])
     nothing
 end
 
