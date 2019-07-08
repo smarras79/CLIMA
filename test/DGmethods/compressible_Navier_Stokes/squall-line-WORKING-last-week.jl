@@ -942,11 +942,11 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 end
               end #end DGBalanceLawDiscretizations.dof_iteration
 
-            #outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq-working/sql_%dD_mpirank%04d_step%04d", dim,
-            #                     MPI.Comm_rank(mpicomm), step[1])
-            #@debug "doing VTK output" outprefix
-            #writevtk(outprefix, Q, spacedisc, statenames,
-            #         postprocessarray, postnames)
+            outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq-working/sql_%dD_mpirank%04d_step%04d", dim,
+                                 MPI.Comm_rank(mpicomm), step[1])
+            @debug "doing VTK output" outprefix
+            writevtk(outprefix, Q, spacedisc, statenames,
+                     postprocessarray, postnames)
 
 
             #PVTU
@@ -966,7 +966,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 @info @sprintf """Starting...
             norm(Q) = %25.16e""" norm(Q)
- @info @sprintf """ P"""
+
 # Initialise the integration computation. Kernels calculate this at every timestep??
 #@timeit to "initial integral" integral_computation(spacedisc, Q, 0)
 @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
