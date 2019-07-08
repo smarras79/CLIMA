@@ -99,9 +99,9 @@ const Npoly = 4
 #
 # Define grid size
 #
-Δx    =  250
+Δx    =  125
 Δy    = 1000
-Δz    =  200
+Δz    =  100
 
 #
 # OR:
@@ -1041,7 +1041,7 @@ let
     # User defined simulation end time
     # User defined polynomial order
     numelem = (Nex,Ney,Nez)
-    dt = 0.025
+    dt = 0.0125
     timeend = 9000 # 2h 30 min
     polynomialorder = Npoly
     DFloat = Float64
