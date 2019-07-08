@@ -934,14 +934,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
 
-        npoststates = 18
-        out_z, out_u, out_v, out_w, out_e_tot, out_e_int, out_e_kin, out_e_pot, out_p, out_beta, out_T, out_q_tot, out_q_vap, out_q_liq, out_q_ice, out_q_rai, out_rain_w, out_tht = 1:npoststates
-        postnames = ("height", "u", "v", "w", "e_tot", "e_int", "e_kin", "e_pot", "p", "beta", "T", "q_tot", "q_vap", "q_liq", "q_ice", "q_rai", "rain_w", "theta")
-        #postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
+        npoststates = 8
+        out_u, out_v, out_w, out_T, out_q_tot, out_q_liq, out_q_rai = 1:npoststates
+        postnames = ("u", "v", "w", "T", "q_tot", "q_liq",  "q_rai")
+        postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        #mkpath("./CLIMA-output-scratch/vtk-sq-working")
-        #=cbvtk = GenericCallbacks.EveryXSimulationSteps(3600) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
+        mkpath("./CLIMA-output-scratch/vtk-sq-working")
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
               DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     DF = eltype(Q)
@@ -996,7 +996,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             step[1] += 1
             nothing
         end 
-=#
+        
     end
 
 @info @sprintf """Starting...
@@ -1005,7 +1005,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 # Initialise the integration computation. Kernels calculate this at every timestep??
 #@timeit to "initial integral" integral_computation(spacedisc, Q, 0)
 #@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-@timeit to "solve" solve!(Q, lsrk; timeend=timeend) 
+@timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=cbinfo)
 
 
 @info @sprintf """Finished...
