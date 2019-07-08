@@ -87,9 +87,9 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 30
-Δy    = 30
-Δz    = 5
+Δx    = 35
+Δy    = 35
+Δz    = 10
 
 #
 # OR:
@@ -99,8 +99,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 1910) #3820)
-const (ymin, ymax) = (0, 1910) #3820)
+const (xmin, xmax) = (0, 820) #3820)
+const (ymin, ymax) = (0, 820) #3820)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -135,7 +135,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-@parameter C_smag 0.15 "C_smag"
+@parameter C_smag 0.23 "C_smag"
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
@@ -557,11 +557,11 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     datap          = DFloat(spl_pinit(xvert))
     dataq          = dataq / 1000
 
-    randnum1   = rand(seed, DFloat) / 100
-    randnum2   = rand(seed, DFloat) / 100
+    #randnum1   = rand(seed, DFloat) / 100
+    #randnum2   = rand(seed, DFloat) / 100
 
-    θ_liq = datat + randnum1 * datat
-    q_tot = dataq + randnum2 * dataq
+    θ_liq = datat + datat #randnum1 * datat
+    q_tot = dataq + dataq #randnum2 * dataq
     P     = datap
     T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
     ρ     = air_density(T, P)
@@ -686,9 +686,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 @inbounds let
                     F_rad_out = radiation(aux)
                     u, v, w = preflux(Q, QV, aux)
-                    #R[_int1] = aux[_a_02z]
-                    #R[_int2] = aux[_a_z2inf]
-                    #R[_betaout] = F_rad_out
+                    R[_int1] = aux[_a_02z]
+                    R[_int2] = aux[_a_z2inf]
+                    R[_betaout] = F_rad_out
                     R[_P] = aux[_a_P]
                     R[_u] = u
                     R[_v] = v
@@ -713,7 +713,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         norm(Q) = %25.16e""" norm(Q)
 
 # Initialise the integration computation. Kernels calculate this at every timestep?? 
-#@timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
+@timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
 @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
