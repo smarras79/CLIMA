@@ -579,7 +579,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT] = ρ, U, V, W, E, ρ * q_tot
 end
 
- function get_maximum_Courant(Q::MPIStateArray, vgeo) 
+#= function get_maximum_Courant(Q::MPIStateArray, vgeo) 
      _nvgeo = 15
      R_gas::eltype(Q) = R_d
      c_v::eltype(Q) = cv_d
@@ -640,8 +640,7 @@ end
      =#
      return nothing
         end
-
-        
+  =#
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
@@ -715,17 +714,12 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     @timeit to "Time stepping init" begin
 
         #Compute max acoustic CFL and adapt dt
-        get_maximum_Courant(Q, grid.vgeo)
+        #get_maximum_Courant(Q, grid.vgeo)
         #(CFLx, CFLy, CFLz, CFLmax) = get_maximum_Courant(Q, grid.vgeo)
         #@info @sprintf """ max CFL = %.16e """ max(CFLx,CFLy,CFLz)
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
        
-        
-        #=eng0 = norm(Q)
-        @info @sprintf """Starting
-        norm(Q₀) = %.16e""" eng0
-        =#
         # Set up the information callback
         starttime = Ref(now())
         cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
