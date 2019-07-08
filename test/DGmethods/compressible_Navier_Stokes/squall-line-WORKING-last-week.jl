@@ -896,7 +896,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 #globmean = global_mean(Q, _ρ)
                 @info @sprintf("""Update
                                simtime = %.16e
-                               runtime = %s""",
+                               runtime = %s
+                               norm(Q) = %.16e""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
