@@ -94,8 +94,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (10, 10, 1)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 840)
-const (ymin, ymax) = (0, 840)
+const (xmin, xmax) = (0, 3820)
+const (ymin, ymax) = (0, 3820)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -827,8 +827,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.005
-    timeend = 100 #14000
+    dt = 0.01
+    timeend = 14000
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
