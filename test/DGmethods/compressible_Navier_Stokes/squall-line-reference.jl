@@ -53,11 +53,11 @@ const statenames = ("ρ", "ρu", "ρv", "ρw", "ρe_tot", "ρq_tot", "ρq_liq",
 # Viscous state labels
 const _nviscstates = 22
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23,
-_q_tot_x, _q_tot_y, _q_tot_z,
-_q_liq_x, _q_liq_y, _q_liq_z,
-_q_ice_x, _q_ice_y, _q_ice_z,
-_q_rai_x, _q_rai_y, _q_rai_z,
-_Tx, _Ty, _Tz, _SijSij = 1:_nviscstates
+      _q_tot_x, _q_tot_y, _q_tot_z,
+      _q_liq_x, _q_liq_y, _q_liq_z,
+      _q_ice_x, _q_ice_y, _q_ice_z,
+      _q_rai_x, _q_rai_y, _q_rai_z,
+      _Tx, _Ty, _Tz, _SijSij = 1:_nviscstates
 
 # Gradient state labels
 const _ngradstates = 9
@@ -98,7 +98,7 @@ const Npoly = 4
 # Define grid size
 #
 Δx    =  250
-Δy    = 1000
+Δy    =  250
 Δz    =  200
 
 #
@@ -109,9 +109,9 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents
-const (xmin, xmax) = (-30000,30000)
-const (ymin, ymax) = (0,  5000)
-const (zmin, zmax) = (0, 24000)
+const (xmin, xmax) = (-40000, 40000)
+const (ymin, ymax) = (      0, 5000)
+const (zmin, zmax) = (     0, 24000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -141,10 +141,10 @@ end
 
 DoF = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate)
 DoFstorage = (Nex*Ney*Nez) *
-    (Npoly+1)^numdims *
-    (_nstate + _nviscstates + _nauxstate + CLIMA.Grids._nvgeo) +
-    (Nex*Ney*Nez) * (Npoly+1)^(numdims-1) *
-    2^numdims*(CLIMA.Grids._nsgeo)
+             (Npoly+1)^numdims *
+             (_nstate + _nviscstates + _nauxstate + CLIMA.Grids._nvgeo) +
+             (Nex*Ney*Nez) * (Npoly+1)^(numdims-1) *
+             2^numdims*(CLIMA.Grids._nsgeo)
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module
@@ -170,23 +170,23 @@ const Δsqr = Δ * Δ
 
     @inbounds begin
 
-        # unpack model variables
-        ρ, ρu, ρv, ρw, ρq_tot, ρq_liq, ρq_ice, ρq_rai, ρe_tot =
-            Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρq_tot], Q[_ρq_liq], Q[_ρq_ice],
+      # unpack model variables
+      ρ, ρu, ρv, ρw, ρq_tot, ρq_liq, ρq_ice, ρq_rai, ρe_tot =
+        Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρq_tot], Q[_ρq_liq], Q[_ρq_ice],
         Q[_ρq_rai], Q[_ρe_tot]
-        u, v, w, q_tot, q_liq, q_ice, q_rai, e_tot =
-            ρu / ρ, ρv / ρ, ρw / ρ, ρq_tot / ρ, ρq_liq / ρ, ρq_ice / ρ, ρq_rai / ρ,
+      u, v, w, q_tot, q_liq, q_ice, q_rai, e_tot =
+        ρu / ρ, ρv / ρ, ρw / ρ, ρq_tot / ρ, ρq_liq / ρ, ρq_ice / ρ, ρq_rai / ρ,
         ρe_tot / ρ
 
-        # compute rain fall speed
-        DF = eltype(ρ)
-        if(q_rai >= DF(0)) #TODO - need a way to prevent negative values
-            rain_w = terminal_velocity(q_rai, ρ)
-        else
-            rain_w = DF(0)
-        end
+      # compute rain fall speed
+      DF = eltype(ρ)
+      if(q_rai >= DF(0)) #TODO - need a way to prevent negative values
+        rain_w = terminal_velocity(q_rai, ρ)
+      else
+        rain_w = DF(0)
+      end
 
-        return (u, v, w, rain_w, ρ, q_tot, q_liq, q_ice, q_rai, e_tot)
+      return (u, v, w, rain_w, ρ, q_tot, q_liq, q_ice, q_rai, e_tot)
     end
 end
 
@@ -197,7 +197,7 @@ end
                            q_ice, q_rai, e_tot)
     @inbounds begin
         (n[1] * u + n[2] * v + n[3] * max(abs(w), abs(rain_w), abs(w-rain_w))) +
-            aux[_a_soundspeed_air]
+          aux[_a_soundspeed_air]
     end
 end
 
@@ -273,7 +273,10 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
         #Dynamic eddy viscosity from Smagorinsky:
         ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
-        D_e = 200.0 # ν_e / Prandtl_t
+        D_e = 3* ν_e / Prandtl_t
+        D_e_ql = 200
+        D_e_qi = 200
+        D_e_qr = 200
 
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -296,9 +299,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
         # Viscous contributions to mass flux terms
         F[1, _ρq_tot] -= vq_tot_x * D_e; F[2, _ρq_tot] -= vq_tot_y * D_e; F[3, _ρq_tot] -= vq_tot_z * D_e
-        F[1, _ρq_liq] -= vq_liq_x * D_e; F[2, _ρq_liq] -= vq_liq_y * D_e; F[3, _ρq_liq] -= vq_liq_z * D_e
-        F[1, _ρq_ice] -= vq_ice_x * D_e; F[2, _ρq_ice] -= vq_ice_y * D_e; F[3, _ρq_ice] -= vq_ice_z * D_e
-        F[1, _ρq_rai] -= vq_rai_x * D_e; F[2, _ρq_rai] -= vq_rai_y * D_e; F[3, _ρq_rai] -= vq_rai_z * D_e
+        F[1, _ρq_liq] -= vq_liq_x * D_e_ql; F[2, _ρq_liq] -= vq_liq_y * D_e_ql; F[3, _ρq_liq] -= vq_liq_z * D_e_ql
+        F[1, _ρq_ice] -= vq_ice_x * D_e_qi; F[2, _ρq_ice] -= vq_ice_y * D_e_qi; F[3, _ρq_ice] -= vq_ice_z * D_e_qi
+        F[1, _ρq_rai] -= vq_rai_x * D_e_qr; F[2, _ρq_rai] -= vq_rai_y * D_e_qr; F[3, _ρq_rai] -= vq_rai_z * D_e_qr
     end
 end
 
@@ -311,7 +314,7 @@ end
 # Compute the velocity from the state
 gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,~,aux)...)
 @inline function gradient_vars!(vel, Q, aux, t, u, v, w, rain_w, ρ,
-                                q_tot, q_liq, q_ice, q_rai, e_tot)
+                           q_tot, q_liq, q_ice, q_rai, e_tot)
 
     @inbounds begin
         T = aux[_a_T]
@@ -570,8 +573,8 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
 
     # Typically these sources are imported from modules
     @inbounds begin
-       # source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
-       #                      q_tot, q_liq, q_ice, q_rai, e_tot)
+        source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
+                             q_tot, q_liq, q_ice, q_rai, e_tot)
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
         source_geostrophic!(S, Q, aux, t)
@@ -579,66 +582,66 @@ source!(S, Q, aux, t) = source!(S, Q, aux, t, preflux(Q, ~, aux)...)
 end
 
 @inline function source_microphysics!(S, Q, aux, t, u, v, w, rain_w, ρ,
-                                      q_tot, q_liq, q_ice, q_rai, e_tot)
+                             q_tot, q_liq, q_ice, q_rai, e_tot)
 
-    DF = eltype(Q)
+  DF = eltype(Q)
 
-    @inbounds begin
+  @inbounds begin
 
-        z = aux[_a_z]
-        p = aux[_a_p]
+    z = aux[_a_z]
+    p = aux[_a_p]
 
-        #TODO - tmp
-        q_tot = max(DF(0), q_tot)
-        q_liq = max(DF(0), q_liq)
-        q_ice = max(DF(0), q_ice)
-        q_rai = max(DF(0), q_rai)
+    #TODO - tmp
+    q_tot = max(DF(0), q_tot)
+    q_liq = max(DF(0), q_liq)
+    q_ice = max(DF(0), q_ice)
+    q_rai = max(DF(0), q_rai)
 
-        # current state
-        e_int = e_tot - 1//2 * (u^2 + v^2 + w^2) - grav * z
-        q     = PhasePartition(q_tot, q_liq, q_ice)
-        T     = air_temperature(e_int, q)
-        # equilibrium state at current T
-        q_eq = PhasePartition_equil(T, ρ, q_tot)
+    # current state
+    e_int = e_tot - 1//2 * (u^2 + v^2 + w^2) - grav * z
+    q     = PhasePartition(q_tot, q_liq, q_ice)
+    T     = air_temperature(e_int, q)
+    # equilibrium state at current T
+    q_eq = PhasePartition_equil(T, ρ, q_tot)
 
-        # cloud water condensation/evaporation
-        src_q_liq = conv_q_vap_to_q_liq(q_eq, q)
-        #src_q_ice = conv_q_vap_to_q_ice(q_eq, q)
-        S[_ρq_liq] += ρ * src_q_liq
-        #S[_ρq_ice] += ρ * src_q_ice
+    # cloud water condensation/evaporation
+    src_q_liq = conv_q_vap_to_q_liq(q_eq, q)
+    #src_q_ice = conv_q_vap_to_q_ice(q_eq, q)
+    S[_ρq_liq] += ρ * src_q_liq
+    #S[_ρq_ice] += ρ * src_q_ice
 
-        # tendencies from rain
-        # TODO - ensure positive definite
-        # TODO - temporary handling ice
-        #if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
+    # tendencies from rain
+    # TODO - ensure positive definite
+    # TODO - temporary handling ice
+    #if(q_tot >= DF(0) && q_liq >= DF(0) && q_rai >= DF(0))
 
-        src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
+    src_q_rai_evap = conv_q_rai_to_q_vap(q_rai, q, T , p, ρ)
 
-        src_q_rai_acnv_liq = conv_q_liq_to_q_rai_acnv(q.liq)
-        src_q_rai_accr_liq = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
+    src_q_rai_acnv_liq = conv_q_liq_to_q_rai_acnv(q.liq)
+    src_q_rai_accr_liq = conv_q_liq_to_q_rai_accr(q.liq, q_rai, ρ)
 
-        #src_q_rai_acnv_ice = conv_q_liq_to_q_rai_acnv(q.ice)
-        #src_q_rai_accr_ice = conv_q_liq_to_q_rai_accr(q.ice, q_rai, ρ)
+    #src_q_rai_acnv_ice = conv_q_liq_to_q_rai_acnv(q.ice)
+    #src_q_rai_accr_ice = conv_q_liq_to_q_rai_accr(q.ice, q_rai, ρ)
 
-        src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap# + src_q_rai_acnv_ice + src_q_rai_accr_ice
+    src_q_rai_tot = src_q_rai_acnv_liq + src_q_rai_accr_liq + src_q_rai_evap# + src_q_rai_acnv_ice + src_q_rai_accr_ice
 
-        S[_ρq_liq] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
-        #S[_ρq_ice] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
+    S[_ρq_liq] -= ρ * (src_q_rai_acnv_liq + src_q_rai_accr_liq)
+    #S[_ρq_ice] -= ρ * (src_q_rai_acnv_ice + src_q_rai_accr_ice)
 
-        S[_ρq_rai] += ρ * src_q_rai_tot
-        S[_ρq_tot] -= ρ * src_q_rai_tot
+    S[_ρq_rai] += ρ * src_q_rai_tot
+    S[_ρq_tot] -= ρ * src_q_rai_tot
 
-        S[_ρe_tot] -= (
-            src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
-            (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0))# -
-            #(src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))
-        ) * ρ
-        #end
-    end
+    S[_ρe_tot] -= (
+                    src_q_rai_evap * (DF(cv_v) * (T - DF(T_0)) + e_int_v0) -
+                    (src_q_rai_acnv_liq + src_q_rai_accr_liq) * DF(cv_l) * (T - DF(T_0))# -
+                    #(src_q_rai_acnv_ice + src_q_rai_accr_ice) * DF(cv_i) * (T - DF(T_0))
+                  ) * ρ
+    #end
+  end
 end
 """
-            Geostrophic wind forcing
-            """
+        Geostrophic wind forcing
+        """
 @inline function source_geostrophic!(S,Q,aux,t)
     DFloat = eltype(S)
     f_coriolis = DFloat(7.62e-5)
@@ -681,8 +684,8 @@ function preodefun!(disc, Q, t)
     DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
         @inbounds let
             ρ, ρu, ρv, ρw, ρe_tot, ρq_tot, ρq_liq, ρq_ice, ρq_rai =
-                Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot], Q[_ρq_liq],
-            Q[_ρq_ice], Q[_ρq_rai]
+              Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot], Q[_ρq_liq],
+              Q[_ρq_ice], Q[_ρq_rai]
 
             z = aux[_a_z]
             #dx, dy, dz = aux[_a_dx], aux[_a_dy], aux[_a_dz]
@@ -720,12 +723,12 @@ end
 
 # initial condition
 """
-                User-specified. Required.
-                This function specifies the initial conditions
-                for the dycoms driver.
-            """
+            User-specified. Required.
+            This function specifies the initial conditions
+            for the dycoms driver.
+        """
 function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
-                      spl_pinit, x, y, z, _...)
+                 spl_pinit, x, y, z, _...)
     DFloat         = eltype(Q)
     # --------------------------------------------------
     # INITIALISE ARRAYS FOR INTERPOLATED VALUES
@@ -745,19 +748,21 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
 
     θ_c =     5.0
     rx  = 10000.0
-    ry  =  1500.0
+    ry  =  1200.0
     rz  =  1500.0
     xc  = 0.5*(xmax + xmin)
     yc  = 0.5*(ymax + ymin)
     zc  = 2000.0
-
-    cylinder_flg = 0.0
-    r   = sqrt( (x - xc)^2/rx^2 + cylinder_flg*(y - yc)^2/ry^2 + (z - zc)^2/rz^2)
+    
+    r   = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2 + (z - zc)^2/rz^2)
     Δθ  = 0.0
     if r <= 1.0
         Δθ = θ_c * (cospi(0.5*r))^2
     end
-    θ_liq = datat + Δθ
+
+    randnum1   = rand(seed, DFloat) / 100
+        
+    θ_liq = datat + Δθ*randnum1
     q_tot = dataq
     p     = datap
     T     = air_temperature_from_liquid_ice_pottemp(θ_liq, p, PhasePartition(q_tot))
@@ -765,6 +770,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
 
     # energy definitions
     u, v, w     = datau, datav, zero(DFloat) #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    
     ρu          = ρ * u
     ρv          = ρ * v
     ρw          = ρ * w
@@ -775,7 +781,7 @@ function squall_line!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     ρq_tot      = ρ * q_tot
 
     @inbounds Q[_ρ], Q[_ρu], Q[_ρv], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot],
-    Q[_ρq_liq], Q[_ρq_ice], Q[_ρq_rai] = ρ, ρu, ρv, ρw, ρe_tot, ρq_tot, DFloat(0), DFloat(0), DFloat(0)
+                Q[_ρq_liq], Q[_ρq_ice], Q[_ρq_rai] = ρ, ρu, ρv, ρw, ρe_tot, ρq_tot, DFloat(0), DFloat(0), DFloat(0)
 end
 
 function grid_stretching(DFloat,
@@ -880,14 +886,35 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         spl_pinit    = Spline1D(zinit, pinit; k=1)
 
         initialcondition(Q, x...) = squall_line!(Val(dim), Q, DFloat(0), spl_tinit,
-                                                 spl_qinit, spl_uinit, spl_vinit,
-                                                 spl_pinit, x...)
+                                            spl_qinit, spl_uinit, spl_vinit,
+                                            spl_pinit, x...)
         Q = MPIStateArray(spacedisc, initialcondition)
     end
 
     @timeit to "Time stepping init" begin
         
         lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
+
+        #=
+        # Courant start
+        #
+        #@show(spacedisc.auxstate)
+        cfl_safety_factor = 0.85
+        Courant_max = dt * global_max(spacedisc.auxstate, _a_timescale)
+        
+        @info @sprintf("""Courant_max = %.16e ------ %.16e """, Courant_max, global_max(spacedisc.auxstate, _a_timescale))
+
+        if (Courant_max >= 1)
+            dt = dt / Courant_max * cfl_safety_factor
+        else
+            dt = cfl_safety_factor / Courant_max * dt
+        end
+
+        ODESolvers.updatedt!(lsrk, dt)
+        @info @sprintf """ dt = %.8e. max(CFL) = %.8e""" dt Courant_max
+        #
+        # Courant end
+        =#
         
         #=eng0 = norm(Q)
         @info @sprintf """Starting
@@ -902,8 +929,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 #energy = norm(Q)
                 #globmean = global_mean(Q, _ρ)
                 @info @sprintf("""Update
-                                   simtime = %.16e
-                                   runtime = %s""",
+                               simtime = %.16e
+                               runtime = %s""",
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
@@ -917,14 +944,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         step = [0]
-        mkpath("./CLIMA-output-scratch/sq-today")
+        mkpath("./CLIMA-output-scratch/vtk-sq-3d")
         cbvtk = GenericCallbacks.EveryXSimulationSteps(3600) do (init=false) #every 1 min = (0.025) * 40 * 60 * 1min
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     DF = eltype(Q)
 
                     u, v, w, rain_w, ρ, q_tot, q_liq, q_ice, q_rai, e_tot =
-                        preflux(Q, QV, aux)
+                      preflux(Q, QV, aux)
 
                     e_kin = 1//2 * (u^2 + v^2 + w^2)
                     e_pot = grav * aux[_a_z]
@@ -957,14 +984,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     R[out_e_pot] = e_pot
 
                     if(q_rai > DF(0)) # TODO - ensure positive definite elswhere
-                        R[out_rain_w] = terminal_velocity(q_rai, ρ)
+                      R[out_rain_w] = terminal_velocity(q_rai, ρ)
                     else
-                        R[out_rain_w] = DF(0)
+                      R[out_rain_w] = DF(0)
                     end
                 end
             end
 
-            outprefix = @sprintf("./CLIMA-output-scratch/sq-today/squall_%dD_mpirank%04d_step%04d", dim,
+            outprefix = @sprintf("./CLIMA-output-scratch/vtk-sq-3d/squall_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
@@ -976,7 +1003,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 
 @info @sprintf """Starting...
-                norm(Q) = %25.16e""" norm(Q)
+            norm(Q) = %25.16e""" norm(Q)
 
 # Initialise the integration computation. Kernels calculate this at every timestep??
 @timeit to "initial integral" integral_computation(spacedisc, Q, 0)
@@ -984,7 +1011,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
 
 @info @sprintf """Finished...
-                norm(Q) = %25.16e""" norm(Q)
+            norm(Q) = %25.16e""" norm(Q)
 
 #=
 # Print some end of the simulation information
@@ -1018,6 +1045,7 @@ let
     MPI.Initialized() || MPI.Init()
     Sys.iswindows() || (isinteractive() && MPI.finalize_atexit())
     mpicomm = MPI.COMM_WORLD
+
     ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
     loglevel = ll == "DEBUG" ? Logging.Debug :
         ll == "WARN"  ? Logging.Warn  :
@@ -1033,8 +1061,8 @@ let
     # User defined simulation end time
     # User defined polynomial order
     numelem = (Nex,Ney,Nez)
-    dt = 0.025
-    timeend = 9000 # 2h 30 min
+    dt = 0.03
+    timeend = 12000 # 2h 30 min
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
@@ -1069,5 +1097,4 @@ end
 isinteractive() || MPI.Finalize()
 
 nothing
-
 end
