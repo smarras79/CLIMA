@@ -83,8 +83,8 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 35
-Δy    = 35
+Δx    = 25
+Δy    = 25
 Δz    = 10
 #
 # OR:
@@ -580,33 +580,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     DFloat         = eltype(Q)
     p0::DFloat      = MSLP
 
-    #=
-    # ----------------------------------------------------
-    # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
-    # This driver accepts data in 6 column format
-    # ----------------------------------------------------
-    (sounding, _, ncols) = read_sounding()
-    
-    # WARNING: Not all sounding data is formatted/scaled 
-    # the same. Care required in assigning array values
-    # height theta qv    u     v     pressure
-    zinit, tinit, qinit, uinit, vinit, pinit  = sounding[:, 1],
-    sounding[:, 2],
-    sounding[:, 3],
-    sounding[:, 4],
-    sounding[:, 5],
-    sounding[:, 6]    
-    #------------------------------------------------------
-    # GET SPLINE FUNCTION
-    #------------------------------------------------------
-    spl_tinit    = Spline1D(zinit, tinit; k=1)
-    spl_qinit    = Spline1D(zinit, qinit; k=1)
-    spl_uinit    = Spline1D(zinit, uinit; k=1)
-    spl_vinit    = Spline1D(zinit, vinit; k=1)
-    spl_pinit    = Spline1D(zinit, pinit; k=1)
-    =#
     # --------------------------------------------------
-    # INITIALISE ARRAYS FOR INTERPOLATED VALUES
+    # INITIALIZE ARRAYS FOR INTERPOLATED VALUES
     # --------------------------------------------------
     xvert          = z
     
