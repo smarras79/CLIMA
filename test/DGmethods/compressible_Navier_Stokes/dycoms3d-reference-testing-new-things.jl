@@ -49,8 +49,8 @@ const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
 
-const _nauxstate = 7
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad = 1:_nauxstate
+const _nauxstate = 8
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_LWP, _a_qt = 1:_nauxstate
 
 
 if !@isdefined integration_testing
@@ -83,9 +83,9 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 25
-Δy    = 25
-Δz    = 10
+Δx    = 100
+Δy    = 100
+Δz    = 30
 #
 # OR:
 #
@@ -133,6 +133,8 @@ const C_smag = 0.18
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
+
+top_of_cloud = 0
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
@@ -285,25 +287,40 @@ gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,
 end
 
 @inline function radiation(aux)
-  zero_to_z = aux[_a_02z]
-  z_to_inf = aux[_a_z2inf]
-  z = aux[_a_z]
-  z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
-  (z - z_i) >=0 ? Δz_i = (z - z_i) : Δz_i = 0 
-  # Constants 
-  F_0 = 70 
-  F_1 = 22
-  α_z = 1
-  ρ_i = 1.22
-  D_subsidence = 3.75e-6
-  term1 = F_0 * exp(-z_to_inf) 
-  term2 = F_1 * exp(-zero_to_z)
-  term3 = ρ_i * cp_d * D_subsidence * α_z * (0.25 * (cbrt(Δz_i))^4 + z_i * cbrt(Δz_i))
-  F_rad = term1 + term2 + term3  
-  return F_rad
+    zero_to_z = aux[_a_02z]
+    z_to_inf  = aux[_a_z2inf]
+    z         = aux[_a_z]
+    qt        = aux[_a_qt]
+    epsi      = 1.0e-8
+
+    @show(" top of cloud : ", top_of_cloud)
+    if (abs(qt - 8.0e-3) <= epsi && top_of_cloud > 0)
+        z_i = z
+        top_of_cloud = 1
+        @show(" top of cloud inside : ", top_of_cloud)
+    else
+        z_i = 840.0
+    end
+    
+    
+    #z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot 
+    #abs(qt - 8.0e-3) <= epsi ? z_i = z : z_i = 840.0 
+    (z - z_i) >=0 ? Δz_i = (z - z_i) : Δz_i = 0
+    
+    # Constants 
+    F_0 = 70
+    F_1 = 22
+    α_z = 1
+    ρ_i = 1.22
+    D_subsidence = 3.75e-6
+    term1 = F_0 * exp(-z_to_inf) 
+    term2 = F_1 * exp(-zero_to_z)
+    term3 = ρ_i * cp_d * D_subsidence * α_z * (0.25 * (cbrt(Δz_i))^4 + z_i * cbrt(Δz_i))
+    F_rad = term1 + term2 + term3  
+    return F_rad
 end
 
-# -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 #md ### Viscous fluxes. 
 #md # The viscous flux function compute_stresses computes the components of 
 #md # the velocity gradient tensor, and the corresponding strain rates to
@@ -540,25 +557,30 @@ end
 end
 
 # Test integral exactly according to the isentropic vortex example
-@inline function integral_knl(val, Q, aux)
+@inline function integrand_knl(val, Q, aux)
   κ = 85.0
   @inbounds begin
     @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    ρinv = 1 / ρ
-    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+    ρinv    = 1 / ρ
+    x,y,z   = aux[_a_x], aux[_a_y], aux[_a_z]
     u, v, w = ρinv * U, ρinv * V, ρinv * W
-    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
-    q_tot = QT / ρ
+    e_int   = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+      q_tot   = QT/ρ
+      aux[_q_t]
+      
     # Establish the current thermodynamic state using the prognostic variables
-    TS = PhaseEquil(e_int, q_tot, ρ)
-    q_liq = PhasePartition(TS).liq
-    val[1] = ρ * κ * q_liq 
+    TS     = PhaseEquil(e_int, q_tot, ρ)
+    q_liq  = PhasePartition(TS).liq
+    val[1] = ρ * κ * q_liq
+    val[2] = ρ * q_liq      #LWP
+
   end
 end
 
 function integral_computation(disc, Q, t)
-  DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q,
-                                                         (_a_02z))
+  DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integrand_knl, Q,
+                                                         (_a_02z, _a_LWP))
+    
   DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
                                                                  _a_z2inf,
                                                                  _a_02z)
@@ -721,7 +743,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("./CLIMA-output-scratch/dycoms-today/")
+    mkpath("./CLIMA-output-scratch/dycoms-july11/")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(500) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
@@ -731,7 +753,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                        end
                                                    end
 
-        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-today/dyc_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("./CLIMA-output-july11/dycoms-today/dyc_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -751,32 +773,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     # Initialise the integration computation. Kernels calculate this at every timestep?? 
     integral_computation(spacedisc, Q, 0) 
     solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-
-
-#=
-    # Print some end of the simulation information
-    engf = norm(Q)
-    if integration_testing
-        Qe = MPIStateArray(spacedisc,
-                           (Q, x...) -> initialcondition!(Val(dim), Q,
-                                                          DFloat(timeend), x...))
-        engfe = norm(Qe)
-        errf = euclidean_distance(Q, Qe)
-        @info @sprintf """Finished
-        norm(Q)                 = %.16e
-        norm(Q) / norm(Q₀)      = %.16e
-        norm(Q) - norm(Q₀)      = %.16e
-        norm(Q - Qe)            = %.16e
-        norm(Q - Qe) / norm(Qe) = %.16e
-        """ engf engf/eng0 engf-eng0 errf errf / engfe
-    else
-        @info @sprintf """Finished
-        norm(Q)            = %.16e
-        norm(Q) / norm(Q₀) = %.16e
-        norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
-    end
-integration_testing ? errf : (engf / eng0)
-=#
 
 end
 
