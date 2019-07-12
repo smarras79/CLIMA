@@ -53,8 +53,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 # Gradient state labels
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 10
-const _a_z, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_θ, _a_P, _a_q_liq, _a_soundspeed_air, _a_LWP  = 1:_nauxstate
+const _nauxstate = 11
+const _a_z, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_θ, _a_P, _a_q_liq, _a_soundspeed_air, _a_LWP_02z, _a_LWP_z2inf  = 1:_nauxstate
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -88,7 +88,7 @@ const Npoly = 4
 #
 Δx    = 50
 Δy    = 50
-Δz    = 10
+Δz    = 20
 
 #
 # OR:
@@ -98,8 +98,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 3820)
-const (ymin, ymax) = (0, 3820)
+const (xmin, xmax) = (0, 820)
+const (ymin, ymax) = (0, 820)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -213,9 +213,9 @@ end
     # Brunt-Vaisala frequency
     N2 = grav * dθvdz / θv
     # Richardson number
-    Richardson = N2 / (2 * normSij + eps(normSij))
+    Ri = N2 / (2 * normSij + eps(normSij))
     # Buoyancy correction factor
-    buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_turb))
+    buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Ri/Prandtl_t))
     return buoyancy_factor
   end
 # -------------------------------------------------------------------------
@@ -254,8 +254,12 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
     SijSij = VF[_SijSij]
 
-    #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
+    #Buoyancy factor:
+    θv = aux[_a_θ]
+    fb = buoyancy_correction(SijSij, θv, vθz)
+      
+    #Eddy viscosity from Smagorinsky: 
+    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb
     D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
@@ -294,14 +298,14 @@ const _ngradstates = 7
 gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,~,aux)...)
 @inline function gradient_vars!(vel, Q, aux, t, u, v, w)
   @inbounds begin
-    T = aux[_a_T]
-    θ = aux[_a_θ]
+    T  = aux[_a_T]
+    θv = aux[_a_θ]
     E, QT = Q[_E], Q[_QT]
 
     # ordering should match states_for_gradient_transform
     vel[1], vel[2], vel[3] = u, v, w
     vel[4], vel[5], vel[6] = E, QT, T
-    vel[7] = θ
+    vel[7] = θv
   end
 end
 
@@ -536,6 +540,7 @@ end
     ρ = Q[_ρ]
     q_liq = aux[_a_q_liq]
     val[1] = ρ * κ * q_liq
+    val[2] = ρ * q_liq     #LWP
   end
 end
 
@@ -553,7 +558,7 @@ function preodefun!(disc, Q, t)
             q_liq = PhasePartition(TS).liq
             θv    = virtual_pottemp(TS)
 
-            #R[_a_θ] = θv
+            R[_a_θ] = θv
             R[_a_T] = T
             R[_a_P] = P
             R[_a_q_liq] = q_liq
@@ -574,10 +579,14 @@ end
 
 function integral_computation(disc, Q, t)
   DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integrand_knl, Q,
-                                                         (_a_02z, _a_LWP))
+                                                         (_a_02z, _a_LWP_02z))
   DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
                                                                  _a_z2inf,
                                                                  _a_02z)
+    
+  DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
+                                                                 _a_LWP_z2inf,
+                                                                 _a_LWP_02z)
 end
 
 # initial condition
