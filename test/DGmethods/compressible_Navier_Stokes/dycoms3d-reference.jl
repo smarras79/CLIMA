@@ -47,14 +47,14 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 13
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _SijSij = 1:_nviscstates
+const _nviscstates = 14
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θz, _SijSij = 1:_nviscstates
 
 # Gradient state labels
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 9
-const _a_z, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_P, _a_q_liq, _a_soundspeed_air, _a_LWP  = 1:_nauxstate
+const _nauxstate = 10
+const _a_z, _a_sponge, _a_02z, _a_z2inf, _a_T, _a_θ, _a_P, _a_q_liq, _a_soundspeed_air, _a_LWP  = 1:_nauxstate
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -86,9 +86,9 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 35
-Δy    = 35
-Δz    = 5
+Δx    = 50
+Δy    = 50
+Δz    = 10
 
 #
 # OR:
@@ -188,6 +188,39 @@ function read_sounding()
 end
 
 # -------------------------------------------------------------------------
+# ### anisotropic_lengthscale_3D (this should be taken from AS dycoms3d-reference.jl
+ function anisotropic_lengthscale_3D(Δ1, Δ2, Δ3)
+    # Arguments are the lengthscales in each of the coordinate directions
+    # For a cube: this is the edge length
+    # For a sphere: the arc length provides one approximation of many
+    Δ = cbrt(Δ1 * Δ2 * Δ3)
+    Δ_sorted = sort([Δ1, Δ2, Δ3])  
+    # Get smallest two dimensions
+    Δ_s1 = Δ_sorted[1]
+    Δ_s2 = Δ_sorted[2]
+    a1 = Δ_s1 / max(Δ1,Δ2,Δ3) 
+    a2 = Δ_s2 / max(Δ1,Δ2,Δ3) 
+    # In 3D we compute a scaling factor for anisotropic grids
+    f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2)
+    Δ = Δ*f_anisotropic
+    Δsqr = Δ * Δ
+    return Δsqr
+  end
+
+# -------------------------------------------------------------------------
+# ### buoyancy_correction (this should be taken from AS dycoms3d-reference.jl
+ function buoyancy_correction(normSij, θv, dθvdz)
+    # Brunt-Vaisala frequency
+    N2 = grav * dθvdz / θv
+    # Richardson number
+    Richardson = N2 / (2 * normSij + eps(normSij))
+    # Buoyancy correction factor
+    buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_turb))
+    return buoyancy_factor
+  end
+# -------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
 # ### Physical Flux (Required)
 #md # Here, we define the physical flux function, i.e. the conservative form
 #md # of the equations of motion for the prognostic variables ρ, U, V, W, E, QT
@@ -214,6 +247,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     #Derivative of T and Q:
     vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
     vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+              vθz =                   VF[_θz]
 
     # Radiation contribution
     F_rad = ρ * radiation(aux)
@@ -256,16 +290,18 @@ end
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 
-const _ngradstates = 6
+const _ngradstates = 7
 gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,~,aux)...)
 @inline function gradient_vars!(vel, Q, aux, t, u, v, w)
   @inbounds begin
     T = aux[_a_T]
+    θ = aux[_a_θ]
     E, QT = Q[_E], Q[_QT]
 
     # ordering should match states_for_gradient_transform
     vel[1], vel[2], vel[3] = u, v, w
     vel[4], vel[5], vel[6] = E, QT, T
+    vel[7] = θ
   end
 end
 
@@ -305,6 +341,8 @@ end
     # compute gradients of moist vars and temperature
     dqdx, dqdy, dqdz = grad_vel[1, 5], grad_vel[2, 5], grad_vel[3, 5]
     dTdx, dTdy, dTdz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
+                dθdz =                                 grad_vel[3, 7]
+      
     # virtual potential temperature gradient: for richardson calculation
     # strains
     # --------------------------------------------
@@ -335,6 +373,7 @@ end
     # TODO: Viscous stresse come from SubgridScaleTurbulence module
     VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
     VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
+                      VF[_θz] =             dθdz
     VF[_SijSij] = SijSij
   end
 end
@@ -497,7 +536,6 @@ end
     ρ = Q[_ρ]
     q_liq = aux[_a_q_liq]
     val[1] = ρ * κ * q_liq
-    val[2] = ρ * q_liq     #LWP
   end
 end
 
@@ -509,11 +547,13 @@ function preodefun!(disc, Q, t)
             e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
             q_tot = QT / ρ
             
-            TS = PhaseEquil(e_int, q_tot, ρ)
-            T = air_temperature(TS)
-            P = air_pressure(TS) # Test with dry atmosphere
+            TS    = PhaseEquil(e_int, q_tot, ρ)
+            T     = air_temperature(TS)
+            P     = air_pressure(TS) # Test with dry atmosphere
             q_liq = PhasePartition(TS).liq
-            
+            θv    = virtual_pottemp(TS)
+
+            #R[_a_θ] = θv
             R[_a_T] = T
             R[_a_P] = P
             R[_a_q_liq] = q_liq
