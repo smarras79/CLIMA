@@ -128,12 +128,33 @@ DoF = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate)
 DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstate + CLIMA.Grids._nvgeo) +
              (Nex*Ney*Nez)*(Npoly+1)^(numdims-1)*2^numdims*(CLIMA.Grids._nsgeo)
 
+# -------------------------------------------------------------------------
+# ### anisotropic_lengthscale_3D (this should be taken from AS dycoms3d-reference.jl
+ function anisotropic_lengthscale_3D(Δ1, Δ2, Δ3)
+    # Arguments are the lengthscales in each of the coordinate directions
+    # For a cube: this is the edge length
+    # For a sphere: the arc length provides one approximation of many
+    Δ = cbrt(Δ1 * Δ2 * Δ3)
+    Δ_sorted = sort([Δ1, Δ2, Δ3])  
+    # Get smallest two dimensions
+    Δ_s1 = Δ_sorted[1]
+    Δ_s2 = Δ_sorted[2]
+    a1 = Δ_s1 / max(Δ1,Δ2,Δ3) 
+    a2 = Δ_s2 / max(Δ1,Δ2,Δ3) 
+    # In 3D we compute a scaling factor for anisotropic grids
+    f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2)
+    Δ = Δ*f_anisotropic
+    Δsqr = Δ * Δ
+    return Δsqr
+  end
+
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
 @parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
-const Δsqr = Δ * Δ
+#const Δsqr = Δ * Δ
+const Δsqr = anisotropic_lengthscale_3D(Δx, Δy, Δz)
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
@@ -187,25 +208,6 @@ function read_sounding()
   return (sounding, nzmax, ncols)
 end
 
-# -------------------------------------------------------------------------
-# ### anisotropic_lengthscale_3D (this should be taken from AS dycoms3d-reference.jl
- function anisotropic_lengthscale_3D(Δ1, Δ2, Δ3)
-    # Arguments are the lengthscales in each of the coordinate directions
-    # For a cube: this is the edge length
-    # For a sphere: the arc length provides one approximation of many
-    Δ = cbrt(Δ1 * Δ2 * Δ3)
-    Δ_sorted = sort([Δ1, Δ2, Δ3])  
-    # Get smallest two dimensions
-    Δ_s1 = Δ_sorted[1]
-    Δ_s2 = Δ_sorted[2]
-    a1 = Δ_s1 / max(Δ1,Δ2,Δ3) 
-    a2 = Δ_s2 / max(Δ1,Δ2,Δ3) 
-    # In 3D we compute a scaling factor for anisotropic grids
-    f_anisotropic = 1 + 2/27 * ((log(a1))^2 - log(a1)*log(a2) + (log(a2))^2)
-    Δ = Δ*f_anisotropic
-    Δsqr = Δ * Δ
-    return Δsqr
-  end
 
 # -------------------------------------------------------------------------
 # ### buoyancy_correction (this should be taken from AS dycoms3d-reference.jl
