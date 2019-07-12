@@ -425,7 +425,6 @@ end
           top_sponge = zmax - zd
           if z >= top_sponge
               ctop = ct * sinpi(0.5 * (1.0 - (zmax - z)/zd))^2.0
-              @show(ctop, top_sponge)
           end
       end
           
