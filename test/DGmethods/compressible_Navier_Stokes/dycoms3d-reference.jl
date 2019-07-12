@@ -396,64 +396,39 @@ end
   @inbounds begin
     DFloat = eltype(aux)
     aux[_a_z] = z
+      
+      #Sponge
+      sponge_type = 2
+      if(sponge_type == 1)
+          ctop         = zero(DFloat)
+          ct           = DFloat(0.75)
+          domain_bott  = zmin
+          domain_top   = zmax
+          #END User modification on domain parameters.
 
-    #Sponge
-    csleft  = zero(DFloat)
-    csright = zero(DFloat)
-    csfront = zero(DFloat)
-    csback  = zero(DFloat)
-    ctop    = zero(DFloat)
+          # Define Sponge Boundaries
+          top_sponge  = DFloat(0.85) * domain_top
 
-    cs_left_right = zero(DFloat)
-    cs_front_back = zero(DFloat)
-    ct            = DFloat(0.75)
+          #Vertical sponge:
+          if z >= top_sponge
+              ctop = ct * (sinpi((z - top_sponge)/2/(domain_top - top_sponge)))^4
+          end
+          
+      elseif( sponge_type == 2)
 
-    domain_left  = xmin
-    domain_right = xmax
+          ctop         = 0.0
+          ct           = 0.02
+          zd           = 500.0
+          #END User modification on domain parameters.
 
-    domain_front = ymin
-    domain_back  = ymax
-
-    domain_bott  = zmin
-    domain_top   = zmax
-
-    #END User modification on domain parameters.
-
-    # Define Sponge Boundaries
-    xc       = (domain_right + domain_left) / 2
-    yc       = (domain_back  + domain_front) / 2
-    zc       = (domain_top   + domain_bott) / 2
-
-    top_sponge  = DFloat(0.85) * domain_top
-    xsponger    = domain_right - DFloat(0.15) * (domain_right - xc)
-    xspongel    = domain_left  + DFloat(0.15) * (xc - domain_left)
-    ysponger    = domain_back  - DFloat(0.15) * (domain_back - yc)
-    yspongel    = domain_front + DFloat(0.15) * (yc - domain_front)
-
-    #x left and right
-    #xsl
-    if x <= xspongel
-      csleft = cs_left_right * (sinpi((x - xspongel)/2/(domain_left - xspongel)))^4
-    end
-    #xsr
-    if x >= xsponger
-      csright = cs_left_right * (sinpi((x - xsponger)/2/(domain_right - xsponger)))^4
-    end
-    #y left and right
-    #ysl
-    if y <= yspongel
-      csfront = cs_front_back * (sinpi((y - yspongel)/2/(domain_front - yspongel)))^4
-    end
-    #ysr
-    if y >= ysponger
-      csback = cs_front_back * (sinpi((y - ysponger)/2/(domain_back - ysponger)))^4
-    end
-
-    #Vertical sponge:
-    if z >= top_sponge
-      ctop = ct * (sinpi((z - top_sponge)/2/(domain_top - top_sponge)))^4
-    end
-
+          # Define Sponge depth
+          top_sponge = zmax - zd
+          if z >= top_sponge
+              ctop = ct * sinpi(0.5 * (1.0 - (zmax - z)/zd))^2.0
+              @show(ctop, top_sponge)
+          end
+      end
+          
     beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
     beta  = min(beta, 1)
     aux[_a_sponge] = beta
