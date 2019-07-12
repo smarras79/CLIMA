@@ -424,13 +424,13 @@ end
           # Define Sponge depth
           top_sponge = zmax - zd
           if z >= top_sponge
-              ctop = ct * sinpi(0.5 * (1.0 - (zmax - z)/zd))^2.0
+              ctop = ct * sin(0.5* pi * (1.0 - (zmax - z)/zd))^2.0
           end
       end
-          
-    beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-    beta  = min(beta, 1)
-    aux[_a_sponge] = beta
+      
+      beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
+      beta  = min(beta, 1)
+      aux[_a_sponge] = beta
   end
 end
 
