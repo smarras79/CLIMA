@@ -86,8 +86,8 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 40
-Δy    = 40
+Δx    = 35
+Δy    = 35
 Δz    = 5
 
 #
@@ -520,11 +520,14 @@ function preodefun!(disc, Q, t)
             R[_a_soundspeed_air] = soundspeed_air(TS)
         end
     end
-    #FIX ME: THE TWO FOLLOWING LINES SHOULD BE REPLACED BY A BETTER SOLUTION.
-    #SEE Issue 322
-    MPIStateArrays.start_ghost_exchange!(disc.auxstate)
-    MPIStateArrays.finish_ghost_exchange!(disc.auxstate)
-    #END FIX ME
+    ###
+    ### FIX ME: THE TWO FOLLOWING LINES SHOULD BE REPLACED BY A BETTER SOLUTION.
+    ###  SEE Issue 322
+    ###
+    ###  UNCOMMENT THE TWO MPI LINES BELOW TO USE WITH MULTI-GPUs
+     #  MPIStateArrays.start_ghost_exchange!(disc.auxstate)
+     #  MPIStateArrays.finish_ghost_exchange!(disc.auxstate)
+    ### END FIX ME
     
     integral_computation(disc, Q, t)
 end
@@ -692,7 +695,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
       
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-multiGPU/dycoms_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
