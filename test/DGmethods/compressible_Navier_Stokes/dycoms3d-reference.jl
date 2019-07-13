@@ -98,8 +98,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 820)
-const (ymin, ymax) = (0, 820)
+const (xmin, xmax) = (0, 3820)
+const (ymin, ymax) = (0, 3820)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -128,19 +128,9 @@ DoF = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate)
 DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstate + CLIMA.Grids._nvgeo) +
              (Nex*Ney*Nez)*(Npoly+1)^(numdims-1)*2^numdims*(CLIMA.Grids._nsgeo)
 
-
-
-# Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-@parameter C_smag 0.15 "C_smag"
-# Equivalent grid-scale
-Δ = (Δx * Δy * Δz)^(1/3)
-
 # -------------------------------------------------------------------------
-#
-# From AS SubgridScaleTurbulence.jl
-#
 # ### anisotropic_lengthscale_3D (this should be taken from AS dycoms3d-reference.jl
-function anisotropic_lengthscale_3D(Δ1, Δ2, Δ3)
+ function anisotropic_lengthscale_3D(Δ1, Δ2, Δ3)
     # Arguments are the lengthscales in each of the coordinate directions
     # For a cube: this is the edge length
     # For a sphere: the arc length provides one approximation of many
@@ -156,41 +146,15 @@ function anisotropic_lengthscale_3D(Δ1, Δ2, Δ3)
     Δ = Δ*f_anisotropic
     Δsqr = Δ * Δ
     return Δsqr
-end
+  end
 
+
+# Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
+@parameter C_smag 0.15 "C_smag"
+# Equivalent grid-scale
+Δ = (Δx * Δy * Δz)^(1/3)
 #const Δsqr = Δ * Δ
-Δsqr = anisotropic_lengthscale_3D(Δx, Δy, Δz)
-
-
-function standard_smagorinsky(normSij, Δsqr)
-    Prandtl_t = 1//3
-    
-    # Eddy viscosity is a function of the magnitude of the strain-rate tensor
-    # This is for use on both spherical and cartesian grids. 
-    DF = eltype(normSij)
-    ν_e::DF = sqrt(2.0 * normSij) * C_smag^2 * Δsqr
-    D_e::DF = 3.0 * ν_e
-    return (ν_e, D_e)
-end
-
-function anisotropic_smagorinsky(normSij, Δ1, Δ2, Δ3=0)
-    Prandtl_t = 1//3 
-    # Order of arguments is irrelevant as long as self-consistency
-    # with governing equations is maintained.
-    DF = eltype(normSij)
-    ν_1::DF = sqrt(2.0 * normSij) * C_smag^2 * Δ1^2
-    ν_2::DF = sqrt(2.0 * normSij) * C_smag^2 * Δ2^2
-    ν_3::DF = sqrt(2.0 * normSij) * C_smag^2 * Δ3^2
-    D_1::DF = ν_1 / Prandtl_t 
-    D_2::DF = ν_2 / Prandtl_t 
-    D_3::DF = ν_3 / Prandtl_t 
-    return (ν_1, ν_2, ν_3, D_1, D_2, D_3)
-end
-#
-# END from AS SubgridScaleTurbulence.jl
-#
-
-
+const Δsqr = anisotropic_lengthscale_3D(Δx, Δy, Δz)
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
@@ -233,24 +197,21 @@ end
 #md #
 # -------------------------------------------------------------------------
 function read_sounding()
-    #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
-    sounding = readdlm(fsounding)
-    close(fsounding)
-    (nzmax, ncols) = size(sounding)
-    if nzmax == 0
-        error("SOUNDING ERROR: The Sounding file is empty!")
-    end
-    return (sounding, nzmax, ncols)
+  #read in the original squal sounding
+  fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
+  sounding = readdlm(fsounding)
+  close(fsounding)
+  (nzmax, ncols) = size(sounding)
+  if nzmax == 0
+    error("SOUNDING ERROR: The Sounding file is empty!")
+  end
+  return (sounding, nzmax, ncols)
 end
 
 
 # -------------------------------------------------------------------------
 # ### buoyancy_correction (this should be taken from AS dycoms3d-reference.jl
-function buoyancy_correction(normSij, θv, dθvdz)
-
-    Prandtl_t = 1//3
-    
+ function buoyancy_correction(normSij, θv, dθvdz)
     # Brunt-Vaisala frequency
     N2 = grav * dθvdz / θv
     # Richardson number
@@ -258,7 +219,7 @@ function buoyancy_correction(normSij, θv, dθvdz)
     # Buoyancy correction factor
     buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Ri/Prandtl_t))
     return buoyancy_factor
-end
+  end
 # -------------------------------------------------------------------------
 
 # -------------------------------------------------------------------------
@@ -299,14 +260,10 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     θv = aux[_a_θ]
     fb = buoyancy_correction(SijSij, θv, vθz)
       
-    #Eddy viscosity from Smagorinsky:
-    coeff = 0.1
-    #(ν_1, ν_2, ν_3, D_1, D_2, D_3) = anisotropic_smagorinsky(SijSij, Δx, Δy, Δz)    
-    #(ν_e, D_e) = standard_smagorinsky(SijSij, Δsqr)
-    #ν_e = ν_e * fb * coeff
-    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb * coeff    
-    D_e = 3.0 * ν_e
-      
+    #Eddy viscosity from Smagorinsky: 
+    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb
+    D_e = ν_e / Prandtl_t
+
     # Multiply stress tensor by viscosity coefficient:
     τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
     τ12 = τ21 = VF[_τ12] * ν_e
@@ -454,7 +411,7 @@ end
 
           #Vertical sponge:
           if z >= top_sponge
-              ctop = ct * (sinpi(0.5*(z - top_sponge)/(domain_top - top_sponge)))^4
+              ctop = ct * (sinpi((z - top_sponge)/2/(domain_top - top_sponge)))^4
           end
           
       elseif( sponge_type == 2)
@@ -743,31 +700,27 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       end
     end
 
-    #npoststates = 5
-    #_u, _v, _w, _q_liq, _LWP = 1:npoststates
-    #postnames = ("u", "v", "w", "_q_liq", "LWP")
-    npoststates = 2
-    _q_liq, _LWP = 1:npoststates
-    postnames = ("_q_liq", "LWP")
+    npoststates = 6
+    _P, _u, _v, _w, _q_liq, _T = 1:npoststates
+    postnames = ("P", "u", "v", "w", "_q_liq", "T")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
-          #F_rad_out   = radiation(aux)
-          #u, v, w     = preflux(Q, QV, aux)
-          #R[_P]       = aux[_a_P]
-          #R[_u]       = u
-          #R[_v]       = v
-          #R[_w]       = w
+          F_rad_out   = radiation(aux)
+          u, v, w     = preflux(Q, QV, aux)
+          R[_P]       = aux[_a_P]
+          R[_u]       = u
+          R[_v]       = v
+          R[_w]       = w
           R[_q_liq]   = aux[_a_q_liq]
-          #R[_T]       = aux[_a_T]
-          R[_LWP]     = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
+          R[_T]       = aux[_a_T]
         end
       end
       
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-less-dissipation-coefficient/dycoms_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -829,11 +782,8 @@ let
     @info @sprintf """ ------------------------------------------------------"""
     @info @sprintf """ Dycoms                                                """
     @info @sprintf """   Resolution:                                         """ 
-    @info @sprintf """     (Δx, Δy, Δz)    = (%.2e, %.2e, %.2e)              """ Δx Δy Δz
+    @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
     @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                    """ Nex Ney Nez
-    @info @sprintf """     (xmin, xmax)    = (%.2e, %.2e)                    """ xmin xmax
-    @info @sprintf """     (ymin, ymax)    = (%.2e, %.2e)                    """ ymin ymax
-    @info @sprintf """     (zmin, zmax)    = (%.2e, %.2e)                    """ zmin zmax
     @info @sprintf """     DoF = %d                                          """ DoF
     @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(DFloat))/1000^3
     @info @sprintf """     Time step dt: %.2e                                """ dt
