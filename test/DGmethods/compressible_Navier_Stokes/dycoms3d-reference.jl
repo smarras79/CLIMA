@@ -98,8 +98,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 3820)
-const (ymin, ymax) = (0, 3820)
+const (xmin, xmax) = (0, 820)
+const (ymin, ymax) = (0, 820)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -141,7 +141,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 # From AS SubgridScaleTurbulence.jl
 #
 # ### anisotropic_lengthscale_3D (this should be taken from AS dycoms3d-reference.jl
- function anisotropic_lengthscale_3D(Δ1, Δ2, Δ3)
+function anisotropic_lengthscale_3D(Δ1, Δ2, Δ3)
     # Arguments are the lengthscales in each of the coordinate directions
     # For a cube: this is the edge length
     # For a sphere: the arc length provides one approximation of many
@@ -157,35 +157,38 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
     Δ = Δ*f_anisotropic
     Δsqr = Δ * Δ
     return Δsqr
-  end
+end
 
 
 function standard_smagorinsky(normSij, Δsqr)
+    Prandtl_t = 1//3
+    
     # Eddy viscosity is a function of the magnitude of the strain-rate tensor
     # This is for use on both spherical and cartesian grids. 
     DF = eltype(normSij)
     ν_e::DF = sqrt(2.0 * normSij) * C_smag^2 * Δsqr
-    D_e::DF = ν_e / Prandtl_turb 
+    D_e::DF = ν_e / Prandtl_t 
     return (ν_e, D_e)
 end
 
 function anisotropic_smagorinsky(normSij, Δ1, Δ2, Δ3=0)
+    Prandtl_t = 1//3 
     # Order of arguments is irrelevant as long as self-consistency
     # with governing equations is maintained.
     DF = eltype(normSij)
     ν_1::DF = sqrt(2.0 * normSij) * C_smag^2 * Δ1^2
     ν_2::DF = sqrt(2.0 * normSij) * C_smag^2 * Δ2^2
     ν_3::DF = sqrt(2.0 * normSij) * C_smag^2 * Δ3^2
-    D_1::DF = ν_1 / Prandtl_turb 
-    D_2::DF = ν_2 / Prandtl_turb 
-    D_3::DF = ν_3 / Prandtl_turb 
+    D_1::DF = ν_1 / Prandtl_t 
+    D_2::DF = ν_2 / Prandtl_t 
+    D_3::DF = ν_3 / Prandtl_t 
     return (ν_1, ν_2, ν_3, D_1, D_2, D_3)
-  end
+end
 #
 # END from AS SubgridScaleTurbulence.jl
 #
 #const Δsqr = Δ * Δ
-const Δsqr = anisotropic_lengthscale_3D(Δx, Δy, Δz)
+Δsqr = anisotropic_lengthscale_3D(Δx, Δy, Δz)
 
 
 
@@ -230,21 +233,24 @@ end
 #md #
 # -------------------------------------------------------------------------
 function read_sounding()
-  #read in the original squal sounding
-  fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
-  sounding = readdlm(fsounding)
-  close(fsounding)
-  (nzmax, ncols) = size(sounding)
-  if nzmax == 0
-    error("SOUNDING ERROR: The Sounding file is empty!")
-  end
-  return (sounding, nzmax, ncols)
+    #read in the original squal sounding
+    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
+    sounding = readdlm(fsounding)
+    close(fsounding)
+    (nzmax, ncols) = size(sounding)
+    if nzmax == 0
+        error("SOUNDING ERROR: The Sounding file is empty!")
+    end
+    return (sounding, nzmax, ncols)
 end
 
 
 # -------------------------------------------------------------------------
 # ### buoyancy_correction (this should be taken from AS dycoms3d-reference.jl
- function buoyancy_correction(normSij, θv, dθvdz)
+function buoyancy_correction(normSij, θv, dθvdz)
+
+    Prandtl_t = 1//3
+    
     # Brunt-Vaisala frequency
     N2 = grav * dθvdz / θv
     # Richardson number
@@ -252,7 +258,7 @@ end
     # Buoyancy correction factor
     buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Ri/Prandtl_t))
     return buoyancy_factor
-  end
+end
 # -------------------------------------------------------------------------
 
 # -------------------------------------------------------------------------
@@ -295,31 +301,36 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
       
     #Eddy viscosity from Smagorinsky:
     coeff = 0.1
-    ν_e = anisotropic_smagorinsky(SijSij, Δx, Δy, Δz)    
-    #ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb * coeff
-    D_e = ν_e / Prandtl_t
+    (ν_1, ν_2, ν_3, D_1, D_2, D_3) = anisotropic_smagorinsky(SijSij, Δx, Δy, Δz)    
+    #ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb * coeff    
+    #D_e = 3.0 * ν_e
       
     # Multiply stress tensor by viscosity coefficient:
-    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
-    τ12 = τ21 = VF[_τ12] * ν_e
-    τ13 = τ31 = VF[_τ13] * ν_e
-    τ23 = τ32 = VF[_τ23] * ν_e
+    #τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
+    #τ12 = τ21 = VF[_τ12] * ν_e
+    #τ13 = τ31 = VF[_τ13] * ν_e
+    #τ23 = τ32 = VF[_τ23] * ν_e
+
+    τ11, τ22, τ33 = VF[_τ11], VF[_τ22], VF[_τ33]
+    τ12 = τ21 = VF[_τ12]
+    τ13 = τ31 = VF[_τ13]
+    τ23 = τ32 = VF[_τ23]
 
     # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-    F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
-    F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
-    F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
+    F[1, _U] -= τ11 * ν_1; F[2, _U] -= τ12 * ν_2; F[3, _U] -= τ13 * ν_3
+    F[1, _V] -= τ21 * ν_1; F[2, _V] -= τ22 * ν_2; F[3, _V] -= τ23 * ν_3
+    F[1, _W] -= τ31 * ν_1; F[2, _W] -= τ32 * ν_2; F[3, _W] -= τ33 * ν_3
 
     # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
+    F[1, _E] -= u * τ11  * ν_1 + v * τ12  * ν_2 + w * τ13 * ν_3 + cp_over_prandtl * vTx * ν_1
+    F[2, _E] -= u * τ21  * ν_1 + v * τ22  * ν_2 + w * τ23 * ν_3 + cp_over_prandtl * vTy * ν_2
+    F[3, _E] -= u * τ31  * ν_1 + v * τ32  * ν_2 + w * τ33 * ν_3 + cp_over_prandtl * vTz * ν_3
 
     F[3, _E] -= F_rad
     # Viscous contributions to mass flux terms
-    F[1, _QT] -=  vqx * D_e
-    F[2, _QT] -=  vqy * D_e
-    F[3, _QT] -=  vqz * D_e
+    F[1, _QT] -=  vqx * D_1
+    F[2, _QT] -=  vqy * D_2
+    F[3, _QT] -=  vqz * D_3
   end
 end
 
@@ -821,8 +832,11 @@ let
     @info @sprintf """ ------------------------------------------------------"""
     @info @sprintf """ Dycoms                                                """
     @info @sprintf """   Resolution:                                         """ 
-    @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
+    @info @sprintf """     (Δx, Δy, Δz)    = (%.2e, %.2e, %.2e)              """ Δx Δy Δz
     @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                    """ Nex Ney Nez
+    @info @sprintf """     (xmin, xmax)    = (%.2e, %.2e)                    """ xmin xmax
+    @info @sprintf """     (ymin, ymax)    = (%.2e, %.2e)                    """ ymin ymax
+    @info @sprintf """     (zmin, zmax)    = (%.2e, %.2e)                    """ zmin zmax
     @info @sprintf """     DoF = %d                                          """ DoF
     @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(DFloat))/1000^3
     @info @sprintf """     Time step dt: %.2e                                """ dt
