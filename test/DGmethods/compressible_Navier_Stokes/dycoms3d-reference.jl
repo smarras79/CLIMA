@@ -302,9 +302,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     #Eddy viscosity from Smagorinsky:
     coeff = 0.1
     #(ν_1, ν_2, ν_3, D_1, D_2, D_3) = anisotropic_smagorinsky(SijSij, Δx, Δy, Δz)    
-    #ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb * coeff
-    (ν_e, D_e) = standard_smagorinsky(SijSij, Δsqr)
-    ν_e = ν_e * fb * coeff
+    #(ν_e, D_e) = standard_smagorinsky(SijSij, Δsqr)
+    #ν_e = ν_e * fb * coeff
+    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb * coeff    
     D_e = 3.0 * ν_e
       
     # Multiply stress tensor by viscosity coefficient:
@@ -746,7 +746,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     #npoststates = 5
     #_u, _v, _w, _q_liq, _LWP = 1:npoststates
     #postnames = ("u", "v", "w", "_q_liq", "LWP")
-    npoststates = 5
+    npoststates = 2
     _q_liq, _LWP = 1:npoststates
     postnames = ("_q_liq", "LWP")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
