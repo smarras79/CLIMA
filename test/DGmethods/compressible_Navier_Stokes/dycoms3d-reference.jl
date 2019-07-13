@@ -767,7 +767,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
       
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-aniso/dycoms_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-less-dissipation-coefficient/dycoms_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
