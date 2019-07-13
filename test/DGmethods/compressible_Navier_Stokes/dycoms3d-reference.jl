@@ -755,14 +755,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
-          F_rad_out   = radiation(aux)
+          #F_rad_out   = radiation(aux)
           #u, v, w     = preflux(Q, QV, aux)
           #R[_P]       = aux[_a_P]
           #R[_u]       = u
           #R[_v]       = v
           #R[_w]       = w
           R[_q_liq]   = aux[_a_q_liq]
-          R#[_T]       = aux[_a_T]
+          #R[_T]       = aux[_a_T]
           R[_LWP]     = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
         end
       end
