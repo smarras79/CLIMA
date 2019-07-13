@@ -134,8 +134,6 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 @parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
-#const Δsqr = Δ * Δ
-const Δsqr = anisotropic_lengthscale_3D(Δx, Δy, Δz)
 
 
 # -------------------------------------------------------------------------
@@ -186,6 +184,9 @@ function anisotropic_smagorinsky(normSij, Δ1, Δ2, Δ3=0)
 #
 # END from AS SubgridScaleTurbulence.jl
 #
+#const Δsqr = Δ * Δ
+const Δsqr = anisotropic_lengthscale_3D(Δx, Δy, Δz)
+
 
 
 # -------------------------------------------------------------------------
