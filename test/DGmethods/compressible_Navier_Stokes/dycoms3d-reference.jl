@@ -261,7 +261,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     fb = buoyancy_correction(SijSij, θv, vθz)
       
     #Eddy viscosity from Smagorinsky: 
-    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb
+    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb * 0.25
     D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
