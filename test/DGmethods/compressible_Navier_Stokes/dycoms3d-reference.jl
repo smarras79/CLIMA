@@ -167,7 +167,7 @@ function standard_smagorinsky(normSij, Δsqr)
     # This is for use on both spherical and cartesian grids. 
     DF = eltype(normSij)
     ν_e::DF = sqrt(2.0 * normSij) * C_smag^2 * Δsqr
-    D_e::DF = ν_e / Prandtl_t 
+    D_e::DF = 3.0 * ν_e
     return (ν_e, D_e)
 end
 
@@ -301,36 +301,33 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
       
     #Eddy viscosity from Smagorinsky:
     coeff = 0.1
-    (ν_1, ν_2, ν_3, D_1, D_2, D_3) = anisotropic_smagorinsky(SijSij, Δx, Δy, Δz)    
-    #ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb * coeff    
-    #D_e = 3.0 * ν_e
+    #(ν_1, ν_2, ν_3, D_1, D_2, D_3) = anisotropic_smagorinsky(SijSij, Δx, Δy, Δz)    
+    #ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb * coeff
+    (ν_e, D_e) = standard_smagorinsky(normSij, Δsqr)
+    ν_e = ν_e * fb * coeff
+    D_e = 3.0 * ν_e
       
     # Multiply stress tensor by viscosity coefficient:
-    #τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
-    #τ12 = τ21 = VF[_τ12] * ν_e
-    #τ13 = τ31 = VF[_τ13] * ν_e
-    #τ23 = τ32 = VF[_τ23] * ν_e
-
-    τ11, τ22, τ33 = VF[_τ11], VF[_τ22], VF[_τ33]
-    τ12 = τ21 = VF[_τ12]
-    τ13 = τ31 = VF[_τ13]
-    τ23 = τ32 = VF[_τ23]
+    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
+    τ12 = τ21 = VF[_τ12] * ν_e
+    τ13 = τ31 = VF[_τ13] * ν_e
+    τ23 = τ32 = VF[_τ23] * ν_e
 
     # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-    F[1, _U] -= τ11 * ν_1; F[2, _U] -= τ12 * ν_2; F[3, _U] -= τ13 * ν_3
-    F[1, _V] -= τ21 * ν_1; F[2, _V] -= τ22 * ν_2; F[3, _V] -= τ23 * ν_3
-    F[1, _W] -= τ31 * ν_1; F[2, _W] -= τ32 * ν_2; F[3, _W] -= τ33 * ν_3
+    F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
+    F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
+    F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
 
     # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-    F[1, _E] -= u * τ11  * ν_1 + v * τ12  * ν_2 + w * τ13 * ν_3 + cp_over_prandtl * vTx * ν_1
-    F[2, _E] -= u * τ21  * ν_1 + v * τ22  * ν_2 + w * τ23 * ν_3 + cp_over_prandtl * vTy * ν_2
-    F[3, _E] -= u * τ31  * ν_1 + v * τ32  * ν_2 + w * τ33 * ν_3 + cp_over_prandtl * vTz * ν_3
+    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
+    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
+    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
 
     F[3, _E] -= F_rad
     # Viscous contributions to mass flux terms
-    F[1, _QT] -=  vqx * D_1
-    F[2, _QT] -=  vqy * D_2
-    F[3, _QT] -=  vqz * D_3
+    F[1, _QT] -=  vqx * D_e
+    F[2, _QT] -=  vqy * D_e
+    F[3, _QT] -=  vqz * D_e
   end
 end
 
