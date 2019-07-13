@@ -303,7 +303,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     coeff = 0.1
     #(ν_1, ν_2, ν_3, D_1, D_2, D_3) = anisotropic_smagorinsky(SijSij, Δx, Δy, Δz)    
     #ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) * fb * coeff
-    (ν_e, D_e) = standard_smagorinsky(normSij, Δsqr)
+    (ν_e, D_e) = standard_smagorinsky(SijSij, Δsqr)
     ν_e = ν_e * fb * coeff
     D_e = 3.0 * ν_e
       
