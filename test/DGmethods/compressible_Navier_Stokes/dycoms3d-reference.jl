@@ -74,6 +74,9 @@ const cp_over_prandtl = cp_d / Prandtl_t
 # filters are tested against this benchmark problem
 # TODO: link to module SubGridScaleTurbulence
 
+# Random number seed
+const seed = MersenneTwister(0)
+
 #
 # User Input
 #
@@ -399,7 +402,7 @@ end
         ctop        = 0.0
         ct          = 0.5
         zd          = 500.0       
-        sponge_type = 2
+        sponge_type = 1
         
         top_sponge  = zmax - zd
         if sponge_type == 1
@@ -551,8 +554,44 @@ end
     User-specified. Required. 
     This function specifies the initial conditions
     for the dycoms driver. 
-    """
-#function dycoms!(dim, Q, t, x, y, z, _...)
+  """
+function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
+                 spl_pinit, x, y, z, _...)
+  DFloat         = eltype(Q)
+  # --------------------------------------------------
+  # INITIALISE ARRAYS FOR INTERPOLATED VALUES
+  # --------------------------------------------------
+  xvert          = z
+
+  datat          = DFloat(spl_tinit(xvert))
+  dataq          = DFloat(spl_qinit(xvert))
+  datau          = DFloat(spl_uinit(xvert))
+  datav          = DFloat(spl_vinit(xvert))
+  datap          = DFloat(spl_pinit(xvert))
+  dataq          = dataq / 1000
+
+  randnum1   = rand(seed, DFloat) / 500
+  randnum2   = rand(seed, DFloat) / 500
+
+  θ_liq = datat #+ randnum1 * datat
+  q_tot = dataq + randnum2 * dataq
+  P     = datap
+  T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
+  ρ     = air_density(T, P)
+
+  # energy definitions
+  u, v, w     = datau, datav, zero(DFloat) #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+  U           = ρ * u
+  V           = ρ * v
+  W           = ρ * w
+  e_kin       = (u^2 + v^2 + w^2) / 2
+  e_pot       = grav * xvert
+  e_int       = internal_energy(T, PhasePartition(q_tot))
+  E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
+
+  @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT] = ρ, U, V, W, E, ρ * q_tot
+end
+#=
 function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
                  spl_pinit, x, y, z, _...)
     
@@ -604,6 +643,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
     
 end
+=#
 
 
 # ------------------------------------------------------------------
