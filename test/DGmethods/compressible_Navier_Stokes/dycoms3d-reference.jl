@@ -535,6 +535,7 @@ end
     q_liq = max(0.0, PhasePartition(TS).liq)
       
     val[1] = ρ * κ * q_liq 
+    val[2] = ρ * q_liq     #LWP
   end
 end
 
@@ -555,6 +556,7 @@ end
     This function specifies the initial conditions
     for the dycoms driver. 
   """
+#=
 function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
                  spl_pinit, x, y, z, _...)
   DFloat         = eltype(Q)
@@ -570,10 +572,10 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
   datap          = DFloat(spl_pinit(xvert))
   dataq          = dataq / 1000
 
-  randnum1   = rand(seed, DFloat) / 500
-  randnum2   = rand(seed, DFloat) / 500
+  randnum1   = rand(seed, DFloat) / 100
+  randnum2   = rand(seed, DFloat) / 100
 
-  θ_liq = datat #+ randnum1 * datat
+  θ_liq = datat + randnum1 * datat
   q_tot = dataq + randnum2 * dataq
   P     = datap
   T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
@@ -591,7 +593,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
 
   @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT] = ρ, U, V, W, E, ρ * q_tot
 end
-#=
+=#
 function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
                  spl_pinit, x, y, z, _...)
     
@@ -611,12 +613,15 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     u, v, w        = datau, datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     e_kin          = (u^2 + v^2 + w^2) / 2
     e_pot          = grav * xvert
+
+    randnum1   = rand(seed, DFloat) / 100
+    randnum2   = rand(seed, DFloat) / 100
     
-    randnum1   = rand(1)[1] / 100
-    randnum2   = rand(1)[1] / 100
+    #randnum1   = rand(1)[1] / 100
+    #randnum2   = rand(1)[1] / 100
     
-    θ_liq = datat #+ randnum1 * datat
-    q_tot = dataq #+ randnum2 * dataq
+    θ_liq = datat + randnum1 * datat
+    q_tot = dataq + randnum2 * dataq
     P     = datap
 
     #First T guess
@@ -643,7 +648,6 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
     
 end
-=#
 
 
 # ------------------------------------------------------------------
