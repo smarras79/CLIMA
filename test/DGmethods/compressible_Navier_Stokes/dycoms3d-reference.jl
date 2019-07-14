@@ -45,12 +45,11 @@ const _nviscstates = 16
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij = 1:_nviscstates
 
 # Gradient state labels
-const _ngradstates = 6
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
 
-const _nauxstate = 7
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad = 1:_nauxstate
+const _nauxstate = 8
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e = 1:_nauxstate
 
 
 if !@isdefined integration_testing
@@ -63,6 +62,7 @@ end
 const μ_sgs           = 100.0
 const Prandtl         = 71 // 100
 const Prandtl_t       = 1 // 3
+const Ri_c            = 1 // 3
 const cp_over_prandtl = cp_d / Prandtl_t
 
 # Problem description 
@@ -149,17 +149,32 @@ const Δsqr = Δ * Δ
     R_gas::eltype(Q) = R_d
     @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     ρinv = 1 / ρ
-    x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+    q_tot = ρinv * QT
+    
+    x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
     u, v, w = ρinv * U, ρinv * V, ρinv * W
-    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
-    q_tot = QT / ρ
+
+    #energies:
+    e_tot = ρinv * E
+    e_pot = grav * z
+    e_kin = 0.5 * (u^2 + v^2 + w^2)
+    e_int = e_tot - e_kin - e_pot
+    
+    
     # Establish the current thermodynamic state using the prognostic variables
     TS = PhaseEquil(e_int, q_tot, ρ)
-    T = air_temperature(TS)
-    P = air_pressure(TS) # Test with dry atmosphere
-    q_liq = PhasePartition(TS).liq
-    θ = virtual_pottemp(TS)
-    (P, u, v, w, ρinv, q_liq,T,θ)
+    P  = air_pressure(TS) # Test with dry atmosphere
+    T  = saturation_adjustment(e_int, ρ, q_tot)
+
+    #Update E and obtain q_liq at current time step:
+    E  = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))    
+   
+    #Diagnose q_liq and θv for posprocessing:
+    q_liq = max(0.0, PhasePartition(TS).liq)
+    θv    = virtual_pottemp(TS)
+
+    #Return:
+    (P, u, v, w, ρinv, q_liq,T, θv)
 end
 
 #-------------------------------------------------------------------------
@@ -225,9 +240,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
 
         #Derivative of T and Q:
-        vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
+        vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-        vθy = VF[_θy]
+        vθz = VF[_θz]
       
         # Radiation contribution 
         F_rad = ρ * radiation(aux)  
@@ -238,7 +253,13 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
         #Dynamic eddy viscosity from Smagorinsky:
         ν_e = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+        
+        #N2 = grav * vθz / 289
+        #Ri = N2 / (2 * SijSij + eps(SijSij))
+        #buoyancy_factor = N2 <=0 ? 1 : max(0.0, 1 - Ri/Ri_c)
+        #ν_e = C_smag^2 * Δsqr * sqrt(2*SijSij * buoyancy_factor)
         D_e = ν_e / Prandtl_t
+        aux[_a_ν_e] = ν_e
         
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -274,6 +295,8 @@ end
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 gradient_vars!(vel, Q, aux, t, _...) = gradient_vars!(vel, Q, aux, t, preflux(Q,~,aux)...)
+
+const _ngradstates = 7
 @inline function gradient_vars!(vel, Q, aux, t, P, u, v, w, ρinv, q_liq, T, θ)
   @inbounds begin
       # ordering should match states_for_gradient_transform
@@ -372,67 +395,22 @@ end
         aux[_a_y] = y
         aux[_a_z] = z
         
-        #Sponge
-        csleft  = 0.0
-        csright = 0.0
-        csfront = 0.0
-        csback  = 0.0
-        ctop    = 0.0
+        #Vertical sponge
+        ctop        = 0.0
+        ct          = 0.5
+        zd          = 500.0       
+        sponge_type = 2
         
-        cs_left_right = 0.0
-        cs_front_back = 0.0
-        ct            = 0.75
-
-        #BEGIN  User modification on domain parameters.
-        #Only change the first index of brickrange if your axis are
-        #oriented differently:    
-        #x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
-        #TODO z is the vertical coordinate
-        #
-        domain_left  = xmin 
-        domain_right = xmax
-        
-        domain_front = ymin 
-        domain_back  = ymax 
-        
-        domain_bott  = zmin 
-        domain_top   = zmax 
-
-         #END User modification on domain parameters.
-        
-        # Define Sponge Boundaries      
-        xc       = 0.5 * (domain_right + domain_left)
-        yc       = 0.5 * (domain_back  + domain_front)
-        zc       = 0.5 * (domain_top   + domain_bott)
-        
-        top_sponge  = 0.85 * domain_top
-        xsponger    = domain_right - 0.15 * (domain_right - xc)
-        xspongel    = domain_left  + 0.15 * (xc - domain_left)
-        ysponger    = domain_back  - 0.15 * (domain_back - yc)
-        yspongel    = domain_front + 0.15 * (yc - domain_front)
-       
-        #x left and right
-        #xsl
-        if x <= xspongel
-            csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
-        end
-        #xsr
-        if x >= xsponger
-            csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
-        end        
-        #y left and right
-        #ysl
-        if y <= yspongel
-            csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
-        end
-        #ysr
-        if y >= ysponger
-            csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
-        end
-                
-        #Vertical sponge:         
-        if z >= top_sponge
-            ctop = ct * (sinpi(0.5 * (z - top_sponge)/(domain_top - top_sponge)))^4
+        top_sponge  = zmax - zd
+        if sponge_type == 1
+            if z >= top_sponge
+                ctop = ct * (sinpi(0.5 * (z - top_sponge)/(zmax - top_sponge)))^4
+            end
+        elseif sponge_type == 2
+            ct          = 0.25
+            if z >= top_sponge
+                ctop = ct * sinpi(0.5 * (1.0 - (zmax - z)/zd))^2.0
+            end
         end
         
         beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
@@ -469,8 +447,8 @@ end
 
 @inline function stresses_penalty!(VF, nM, velM, QM, aM, velP, QP, aP, t)
     @inbounds begin
-        n_Δvel = similar(VF, Size(3, 3))
-        for j = 1:3, i = 1:3
+        n_Δvel = similar(VF, Size(3, _ngradstates))
+        for j = 1:_ngradstates, i = 1:3
             n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
         end
         compute_stresses!(VF, n_Δvel)
@@ -551,7 +529,8 @@ end
     q_tot = QT / ρ
     # Establish the current thermodynamic state using the prognostic variables
     TS = PhaseEquil(e_int, q_tot, ρ)
-    q_liq = PhasePartition(TS).liq
+    q_liq = max(0.0, PhasePartition(TS).liq)
+      
     val[1] = ρ * κ * q_liq 
   end
 end
@@ -579,35 +558,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     
     DFloat         = eltype(Q)
     p0::DFloat      = MSLP
-
-    #=
-    # ----------------------------------------------------
-    # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
-    # This driver accepts data in 6 column format
-    # ----------------------------------------------------
-    (sounding, _, ncols) = read_sounding()
     
-    # WARNING: Not all sounding data is formatted/scaled 
-    # the same. Care required in assigning array values
-    # height theta qv    u     v     pressure
-    zinit, tinit, qinit, uinit, vinit, pinit  = sounding[:, 1],
-    sounding[:, 2],
-    sounding[:, 3],
-    sounding[:, 4],
-    sounding[:, 5],
-    sounding[:, 6]    
-    #------------------------------------------------------
-    # GET SPLINE FUNCTION
-    #------------------------------------------------------
-    spl_tinit    = Spline1D(zinit, tinit; k=1)
-    spl_qinit    = Spline1D(zinit, qinit; k=1)
-    spl_uinit    = Spline1D(zinit, uinit; k=1)
-    spl_vinit    = Spline1D(zinit, vinit; k=1)
-    spl_pinit    = Spline1D(zinit, pinit; k=1)
-    =#
-    # --------------------------------------------------
-    # INITIALISE ARRAYS FOR INTERPOLATED VALUES
-    # --------------------------------------------------
     xvert          = z
     
     datat          = spl_tinit(xvert)
@@ -616,23 +567,33 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     datav          = spl_vinit(xvert)
     datap          = spl_pinit(xvert)
     dataq          = dataq * 1.0e-3
+
+    
+    u, v, w        = datau, datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    e_kin          = (u^2 + v^2 + w^2) / 2
+    e_pot          = grav * xvert
     
     randnum1   = rand(1)[1] / 100
     randnum2   = rand(1)[1] / 100
     
-    θ_liq = datat + randnum1 * datat
-    q_tot = dataq + randnum2 * dataq
-    P     = datap    
-    T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
-    ρ     = air_density(T, P)
+    θ_liq = datat #+ randnum1 * datat
+    q_tot = dataq #+ randnum2 * dataq
+    P     = datap
+
+    #First T guess
     
+    T = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
+    ρ = air_density(T, P,  PhasePartition(q_tot))
+    T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq, q_tot, ρ, P)
+    
+        
     # energy definitions
     u, v, w     = datau, datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     U           = ρ * u
     V           = ρ * v
     W           = ρ * w
-    e_kin       = (u^2 + v^2 + w^2) / 2  
-    e_pot       = grav * xvert
+   
+  
     e_int       = internal_energy(T, PhasePartition(q_tot))
     E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
     
@@ -740,35 +701,28 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
 
-    npoststates = 11
-    _int1, _int2, _betaout, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    postnames = ("INT1", "INT2", "BETA", "P", "u", "v", "w", "rhoinv", "_q_liq", "T", "THETA")
+    npoststates = 9
+    _ν_out, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+    postnames = ("Km", "P", "u", "v", "w", "ρinv", "_q_liq", "T", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    mkpath("./CLIMA-output-scratch/dycoms-today/")
+    mkpath("./CLIMA-output-scratch/dycoms-today-Ri/")
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
-                                                          F_rad_out = radiation(aux)
-                                                           (R[_int1], R[_int2], R[_betaout], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_02z], aux[_a_z2inf], F_rad_out, preflux(Q, QV, aux)...)
+                                                           F_rad_out = radiation(aux)
+                                                           (R[_ν_out], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_ν_e], preflux(Q, QV, aux)...)
                                                        end
                                                    end
 
-        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-today/dyc_%dD_mpirank%04d_step%04d", dim,
+        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-today-Ri/dyc_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
                  postprocessarray, postnames)
-        #= 
-        pvtuprefix = @sprintf("vtk/cns_%dD_step%04d", dim, step[1])
-        prefixes = ntuple(i->
-        @sprintf("vtk/cns_%dD_mpirank%04d_step%04d",
-        dim, i-1, step[1]),
-        MPI.Comm_size(mpicomm))
-        writepvtu(pvtuprefix, prefixes, postnames)
-        =# 
+        
         step[1] += 1
         nothing
     end
@@ -778,30 +732,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
-#=
-    # Print some end of the simulation information
-    engf = norm(Q)
-    if integration_testing
-        Qe = MPIStateArray(spacedisc,
-                           (Q, x...) -> initialcondition!(Val(dim), Q,
-                                                          DFloat(timeend), x...))
-        engfe = norm(Qe)
-        errf = euclidean_distance(Q, Qe)
-        @info @sprintf """Finished
-        norm(Q)                 = %.16e
-        norm(Q) / norm(Q₀)      = %.16e
-        norm(Q) - norm(Q₀)      = %.16e
-        norm(Q - Qe)            = %.16e
-        norm(Q - Qe) / norm(Qe) = %.16e
-        """ engf engf/eng0 engf-eng0 errf errf / engfe
-    else
-        @info @sprintf """Finished
-        norm(Q)            = %.16e
-        norm(Q) / norm(Q₀) = %.16e
-        norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
-    end
-integration_testing ? errf : (engf / eng0)
-=#
 
 end
 

@@ -33,6 +33,8 @@ export saturation_excess
 # determined diagnostically from total water specific humidity)
 export liquid_fraction_equil, liquid_fraction_nonequil, saturation_adjustment, PhasePartition_equil
 
+export saturation_adjustment_q_tot_θ_liq_ice
+
 # Auxiliary functions, e.g., for diagnostic purposes
 export air_temperature_from_liquid_ice_pottemp, dry_pottemp, virtual_pottemp, exner
 export liquid_ice_pottemp, liquid_ice_pottemp_sat
