@@ -166,19 +166,19 @@ const Δsqr = Δ * Δ
     
     # Establish the current thermodynamic state using the prognostic variables
     TS = PhaseEquil(e_int, q_tot, ρ)
-    P  = air_pressure(TS) # Test with dry atmosphere
-    T  = air_temperature(TS)
-
+   
     #Update E and obtain q_liq at current time step:
     E  = ρ * total_energy(e_kin, e_pot, TS)
    
     #Diagnose q_liq and θv for posprocessing:
+    P     = air_pressure(TS) # Test with dry atmosphere
+    T     = air_temperature(TS)
     q_liq = PhasePartition(TS).liq
     θ     = dry_pottemp(TS)
     θv    = virtual_pottemp(TS)
 
     #Return:
-    (P, u, v, w, ρinv, q_liq,T, θ)
+    (P, u, v, w, ρinv, q_liq, T, θ)
 end
 
 #-------------------------------------------------------------------------
