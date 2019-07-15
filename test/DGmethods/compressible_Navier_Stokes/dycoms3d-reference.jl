@@ -664,8 +664,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
         q_liq = (z - 600)*0.00045/200.0 
     end
     θ_l   = θ_l   + randnum1 * θ_l
-    #q_tot = q_tot + randnum2 * q_tot
-    q_liq = q_liq + randnum2 * q_liq
+    q_tot = q_tot + randnum2 * q_tot
+    #q_liq = q_liq + randnum2 * q_liq
     
     q_partition = PhasePartition(q_tot, q_liq, 0.0)
     e_int  = internal_energy(T, q_partition)
