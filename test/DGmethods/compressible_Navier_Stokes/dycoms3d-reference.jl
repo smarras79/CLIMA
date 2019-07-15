@@ -48,8 +48,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
 
-const _nauxstate = 8
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e = 1:_nauxstate
+const _nauxstate = 10
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf = 1:_nauxstate
 
 
 if !@isdefined integration_testing
@@ -136,6 +136,36 @@ const C_smag = 0.15
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
+
+
+function deardorff_zero_equation_model(modSij, θv, dθvdz, Δ)
+
+    #
+    # 0-equation parameterzied Deardorff model by Kirkpatrick et al JAS 2006
+    #
+    # Brunt-Vaisala frequency
+    N2 = grav / θv * dθvdz
+    
+    # Ri number
+    Ri = N2 / (2 * normSij + eps(normSij))     
+    # Buoyancy correction factor
+     
+     ca  = 0.10
+     ce1 = 0.19
+     ce2 = 0.51
+     c1  = ca*0.75^2
+     c2  = ce2 + 2*c1
+
+     CB = 3*Ri >= 1 ? 0 :  sqrt(1 - 3*Ri)
+     L  = N2 <=0 ? Δ : Δ*(c1*(1/Ri - 1) - ce1)/c2
+     
+     cϵ = ce1 + ce2*buoyancy_factor
+     c3 = sqrt(ca^3)
+
+    Km = L <= 0 ? 0 : c3*L^2*(2*modSik)*CB / sqrt(cϵ)
+     
+    return Km
+  end
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
@@ -542,15 +572,21 @@ end
     q_liq = PhasePartition(TS).liq
       
     val[1] = ρ * κ * (q_liq / (1.0 - q_tot))
+    val[2] = ρ * (q_liq / (1.0 - q_tot))     #LWP
   end
 end
 
 function integral_computation(disc, Q, t)
   DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q,
-                                                         (_a_02z))
+                                                         (_a_02z, _a_LWP_02z))
+    
   DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
                                                                  _a_z2inf,
                                                                  _a_02z)
+
+  DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
+                                                                 _a_LWP_z2inf,
+                                                                 _a_LWP_02z)
 end
 
 # ------------------------------------------------------------------
@@ -622,12 +658,15 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
 	θ_lx   = 297.5 + (z - zi)^(1/3);
 	q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
     end  
-
    
     q_liq = 0.0
     if z >= 600.0 && z <= 840.0
         q_liq = (z - 600)*0.00045/200.0 
     end
+    θ_l   = θ_l   + randnum1 * θ_l
+    #q_tot = q_tot + randnum2 * q_tot
+    q_liq = q_liq + randnum2 * q_liq
+    
     q_partition = PhasePartition(q_tot, q_liq, 0.0)
     e_int  = internal_energy(T, q_partition)
     
@@ -637,10 +676,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
 
     #u, v
     u, v, w = 7.0, -5.5, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
-        
-    #θ_l   = θ_l   + randnum1 * θ_l
-    #q_tot = q_tot + randnum2 * q_tot
-        
+    
     e_kin = (u^2 + v^2 + w^2) / 2
     e_pot = grav * xvert
     E     = ρ * (e_int + e_kin + e_pot)
@@ -755,18 +791,18 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 
     npoststates = 9
-    _ν_out, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    postnames = ("Km", "P", "u", "v", "w", "ρinv", "_q_liq", "T", "THETA")
+    _LWP_out, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+    postnames = ("LWP", "P", "u", "v", "w", "ρinv", "_q_liq", "T", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
     mkpath("./CLIMA-output-scratch/dycoms-today-Ri/")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(2000) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
                                                            F_rad_out = radiation(aux)
-                                                           (R[_ν_out], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = (aux[_a_ν_e], preflux(Q, QV, aux)...)
+                                                           (R[_LWP_out], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = ( aux[_a_LWP_02z] + aux[_a_LWP_z2inf], preflux(Q, QV, aux)...)
                                                        end
                                                    end
 
@@ -811,7 +847,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.005
-    timeend = dt #14400
+    timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
