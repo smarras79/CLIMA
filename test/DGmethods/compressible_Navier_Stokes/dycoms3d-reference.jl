@@ -132,7 +132,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-const C_smag = 0.18
+const C_smag = 0.15
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
@@ -167,17 +167,18 @@ const Δsqr = Δ * Δ
     # Establish the current thermodynamic state using the prognostic variables
     TS = PhaseEquil(e_int, q_tot, ρ)
     P  = air_pressure(TS) # Test with dry atmosphere
-    T  = saturation_adjustment(e_int, ρ, q_tot)
+    T  = air_temperature(TS)
 
     #Update E and obtain q_liq at current time step:
-    E  = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))    
+    E  = ρ * total_energy(e_kin, e_pot, TS)
    
     #Diagnose q_liq and θv for posprocessing:
-    q_liq = max(0.0, PhasePartition(TS).liq)
+    q_liq = PhasePartition(TS).liq
+    θ     = dry_pottemp(TS)
     θv    = virtual_pottemp(TS)
 
     #Return:
-    (P, u, v, w, ρinv, q_liq,T, θv)
+    (P, u, v, w, ρinv, q_liq,T, θ)
 end
 
 #-------------------------------------------------------------------------
@@ -209,8 +210,9 @@ end
 # -------------------------------------------------------------------------
 function read_sounding()
     #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
-    #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_from_PyCles.dat"))
+
+    #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
+    fsounding  = open(joinpath(@__DIR__, "../soundings/SOUNDING_PYCLES_Z_T_P.dat"))
     sounding = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sounding)
@@ -305,7 +307,7 @@ const _ngradstates = 7
       # ordering should match states_for_gradient_transform
     ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     vel[1], vel[2], vel[3] = u, v, w
-    vel[4], vel[5], vel[6] = E, QT, T
+    vel[4], vel[5], vel[6] = E, QT/ρ, T
     vel[7] = θ
   end
 end
@@ -401,7 +403,7 @@ end
         #Vertical sponge
         ctop        = 0.0
         ct          = 0.5
-        zd          = 500.0       
+        zd          = 300.0       
         sponge_type = 1
         
         top_sponge  = zmax - zd
@@ -438,7 +440,10 @@ end
         QP[_W] = WM - 2 * nM[3] * UnM
         #QP[_ρ] = ρM
         #QP[_QT] = QTM
-        VFP .= 0 
+        VFP .= 0
+
+        
+        
         nothing
     end
 end
@@ -476,8 +481,8 @@ end
 Coriolis force
 """
 const f_coriolis = 7.62e-5
-const U_geostrophic = 7.0
-const V_geostrophic = -5.5 
+const u_geostrophic = 7.0
+const v_geostrophic = -5.5 
 const Ω = Omega
 @inline function source_coriolis!(S,Q,aux,t)
   @inbounds begin
@@ -489,15 +494,17 @@ const Ω = Omega
 end
 
 """
-Geostrophic wind forcing
+    Geostrophic wind forcing
 """
 @inline function source_geostrophic!(S,Q,aux,t)
     @inbounds begin
-      W = Q[_W]
-      U = Q[_U]
-      V = Q[_V]
-      S[_U] -= f_coriolis * (U - U_geostrophic)
-      S[_V] -= f_coriolis * (V - V_geostrophic)
+        ρ = Q[_ρ]
+        U = Q[_U]
+        V = Q[_V]        
+        W = Q[_W]
+        
+        S[_U] -= f_coriolis * (U - ρ*u_geostrophic)
+        S[_V] -= f_coriolis * (V - ρ*v_geostrophic)
     end
 end
 
@@ -532,10 +539,9 @@ end
     q_tot = QT / ρ
     # Establish the current thermodynamic state using the prognostic variables
     TS = PhaseEquil(e_int, q_tot, ρ)
-    q_liq = max(0.0, PhasePartition(TS).liq)
+    q_liq = PhasePartition(TS).liq
       
-    val[1] = ρ * κ * q_liq 
-    val[2] = ρ * q_liq     #LWP
+    val[1] = ρ * κ * (q_liq / (1.0 - q_tot))
   end
 end
 
@@ -594,59 +600,55 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
   @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT] = ρ, U, V, W, E, ρ * q_tot
 end
 =#
-function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
-                 spl_pinit, x, y, z, _...)
+function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y, z, _...)
     
-    DFloat         = eltype(Q)
-    p0::DFloat      = MSLP
+    DFloat     = eltype(Q)
+    p0::DFloat = MSLP
     
-    xvert          = z
+    randnum1   = rand(seed, DFloat) / 150
+    randnum2   = rand(seed, DFloat) / 150
     
-    datat          = spl_tinit(xvert)
-    dataq          = spl_qinit(xvert)
-    datau          = spl_uinit(xvert)
-    datav          = spl_vinit(xvert)
-    datap          = spl_pinit(xvert)
-    dataq          = dataq * 1.0e-3
-
-    
-    u, v, w        = datau, datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
-    e_kin          = (u^2 + v^2 + w^2) / 2
-    e_pot          = grav * xvert
-
-    randnum1   = rand(seed, DFloat) / 100
-    randnum2   = rand(seed, DFloat) / 100
-    
-    #randnum1   = rand(1)[1] / 100
-    #randnum2   = rand(1)[1] / 100
-    
-    θ_liq = datat + randnum1 * datat
-    q_tot = dataq + randnum2 * dataq
-    P     = datap
-
-    #First T guess
-    
-    T = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
-    ρ = air_density(T, P,  PhasePartition(q_tot))
-    T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq, q_tot, ρ, P)
-    
+    xvert  = z
+    P      = spl_pinit(xvert)     #P
+    θ_l    = spl_thetainit(xvert) #θ_l
+    q_tot  = spl_qinit(xvert)     #qtot
+    T      = spl_tinit(xvert)    #T
         
-    # energy definitions
-    u, v, w     = datau, datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
-    U           = ρ * u
-    V           = ρ * v
-    W           = ρ * w
+    zi = 840.0
+    if ( z <= zi)
+	θ_lx   = 289.0;
+	q_totx = 9.0e-3; #specific humidity
+    else
+	θ_lx   = 297.5 + (z - zi)^(1/3);
+	q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
+    end  
+
    
-  
-    e_int       = internal_energy(T, PhasePartition(q_tot))
-    E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
+    q_liq = 0.0
+    if z >= 600.0 && z <= 840.0
+        q_liq = (z - 600)*0.00045/200.0 
+    end
+    q_partition = PhasePartition(q_tot, q_liq, 0.0)
+    e_int  = internal_energy(T, q_partition)
     
-    #Get q_liq and q_ice
-    TS           = PhaseEquil(e_int, q_tot, ρ)
-    q_phase_part = PhasePartition(TS)
+    #TS = LiquidIcePotTempSHumEquil_no_ρ(θ_l, q_tot, P, T)
+    #ρ  = air_density(TS)
+    ρ  = air_density(T, P, q_partition)
+
+    #u, v
+    u, v, w = 7.0, -5.5, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+        
+    #θ_l   = θ_l   + randnum1 * θ_l
+    #q_tot = q_tot + randnum2 * q_tot
+        
+    e_kin = (u^2 + v^2 + w^2) / 2
+    e_pot = grav * xvert
+    E     = ρ * (e_int + e_kin + e_pot)
+
+    U, V, W = ρ * u, ρ * v, ρ * w
     
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
-    
+    #try the filter
 end
 
 
@@ -702,20 +704,27 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     # WARNING: Not all sounding data is formatted/scaled
     # the same. Care required in assigning array values
     # height theta qv    u     v     pressure
-    zinit, tinit, qinit, uinit, vinit, pinit  =
-        sounding[:, 1], sounding[:, 2], sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
+    #zinit, tinit, qinit, uinit, vinit, pinit  =
+    #    sounding[:, 1], sounding[:, 2], sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
+
+    zinit, tinit, pinit = sounding[:, 1], sounding[:, 2], sounding[:, 3]
+    thetainit, qinit = sounding[:, 4], sounding[:, 5]
+    
     #------------------------------------------------------
     # GET SPLINE FUNCTION
     #------------------------------------------------------
-    spl_tinit    = Spline1D(zinit, tinit; k=1)
-    spl_qinit    = Spline1D(zinit, qinit; k=1)
-    spl_uinit    = Spline1D(zinit, uinit; k=1)
-    spl_vinit    = Spline1D(zinit, vinit; k=1)
-    spl_pinit    = Spline1D(zinit, pinit; k=1)
+    spl_tinit    = Spline1D(zinit, tinit; k=1) #sensible T (K)
+    spl_pinit    = Spline1D(zinit, pinit; k=1) #pressure P (Pa)
+    
+    spl_thetainit= Spline1D(zinit, thetainit; k=1) #sensible T (K)
+    spl_qinit    = Spline1D(zinit, qinit; k=1) #sensible T (K)
+    
+    #initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit,
+    #                                    spl_qinit, spl_uinit, spl_vinit,
+    #                                    spl_pinit, x...)
 
-    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit,
-                                        spl_qinit, spl_uinit, spl_vinit,
-                                        spl_pinit, x...)
+    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x...)
+    
     Q = MPIStateArray(spacedisc, initialcondition)     
     # This is a actual state/function that lives on the grid
     #initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
@@ -802,7 +811,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.005
-    timeend = 14400
+    timeend = dt #14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
