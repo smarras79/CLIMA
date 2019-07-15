@@ -138,6 +138,24 @@ const C_smag = 0.15
 const Δsqr = Δ * Δ
 
 
+
+
+function global_max(A::MPIStateArray, states=1:size(A, 2))
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A)
+  locmax = maximum(view(h_A, :, states, A.realelems)) 
+  MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
+end
+
+function global_mean(A::MPIStateArray, states=1:size(A,2))
+  host_array = Array ∈ typeof(A).parameters
+  h_A = host_array ? A : Array(A) 
+  (Np, nstate, nelem) = size(A) 
+  numpts = (nelem * Np) + 1
+  localsum = sum(view(h_A, :, states, A.realelems)) 
+  MPI.Allreduce([localsum], MPI.SUM, A.mpicomm)[1] / numpts 
+end
+
 function deardorff_zero_equation_model(modSij, θv, dθvdz, Δ)
 
     #
@@ -789,7 +807,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                         Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
         end
     end
-
+    
     npoststates = 9
     _LWP_out, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
     postnames = ("LWP", "P", "u", "v", "w", "ρinv", "_q_liq", "T", "THETA")
@@ -819,8 +837,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     # Initialise the integration computation. Kernels calculate this at every timestep?? 
     integral_computation(spacedisc, Q, 0) 
     solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-
-
 
 end
 
