@@ -491,7 +491,7 @@ end
     q_tot = QT * ρinv
     # Establish the current thermodynamic state using the prognostic variables
     q_liq = aux[_a_q_liq]
-    val[1] = ρ * κ * (q_liq / (1.0 + q_l)) 
+    val[1] = ρ * κ * (q_liq / (1.0 + q_liq)) 
     val[2] = ρ * (q_liq / (1.0 + q_liq)) # Liquid Water Path Integrand
   end
 end
