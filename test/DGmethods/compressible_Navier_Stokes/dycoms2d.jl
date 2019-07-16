@@ -685,19 +685,18 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postnames = ("LWP", "u", "v", "w", "_q_liq", "T")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
-
-
-
-    cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        DGBalanceLawDiscretizations.apply!(Q, 1:_nstate, spacedisc,
-                                           filter_dycoms;
-                                           horizontal=true,
-                                           vertical=true)
-        nothing
+     #=
+      cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+          DGBalanceLawDiscretizations.apply!(Q, 1:_nstate, spacedisc,
+                                             filter_dycoms;
+                                             horizontal=true,
+                                             vertical=true)
+          nothing
       end
-    step = [0]
-
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
+      =#
+      
+      step = [0]
+      cbvtk = GenericCallbacks.EveryXSimulationSteps(2000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, QV, aux)
