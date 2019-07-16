@@ -304,14 +304,14 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
 
         #Dynamic eddy viscosity from Smagorinsky:
-        ν_e = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+        #ν_e = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
         
-        #N2 = grav * vθz / 289
-        #Ri = N2 / (2 * SijSij + eps(SijSij))
-        #buoyancy_factor = N2 <=0 ? 1 : max(0.0, 1 - Ri/Ri_c)
-        #ν_e = C_smag^2 * Δsqr * sqrt(2*SijSij * buoyancy_factor)
-        D_e = ν_e / Prandtl_t
-        aux[_a_ν_e] = ν_e
+        N2 = grav * vθz / θ
+        Ri = N2 / (2 * SijSij + eps(SijSij))
+        buoyancy_factor = N2 <=0 ? 1 : max(0.0, 1 - 3*Ri)
+        ν_e = C_smag^2 * Δsqr * sqrt(2*SijSij * buoyancy_factor)
+        #D_e = ν_e / Prandtl_t
+        #aux[_a_ν_e] = ν_e
         
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
