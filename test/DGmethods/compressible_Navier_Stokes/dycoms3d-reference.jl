@@ -837,7 +837,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
-                                                           F_rad_out = radiation(aux)a
+                                                           F_rad_out = radiation(aux)
                                                            #(_,_,_,_,_,q_liq,_,_) = preflux(Q, QV, aux)
                                                            (R[_LWP_out], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = ( aux[_a_LWP_02z] + aux[_a_LWP_z2inf], preflux(Q, QV, aux)...)
                                                            #(R[_LWP_out], R[_q_liq]) = ( aux[_a_LWP_02z] + aux[_a_LWP_z2inf], q_liq)
