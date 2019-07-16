@@ -496,7 +496,7 @@ end
         #if bctype  CODE_BOTTOM_BOUNDARY            
             
             #Dirichelt on T:
-            SST    = 333.33            
+            SST    = 292.5            
             q_tot  = QP[_QT]/QP[_ρ]
             q_liq  = q_liqM
             e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
