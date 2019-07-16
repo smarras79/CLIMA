@@ -228,7 +228,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
     #Dynamic eddy viscosity from Smagorinsky:
     ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
-    D_e = ν_e / Prandtl_t
+    D_e = 0.0 #ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
     τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -685,7 +685,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     spl_qinit    = Spline1D(zinit, qinit; k=1) #sensible T (K)
     
     # Set type of filter 
-    filter_dycoms = CLIMA.Mesh.Grids.CutoffFilter(spacedisc.grid)
+    #filter_dycoms = CLIMA.Mesh.Grids.CutoffFilter(spacedisc.grid)
 
     initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x...)
     Q = MPIStateArray(spacedisc, initialcondition)
@@ -762,7 +762,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   # Initialise the integration computation. Kernels calculate this at every timestep?? 
   @timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
-  @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk,cbfilter))
+  @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
   @info @sprintf """Finished...
