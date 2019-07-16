@@ -104,8 +104,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 1920)
-const (ymin, ymax) = (0, 1920)
+const (xmin, xmax) = (0,  820)
+const (ymin, ymax) = (0,  820)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -227,8 +227,8 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     SijSij = VF[_SijSij]
 
     #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
-    D_e = ν_e / Prandtl_t
+    ν_e = 0.0 #sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
+    D_e = 0.0 #ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
     τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
