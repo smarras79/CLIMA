@@ -304,14 +304,14 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
 
         #Dynamic eddy viscosity from Smagorinsky:
-        #ν_e = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+        ν_e = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
         
-        N2 = grav * vθz / θ
-        Ri = N2 / (2 * SijSij + eps(SijSij))
-        buoyancy_factor = N2 <=0 ? 1 : max(0.0, 1 - 3*Ri)
-        ν_e = C_smag^2 * Δsqr * sqrt(2*SijSij * buoyancy_factor)
-        #D_e = ν_e / Prandtl_t
-        #aux[_a_ν_e] = ν_e
+        #N2 = grav * vθz / θ
+        #Ri = N2 / (2 * SijSij + eps(SijSij))
+        #buoyancy_factor = N2 <=0 ? 1 : max(0.0, 1 - 3*Ri)
+        #ν_e = C_smag^2 * Δsqr * sqrt(2*SijSij * buoyancy_factor)
+        D_e = 3*ν_e
+        aux[_a_ν_e] = ν_e
         
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -332,6 +332,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _E] -= 0
         F[2, _E] -= 0
         F[3, _E] += F_rad
+        
         # Viscous contributions to mass flux terms
         F[1, _QT] -=  vqx * D_e
         F[2, _QT] -=  vqy * D_e
@@ -488,6 +489,12 @@ end
         #QP[_ρ] = ρM
         #QP[_QT] = QTM
         VFP .= 0
+
+        #Dirichelt on T:
+        T 
+        e_int       = internal_energy(T, PhasePartition(q_tot))
+  E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
+        QP[_E] = 
         
         nothing
     end
