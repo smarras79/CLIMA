@@ -357,32 +357,35 @@ end
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
 @inline function auxiliary_state_initialization!(aux, x, y, z)
-  @inbounds begin
-    DFloat = eltype(aux)
-    aux[_a_z] = z
+    @inbounds begin
+        DFloat = eltype(aux)
+        aux[_a_z] = z
 
-    #Sponge
-    csleft  = zero(DFloat)
-    csright = zero(DFloat)
-    csfront = zero(DFloat)
-    csback  = zero(DFloat)
-    ctop    = zero(DFloat)
+        #Sponge
+        ctop          = zero(DFloat)
+        cs_left_right = zero(DFloat)
+        cs_front_back = zero(DFloat)
+        ct            = DFloat(0.75)      
+        #END User modification on domain parameters.
 
-    cs_left_right = zero(DFloat)
-    cs_front_back = zero(DFloat)
-    ct            = DFloat(0.75)      
-    #END User modification on domain parameters.
+        zd = 450
+        top_sponge  = zmax - zd
+        #Vertical sponge:
+        sponge_type = 2
+        if sponge_type == 1
+            if z >= top_sponge
+                ctop = ct * (0.5*sinpi((z - top_sponge)/(zmax - top_sponge)))^4
+            end
+        elseif sponge_type == 2
+            if z >= top_sponge
+                ctop = ct * (0.5*sinpi((z - top_sponge)/(zmax - top_sponge)))^2
+            end
+        end
 
-    top_sponge  = DFloat(0.85) * zmax      
-    #Vertical sponge:
-    if z >= top_sponge
-      ctop = ct * (sinpi((z - top_sponge)/2/(zmax - top_sponge)))^4
+        beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
+        beta  = min(beta, 1)
+        aux[_a_sponge] = beta
     end
-
-    beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-    beta  = min(beta, 1)
-    aux[_a_sponge] = beta
-  end
 end
 
 # -------------------------------------------------------------------------
@@ -696,7 +699,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       =#
       
       step = [0]
-      cbvtk = GenericCallbacks.EveryXSimulationSteps(2000) do (init=false)
+      cbvtk = GenericCallbacks.EveryXSimulationSteps(4000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, QV, aux)
