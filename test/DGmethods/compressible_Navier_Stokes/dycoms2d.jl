@@ -225,7 +225,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     F_rad = ρ * radiation(aux)
 
     SijSij = VF[_SijSij]
-
+      
     #Dynamic eddy viscosity from Smagorinsky:
     ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
     D_e = ν_e / Prandtl_t
@@ -251,6 +251,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     F[1, _QT] -=  vqx * D_e
     F[2, _QT] -=  vqy * D_e
     F[3, _QT] -=  vqz * D_e
+      
   end
 end
 
