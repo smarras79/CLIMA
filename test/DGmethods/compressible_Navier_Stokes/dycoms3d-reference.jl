@@ -478,6 +478,8 @@ end
 
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, PM, uM, vM, wM, ρinvM, q_liqM, TM, θM)
     @inbounds begin
+
+      
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
         # No flux boundary conditions
@@ -490,12 +492,20 @@ end
         #QP[_QT] = QTM
         VFP .= 0
 
-        #Dirichelt on T:
-        T 
-        e_int       = internal_energy(T, PhasePartition(q_tot))
-  E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
-        QP[_E] = 
-        
+        if z < 0.0001
+        #if bctype  CODE_BOTTOM_BOUNDARY            
+            
+            #Dirichelt on T:
+            SST    = 333.33            
+            q_tot  = QP[_QT]/QP[_ρ]
+            q_liq  = q_liqM
+            e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
+            e_kin  = 0.5*(QP[_U]^2/ρM^2 + QP[_V]^2/ρM^2 + QP[_W]^2/ρM^2)
+            e_pot  = grav*z
+            E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
+            QP[_E] = E
+        end
+                
         nothing
     end
 end
@@ -812,25 +822,25 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
     
-    #npoststates = 9
-    #_LWP_out, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    #postnames = ("LWP", "P", "u", "v", "w", "ρinv", "_q_liq", "T", "THETA")
-    npoststates = 2
-    _LWP_out, _q_liq = 1:npoststates
-    postnames = ("LWP", "q_l")
+    npoststates = 9
+    _LWP_out, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+    postnames = ("LWP", "P", "u", "v", "w", "ρinv", "_q_liq", "T", "THETA")
+    #npoststates = 2
+    #_LWP_out, _q_liq = 1:npoststates
+    #postnames = ("LWP", "q_l")
     
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
     mkpath("./CLIMA-output-scratch/dycoms-today-Ri/")
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(2000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
                                                            F_rad_out = radiation(aux)a
-                                                           (_,_,_,_,_,q_liq,_,_) = preflux(Q, QV, aux)
-                                                           #(R[_LWP_out], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = ( aux[_a_LWP_02z] + aux[_a_LWP_z2inf], preflux(Q, QV, aux)...)
-                                                           (R[_LWP_out], R[_q_liq]) = ( aux[_a_LWP_02z] + aux[_a_LWP_z2inf], q_liq)
+                                                           #(_,_,_,_,_,q_liq,_,_) = preflux(Q, QV, aux)
+                                                           (R[_LWP_out], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = ( aux[_a_LWP_02z] + aux[_a_LWP_z2inf], preflux(Q, QV, aux)...)
+                                                           #(R[_LWP_out], R[_q_liq]) = ( aux[_a_LWP_02z] + aux[_a_LWP_z2inf], q_liq)
                                                        end
                                                    end
 
