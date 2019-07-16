@@ -827,7 +827,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     #postnames = ("LWP", "P", "u", "v", "w", "ρinv", "_q_liq", "T", "THETA")
     npoststates = 3
     _LWP_out, _ql_out, _T_out = 1:npoststates
-    #postnames = ("LWP", "q_l")
+    postnames = ("LWP", "q_l", "T")
     
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
