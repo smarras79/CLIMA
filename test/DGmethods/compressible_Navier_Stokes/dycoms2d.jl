@@ -92,9 +92,9 @@ const numdims = 3
 const Npoly = 4
 
 # Define grid size 
-Δx    = 35
+Δx    = 20
 Δy    = 35
-Δz    = 5
+Δz    = 3.5
 
 #
 # OR:
