@@ -86,9 +86,9 @@ const Npoly = 4
 #
 # Define grid size 
 #
-Δx    = 35
-Δy    = 35
-Δz    = 10
+Δx    = 30
+Δy    = 30
+Δz    = 5
 #
 # OR:
 #
@@ -211,7 +211,6 @@ function deardorff_zero_equation_model(modSij, θv, dθvdz, Δ)
     e_kin = 0.5 * (u^2 + v^2 + w^2)
     e_int = e_tot - e_kin - e_pot
     
-    
     # Establish the current thermodynamic state using the prognostic variables
     TS = PhaseEquil(e_int, q_tot, ρ)
    
@@ -332,7 +331,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         
         F[1, _E] -= 0
         F[2, _E] -= 0
-        F[3, _E] -= F_rad
+        F[3, _E] += F_rad
         # Viscous contributions to mass flux terms
         F[1, _QT] -=  vqx * D_e
         F[2, _QT] -=  vqy * D_e
@@ -489,8 +488,6 @@ end
         #QP[_ρ] = ρM
         #QP[_QT] = QTM
         VFP .= 0
-
-        
         
         nothing
     end
@@ -808,9 +805,13 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
     
-    npoststates = 9
-    _LWP_out, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
-    postnames = ("LWP", "P", "u", "v", "w", "ρinv", "_q_liq", "T", "THETA")
+    #npoststates = 9
+    #_LWP_out, _P, _u, _v, _w, _ρinv, _q_liq, _T, _θ = 1:npoststates
+    #postnames = ("LWP", "P", "u", "v", "w", "ρinv", "_q_liq", "T", "THETA")
+    npoststates = 2
+    _LWP_out, _q_liq = 1:npoststates
+    postnames = ("LWP", "q_l")
+    
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
@@ -819,8 +820,10 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc,
                                                    Q) do R, Q, QV, aux
                                                        @inbounds let
-                                                           F_rad_out = radiation(aux)
-                                                           (R[_LWP_out], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = ( aux[_a_LWP_02z] + aux[_a_LWP_z2inf], preflux(Q, QV, aux)...)
+                                                           F_rad_out = radiation(aux)a
+                                                           (_,_,_,_,_,q_liq,_,_) = preflux(Q, QV, aux)
+                                                           #(R[_LWP_out], R[_P], R[_u], R[_v], R[_w], R[_ρinv], R[_q_liq], R[_T], R[_θ]) = ( aux[_a_LWP_02z] + aux[_a_LWP_z2inf], preflux(Q, QV, aux)...)
+                                                           (R[_LWP_out], R[_q_liq]) = ( aux[_a_LWP_02z] + aux[_a_LWP_z2inf], q_liq)
                                                        end
                                                    end
 
@@ -862,7 +865,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.005
+    dt = 0.01
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
