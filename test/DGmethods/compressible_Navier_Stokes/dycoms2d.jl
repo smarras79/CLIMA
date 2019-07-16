@@ -52,8 +52,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 # Gradient state labels
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 16
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf, _a_q_liq, _a_q_tot, _a_θ, _a_P,_a_T, _a_soundspeed_air = 1:_nauxstate
+const _nauxstate = 17
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf, _a_q_liq, _a_q_tot, _a_θ, _a_θ_l, _a_P,_a_T, _a_soundspeed_air = 1:_nauxstate
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -503,20 +503,23 @@ function preodefun!(disc, Q, t)
   DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
     @inbounds let
       ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-      z = aux[_a_z]
-      e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
-      q_tot = QT / ρ
-      TS = PhaseEquil(e_int, q_tot, ρ)
-      T = air_temperature(TS)
-      P = air_pressure(TS) # Test with dry atmosphere
-      q_liq = PhasePartition(TS).liq
-
+      
+      z           = aux[_a_z]
+      e_int       = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+      q_tot       = QT / ρ
+      TS          = PhaseEquil(e_int, q_tot, ρ)
+      T           = air_temperature(TS)
+      P           = air_pressure(TS) # Test with dry atmosphere
+      q_liq       = PhasePartition(TS).liq
+      θ_l         = liquid_ice_pottemp(T, P, PhasePartition(q_tot, q_liq, 0.0))
+      θ_v         = virtual_pottemp(TS)
+        
       R[_a_q_tot] = q_tot
-      R[_a_T] = T
-      R[_a_P] = P
+      R[_a_T]     = T
+      R[_a_P]     = P
       R[_a_q_liq] = q_liq
-      R[_a_soundspeed_air] = soundspeed_air(TS)
-      R[_a_θ] = virtual_pottemp(TS)
+      R[_a_θ]     = θ_v
+      R[_a_θ_l]   = θ_l
     end
   end
 
@@ -683,9 +686,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       end
     end
 
-    npoststates = 6
-    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T = 1:npoststates
-    postnames = ("LWP", "u", "v", "w", "_q_liq", "T")
+    npoststates = 7
+    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ_l = 1:npoststates
+    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "θ_l")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
      #=
@@ -709,6 +712,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
           R[_o_w] = w
           R[_o_q_liq] = aux[_a_q_liq]
           R[_o_T] = aux[_a_T]
+          R[_o_θ_l] = aux[_a_θ_l]
         end
       end
 
