@@ -52,8 +52,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 # Gradient state labels
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 15
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf, _a_q_tot, _a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air = 1:_nauxstate
+const _nauxstate = 16
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf, _a_q_liq, _a_q_tot, _a_θ, _a_P,_a_T, _a_soundspeed_air = 1:_nauxstate
 
 if !@isdefined integration_testing
   const integration_testing =
@@ -94,7 +94,7 @@ const Npoly = 4
 # Define grid size 
 Δx    = 35
 Δy    = 35
-Δz    = 10
+Δz    = 5
 
 #
 # OR:
@@ -104,8 +104,8 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  820)
-const (ymin, ymax) = (0,  820)
+const (xmin, xmax) = (0,  1920)
+const (ymin, ymax) = (0,  150)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -227,7 +227,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     SijSij = VF[_SijSij]
 
     #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = 0.0 #sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
+    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
     D_e = 0.0 #ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
@@ -326,24 +326,26 @@ end
 end
 # -------------------------------------------------------------------------
 @inline function radiation(aux)
-  @inbounds begin
-    DFloat = eltype(aux)
-    zero_to_z = aux[_a_02z]
-    z_to_inf = aux[_a_z2inf]
-    z = aux[_a_z]
-    z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
-    Δz_i = max(z - z_i, zero(DFloat))
-    # Constants
-    F_0 = 70
-    F_1 = 22
-    α_z = 1
-    ρ_i = DFloat(1.22)
-    D_subsidence = DFloat(3.75e-6)
-    term1 = F_0 * exp(-z_to_inf) 
-    term2 = F_1 * exp(-zero_to_z)
-    term3 = ρ_i * cp_d * D_subsidence * α_z * (DFloat(0.25) * (cbrt(Δz_i))^4 + z_i * cbrt(Δz_i))
-    F_rad = term1 + term2 + term3  
-  end
+    @inbounds begin
+        DFloat = eltype(aux)
+        zero_to_z = aux[_a_02z]
+        z_to_inf = aux[_a_z2inf]
+        q_tot = aux[_a_q_tot]
+        z = aux[_a_z]
+        q_tot = aux[_a_q_tot]
+        zi = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot      
+        Δzi = max(z - zi, zero(DFloat))
+        # Constants
+        F_0 = 70
+        F_1 = 22
+        α_z = 1
+        ρ_i = DFloat(1.22)
+        D_subsidence = DFloat(3.75e-6)
+        term1 = F_0 * exp(-z_to_inf) 
+        term2 = F_1 * exp(-zero_to_z)
+        term3 = ρ_i * cp_d * D_subsidence * α_z * (DFloat(0.25) * (cbrt(Δzi))^4 + zi * cbrt(Δzi))
+        F_rad = term1 + term2 + term3  
+    end
 end
 
 # -------------------------------------------------------------------------
@@ -368,52 +370,13 @@ end
 
     cs_left_right = zero(DFloat)
     cs_front_back = zero(DFloat)
-    ct            = DFloat(0.75)
-
-    domain_left  = xmin
-    domain_right = xmax
-
-    domain_front = ymin
-    domain_back  = ymax
-
-    domain_bott  = zmin
-    domain_top   = zmax
-
+    ct            = DFloat(0.75)      
     #END User modification on domain parameters.
 
-    # Define Sponge Boundaries
-    xc       = (domain_right + domain_left) / 2
-    yc       = (domain_back  + domain_front) / 2
-    zc       = (domain_top   + domain_bott) / 2
-
-    top_sponge  = DFloat(0.85) * domain_top
-    xsponger    = domain_right - DFloat(0.15) * (domain_right - xc)
-    xspongel    = domain_left  + DFloat(0.15) * (xc - domain_left)
-    ysponger    = domain_back  - DFloat(0.15) * (domain_back - yc)
-    yspongel    = domain_front + DFloat(0.15) * (yc - domain_front)
-
-    #x left and right
-    #xsl
-    if x <= xspongel
-      csleft = cs_left_right * (sinpi((x - xspongel)/2/(domain_left - xspongel)))^4
-    end
-    #xsr
-    if x >= xsponger
-      csright = cs_left_right * (sinpi((x - xsponger)/2/(domain_right - xsponger)))^4
-    end
-    #y left and right
-    #ysl
-    if y <= yspongel
-      csfront = cs_front_back * (sinpi((y - yspongel)/2/(domain_front - yspongel)))^4
-    end
-    #ysr
-    if y >= ysponger
-      csback = cs_front_back * (sinpi((y - ysponger)/2/(domain_back - ysponger)))^4
-    end
-
+    top_sponge  = DFloat(0.85) * zmax      
     #Vertical sponge:
     if z >= top_sponge
-      ctop = ct * (sinpi((z - top_sponge)/2/(domain_top - top_sponge)))^4
+      ctop = ct * (sinpi((z - top_sponge)/2/(zmax - top_sponge)))^4
     end
 
     beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
@@ -528,7 +491,7 @@ end
     q_tot = QT * ρinv
     # Establish the current thermodynamic state using the prognostic variables
     q_liq = aux[_a_q_liq]
-    val[1] = ρ * κ * (q_liq / (1.0 + q_liq)) 
+    val[1] = ρ * κ * (q_liq / (1.0 + q_l)) 
     val[2] = ρ * (q_liq / (1.0 + q_liq)) # Liquid Water Path Integrand
   end
 end
@@ -540,7 +503,6 @@ function preodefun!(disc, Q, t)
       z = aux[_a_z]
       e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
       q_tot = QT / ρ
-        
       TS = PhaseEquil(e_int, q_tot, ρ)
       T = air_temperature(TS)
       P = air_pressure(TS) # Test with dry atmosphere
@@ -583,24 +545,24 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     DFloat     = eltype(Q)
     p0::DFloat = MSLP
     
-    randnum1   = rand(seed, DFloat) / 150
-    randnum2   = rand(seed, DFloat) / 150
+    randnum1   = rand(seed, DFloat) / 100
+    randnum2   = rand(seed, DFloat) / 100
     
     xvert  = z
     P      = spl_pinit(xvert)     #P
     θ_l    = spl_thetainit(xvert) #θ_l
     q_tot  = spl_qinit(xvert)     #qtot
     T      = spl_tinit(xvert)    #T
-        
+    
     zi = 840.0
     if ( z <= zi)
-  θ_lx   = 289.0;
-  q_totx = 9.0e-3; #specific humidity
+        θ_lx   = 289.0;
+        q_totx = 9.0e-3; #specific humidity
     else
-  θ_lx   = 297.5 + (z - zi)^(1/3);
-  q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
+        θ_lx   = 297.5 + (z - zi)^(1/3);
+        q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
     end  
-   
+    
     q_liq = 0.0
     if z >= 600.0 && z <= 840.0
         q_liq = (z - 600)*0.00045/200.0 
@@ -687,7 +649,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     spl_qinit    = Spline1D(zinit, qinit; k=1) #sensible T (K)
     
     # Set type of filter 
-    filter_dycoms = CLIMA.Mesh.Grids.CutoffFilter(spacedisc.grid)
+    #filter_dycoms = CLIMA.Mesh.Grids.CutoffFilter(spacedisc.grid)
 
     initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x...)
     Q = MPIStateArray(spacedisc, initialcondition)
@@ -748,7 +710,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
 
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-filter-dynamics-only/dy_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms2d/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -764,7 +726,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   # Initialise the integration computation. Kernels calculate this at every timestep?? 
   @timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
-  @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk,cbfilter))
+  @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
   @info @sprintf """Finished...
