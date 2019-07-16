@@ -227,8 +227,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     SijSij = VF[_SijSij]
 
     #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
-    D_e = 0.0 #ν_e / Prandtl_t
+    b_factor = 0.25
+    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)*b_factor
+    D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
     τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
