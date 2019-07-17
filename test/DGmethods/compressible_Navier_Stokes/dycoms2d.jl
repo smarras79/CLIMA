@@ -539,7 +539,7 @@ end
 end
 
 function preodefun!(disc, Q, t)
-  DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
+  DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, VF, aux
     @inbounds let
       ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
       
@@ -725,9 +725,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       end
     end
 
-    npoststates = 7
-    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ_l = 1:npoststates
-    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "θ_l")
+    npoststates = 8
+    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ_l, _o_buoyancy_factor = 1:npoststates
+    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "θ_l", "BFactor")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
      #=
@@ -742,18 +742,24 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       
       step = [0]
       cbvtk = GenericCallbacks.EveryXSimulationSteps(4000) do (init=false)
-      DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
-        @inbounds let
-          u, v, w = preflux(Q, QV, aux)
-          R[_o_LWP] = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
-          R[_o_u] = u
-          R[_o_v] = v
-          R[_o_w] = w
-          R[_o_q_liq] = aux[_a_q_liq]
-          R[_o_T] = aux[_a_T]
-          R[_o_θ_l] = aux[_a_θ_l]
-        end
-      end
+          DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, VF, aux
+              @inbounds let
+                  u, v, w = preflux(Q, VF, aux)
+                  vθz     = VF[_θz]
+                  SijSij  = VF[_SijSij]
+                  θ       = aux[_a_θ]
+                  bfactor =  buoyancy_correction(Sij, θ, vθz)
+
+                  R[_o_buoyancy_factor] = bfactor
+                  R[_o_LWP] = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
+                  R[_o_u] = u
+                  R[_o_v] = v
+                  R[_o_w] = w
+                  R[_o_q_liq] = aux[_a_q_liq]
+                  R[_o_T] = aux[_a_T]
+                  R[_o_θ_l] = aux[_a_θ_l]
+              end
+          end
 
       outprefix = @sprintf("./CLIMA-output-scratch/dycoms2d/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
