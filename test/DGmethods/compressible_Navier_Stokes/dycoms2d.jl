@@ -262,7 +262,8 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
     SijSij = VF[_SijSij]
     θ      = aux[_a_θ]
-    buoyancy_factor = KASM_coefficient(SijSij, θ, vθz, Δsqr)
+    buoyancy_factor = buoyancy_correction(SijSij, θ, vθz)
+    #buoyancy_factor = KASM_coefficient(SijSij, θ, vθz, Δsqr)
     #Dynamic eddy viscosity from Smagorinsky:
     ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)*buoyancy_factor
     D_e = ν_e / Prandtl_t
@@ -549,7 +550,7 @@ function preodefun!(disc, Q, t)
       T           = air_temperature(TS)
       P           = air_pressure(TS) # Test with dry atmosphere
       q_liq       = PhasePartition(TS).liq
-      θ_l         = liquid_ice_pottemp(T, P, PhasePartition(q_tot, q_liq, 0.0))
+      θ_l         = liquid_ice_pottemp(TS)
       θ_v         = virtual_pottemp(TS)
         
       R[_a_q_tot] = q_tot
