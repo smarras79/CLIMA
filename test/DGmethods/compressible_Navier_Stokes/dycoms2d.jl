@@ -70,6 +70,41 @@ end
 const seed = MersenneTwister(0)
 
 
+#
+# Zero equation Deardorff:
+#
+@exportparameter C_smag         0.23                    "Standard Smagorinsky Coefficient"
+@exportparameter Prandtl_turb   1//3                    "Turbulent Prandtl Number" 
+@exportparameter Prandtl_air    71//100                 "Molecular Prandtl Number, air" 
+@exportparameter c_a_KASM  0.10                         "cₐ KASM (2006)"
+@exportparameter c_e1_KASM  0.19                        "cₑ₁ KASM (2006)"
+@exportparameter c_e2_KASM  0.51                        "cₑ₂ KASM (2006)"
+@exportparameter c_1_KASM  c_a_KASM*0.76^2              "c₁  KASM (2006)"
+@exportparameter c_2_KASM  c_e2_KASM+2*c_1_KASM         "c₂ KASM (2006)"
+@exportparameter c_3_KASM  c_a_KASM^(3/2)               "c₃ KASM (2006)"
+
+function buoyancy_correction(normSij, θv, dθvdz)
+    # Brunt-Vaisala frequency
+    N2 = grav / θv * dθvdz 
+    # Richardson number
+    Richardson = N2 / (2 * normSij + eps(normSij))
+    # Buoyancy correction factor
+    buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_turb))
+    return buoyancy_factor
+  end
+
+function KASM_coefficient(normSij,θv, dθvdz, Δsqr)
+    # Brunt-Vaisala frequency
+    
+    
+    N2 = grav / θv * dθvdz 
+    # Richardson number
+    Richardson = N2 / (2 * normSij + eps(normSij))
+    # Kirkpatrick, Ackerman, Stevens, Mansour correction (≡ SSM in neutral conditions)
+    c_ϵ_KASM = c_e1_KASM + c_e2_KASM * buoyancy_correction(normSij, θv, dθvdz)
+    L_mixing = N2 <=0 ? sqrt(Δsqr) : sqrt(Δsqr)*(c_1_KASM*(1/Richardson - 1) - c_e1_KASM)/c_2_KASM
+    KASM_coeff = L_mixing <=0 ? 0 : c_3_KASM*L_mixing^2/(C_smag^2*Δsqr*sqrt(c_ϵ_KASM))
+end
 
 function global_max(A::MPIStateArray, states=1:size(A, 2))
   host_array = Array ∈ typeof(A).parameters
@@ -220,14 +255,17 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     #Derivative of T and Q:
     vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
     vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+    vθx, vθy, vθz = VF[_θx], VF[_θy], VF[_θz]
 
     # Radiation contribution
     F_rad = ρ * radiation(aux)
 
     SijSij = VF[_SijSij]
-      
+    θ      = aux[_a_θ]
+      buoyancy_factor = KASM_coefficient(SijSij, θ, vθz, Δsqr)
+      @show(buoyancy_factor)
     #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)
+    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)*buoyancy_factor
     D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
