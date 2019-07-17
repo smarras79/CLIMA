@@ -659,7 +659,7 @@ end
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                #range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
+                range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                 range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
 
 
