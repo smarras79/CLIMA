@@ -832,6 +832,7 @@ let
   # User defined polynomial order 
   numelem = (Nex, Ney, Nez)
   dt = 0.0005
+   
   #timeend = 4*dt
   timeend = 14400
   polynomialorder = Npoly
