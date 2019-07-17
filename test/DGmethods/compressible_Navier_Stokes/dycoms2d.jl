@@ -316,9 +316,9 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         #F[3, _ρ]  -= ρ * vqz * D_e 
 
         #As for mass
-        F[1, _QT] -= ρ *vqx * D_e
-        F[2, _QT] -= ρ *vqy * D_e
-        F[3, _QT] -= ρ *vqz * D_e
+        F[1, _QT] -= vqx * D_e
+        F[2, _QT] -= vqy * D_e
+        F[3, _QT] -= vqz * D_e
         
     end
 end
@@ -440,12 +440,36 @@ end
         zd = 300
         top_sponge  = zmax - zd
         #Vertical sponge:
-        sponge_type = 1
+        sponge_type = 2
         if sponge_type == 1
             if z >= top_sponge
                 ctop = ct * (0.5*sinpi((z - top_sponge)/(zmax - top_sponge)))^4
             end
+            
         elseif sponge_type == 2
+            
+            alpha_coe = 0.5
+            zd        = zmax - zd
+            
+            #
+            # top damping
+            # first layer: damp lee waves
+            #
+            ctop = 0.0
+            ct   = 0.5
+            if z >= zd
+                zid = (z - zd)/(zmax - zd) # normalized coordinate
+                if zid >= 0.0 && zid <= 0.5
+                    abstaud = alpha_coe*(1.0 - cos(zid*pi))
+
+                else
+                    abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
+
+                end
+                ctop = ct*abstaud
+            end
+
+        elseif sponge_type == 3
             if z >= top_sponge
                 ctop = ct * (0.5*sinpi((z - top_sponge)/(zmax - top_sponge)))^2
             end
