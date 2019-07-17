@@ -124,12 +124,12 @@ function global_mean(A::MPIStateArray, states=1:size(A,2))
 end
 
 # User Input
-const numdims = 3
+const numdims = 2
 const Npoly = 4
 
 # Define grid size 
 Δx    = 10
-Δy    = 35
+Δy    = 5
 Δz    = 5
 
 #
@@ -141,7 +141,7 @@ const Npoly = 4
 
 # Physical domain extents 
 const (xmin, xmax) = (0,  820)
-const (ymin, ymax) = (0,  100)
+const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -659,7 +659,7 @@ end
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
+                #range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                 range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
 
 
