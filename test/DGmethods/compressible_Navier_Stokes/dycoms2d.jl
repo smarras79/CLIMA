@@ -309,10 +309,11 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e #+ ρ*D3
 
         F[3, _E] += F_rad
+        
         # Viscous contributions to mass flux terms
-        F[1, _ρ]  -= ρ * vqx * D_e 
-        F[2, _ρ]  -= ρ * vqy * D_e 
-        F[3, _ρ]  -= ρ * vqz * D_e 
+        #F[1, _ρ]  -= ρ * vqx * D_e 
+        #F[2, _ρ]  -= ρ * vqy * D_e 
+        #F[3, _ρ]  -= ρ * vqz * D_e 
 
         #As for mass
         F[1, _QT] -= ρ *vqx * D_e
@@ -642,8 +643,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
         q_liq = (z - 600)*0.00045/200.0 
     end
     if z > 10 && z <= 200.0
-        θ_l   = θ_l   + randnum1 * θ_l
-        q_tot = q_tot + randnum2 * q_tot
+        θ_l   += randnum1 * θ_l
+        q_tot += randnum2 * q_tot
     end
     
     q_partition = PhasePartition(q_tot, q_liq, 0.0)
