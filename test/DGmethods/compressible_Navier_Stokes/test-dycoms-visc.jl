@@ -210,6 +210,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     D_subsidence = 3.75e-6
     ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     P = aux[_a_P]
+    z = aux[_a_z]
     w -= D_subsidence*z
     W = w*ρ
     # Inviscid contributions
