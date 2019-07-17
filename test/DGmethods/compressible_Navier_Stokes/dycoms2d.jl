@@ -725,9 +725,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       end
     end
 
-    npoststates = 11
-    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ_l, _o_buoyancy_factor, _o_θz, _o_SijSij, _o_ν_e = 1:npoststates
-    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "theta_l", "BFactor", "dthetadz", "|Sij|", "Km")
+    npoststates = 12
+    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ_l, _o_buoyancy_factor, _o_θz, _o_SijSij, _o_ν_e, _o_RAD = 1:npoststates
+    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "theta_l", "BFactor", "dthetadz", "|Sij|", "Km", "RAD")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
      #=
@@ -763,6 +763,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                   R[_o_θ_l] = aux[_a_θ_l]
                   R[_o_θz] = vθz
                   R[_o_SijSij] = SijSij
+                  R[_o_RAD] = aux[_a_z2inf] + aux[_a_02z]
               end
           end
 
