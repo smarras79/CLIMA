@@ -129,7 +129,7 @@ const Npoly = 4
 
 # Define grid size 
 Δx    = 35
-Δy    = 500
+Δy    = 35
 Δz    = 5
 
 #
@@ -141,7 +141,7 @@ const Npoly = 4
 
 # Physical domain extents 
 const (xmin, xmax) = (0,  820)
-const (ymin, ymax) = (0, 1500)
+const (ymin, ymax) = (0,  120)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -273,10 +273,10 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
         SijSij = VF[_SijSij]
         θ      = aux[_a_θ]
-        buoyancy_factor = buoyancy_correction(SijSij, θ, vθz)
+        #buoyancy_factor = buoyancy_correction(SijSij, θ, vθz)
         #buoyancy_factor = KASM_coefficient(SijSij, θ, vθz, Δsqr)
         #Dynamic eddy viscosity from Smagorinsky:
-        ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) #*buoyancy_factor
+        ν_e = sqrt(2SijSij) * C_smag^2 * Δsqr #*buoyancy_factor
         D_e = ν_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
@@ -435,10 +435,10 @@ end
         ct            = DFloat(0.75)      
         #END User modification on domain parameters.
 
-        zd = 450
+        zd = 300
         top_sponge  = zmax - zd
         #Vertical sponge:
-        sponge_type = 2
+        sponge_type = 1
         if sponge_type == 1
             if z >= top_sponge
                 ctop = ct * (0.5*sinpi((z - top_sponge)/(zmax - top_sponge)))^4
@@ -640,7 +640,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     if z >= 600.0 && z <= 840.0
         q_liq = (z - 600)*0.00045/200.0 
     end
-    if z <= 200.0
+    if z > 10 && z <= 200.0
         θ_l   = θ_l   + randnum1 * θ_l
         q_tot = q_tot + randnum2 * q_tot
     end
