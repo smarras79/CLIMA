@@ -383,7 +383,7 @@ end
         term1 = F_0 * exp(-z_to_inf) 
         term2 = F_1 * exp(-zero_to_z)
         term3 = ρ_i * cp_d * D_subsidence * α_z * (DFloat(0.25) * (cbrt(Δzi))^4 + zi * cbrt(Δzi))
-        F_rad = term1 + term2 + term3  
+        F_rad = term1 + term2 + term3        
     end
 end
 
@@ -725,9 +725,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       end
     end
 
-    npoststates = 12
-    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ_l, _o_buoyancy_factor, _o_θz, _o_SijSij, _o_ν_e, _o_RAD = 1:npoststates
-    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "theta_l", "BFactor", "dthetadz", "|Sij|", "Km", "RAD")
+    npoststates = 11
+    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ_l, _o_buoyancy_factor, _o_θz, _o_SijSij, _o_ν_e = 1:npoststates
+    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "theta_l", "BFactor", "dthetadz", "|Sij|", "Km")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
      #=
@@ -762,7 +762,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                   R[_o_θ_l] = aux[_a_θ_l]
                   R[_o_θz] = ovθz
                   R[_o_SijSij] = oSijSij
-                  R[_o_RAD] = aux[_a_z2inf] + aux[_a_02z]
               end
           end
 
