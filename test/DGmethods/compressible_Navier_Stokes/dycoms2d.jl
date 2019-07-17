@@ -745,12 +745,12 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
           DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, VF, aux
               @inbounds let
                   u, v, w = preflux(Q, VF, aux)
-                  vθz     = VF[_θz]
-                  SijSij  = VF[_SijSij]
-                  θ       = aux[_a_θ]
+                  ovθz     = VF[_θz]
+                  oSijSij  = VF[_SijSij]
+                  oθ       = aux[_a_θ]
                   bfactor = buoyancy_correction(SijSij, θ, vθz)
 
-                  visc = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)*bfactor
+                  ovisc = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)*bfactor
                   
                   R[_o_ν_e] = visc
                   R[_o_buoyancy_factor] = bfactor
@@ -761,8 +761,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                   R[_o_q_liq] = aux[_a_q_liq]
                   R[_o_T] = aux[_a_T]
                   R[_o_θ_l] = aux[_a_θ_l]
-                  R[_o_θz] = vθz
-                  R[_o_SijSij] = SijSij
+                  R[_o_θz] = ovθz
+                  R[_o_SijSij] = oSijSij
                   R[_o_RAD] = aux[_a_z2inf] + aux[_a_02z]
               end
           end
