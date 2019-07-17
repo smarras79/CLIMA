@@ -175,8 +175,8 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 @parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
 #Δ = numdims < 3 ? min(Δx, Δy, Δz) : (Δx * Δy * Δz)^(1/3)
-#Δ = (Δx * Δy * Δz)^(1/3)
-Δ = min(Δx, Δy, Δz)
+Δ = (Δx * Δy * Δz)^(1/3)
+#Δ = min(Δx, Δy, Δz)
 const Δsqr = Δ * Δ
 
 # -------------------------------------------------------------------------
