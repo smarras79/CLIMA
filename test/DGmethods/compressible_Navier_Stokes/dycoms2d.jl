@@ -128,7 +128,7 @@ const numdims = 3
 const Npoly = 4
 
 # Define grid size 
-Δx    = 10
+Δx    = 20
 Δy    = 500
 Δz    = 5
 
@@ -242,78 +242,83 @@ end
 # -------------------------------------------------------------------------
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, u, v, w)
-  @inbounds begin
-      DFloat = eltype(F)
-      ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-      P     = aux[_a_P]
-      z     = aux[_a_z]
-      T     = aux[_a_T]
-      q_tot = Q[_QT]/ρ
-      q_liq = aux[_a_q_liq]
-      
-      D_subsidence = DFloat(3.75e-6)
-      w -= D_subsidence*z
-      W = w*ρ
-      
-      # Inviscid contributions
-      F[1, _ρ],  F[2, _ρ],  F[3, _ρ]  = U          , V          , w * ρ
-      F[1, _U],  F[2, _U],  F[3, _U]  = u * U  + P , v * U      , w * U
-      F[1, _V],  F[2, _V],  F[3, _V]  = u * V      , v * V + P  , w * V
-      F[1, _W],  F[2, _W],  F[3, _W]  = u * W      , v * W      , w * W + P
-      F[1, _E],  F[2, _E],  F[3, _E]  = u * (E + P), v * (E + P), w * (E + P)
-      F[1, _QT], F[2, _QT], F[3, _QT] = u * QT     , v * QT     , w * QT
+    @inbounds begin
+        DFloat = eltype(F)
+        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        P     = aux[_a_P]
+        z     = aux[_a_z]
+        T     = aux[_a_T]
+        q_tot = Q[_QT]/ρ
+        q_liq = aux[_a_q_liq]
+        
+        D_subsidence = DFloat(3.75e-6)
+        w -= D_subsidence*z
+        W = w*ρ
+        
+        # Inviscid contributions
+        F[1, _ρ],  F[2, _ρ],  F[3, _ρ]  = U          , V          , w * ρ
+        F[1, _U],  F[2, _U],  F[3, _U]  = u * U  + P , v * U      , w * U
+        F[1, _V],  F[2, _V],  F[3, _V]  = u * V      , v * V + P  , w * V
+        F[1, _W],  F[2, _W],  F[3, _W]  = u * W      , v * W      , w * W + P
+        F[1, _E],  F[2, _E],  F[3, _E]  = u * (E + P), v * (E + P), w * (E + P)
+        F[1, _QT], F[2, _QT], F[3, _QT] = u * QT     , v * QT     , w * QT
 
-      #Derivative of T and Q:
-      vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
-      vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-      vθx, vθy, vθz = VF[_θx], VF[_θy], VF[_θz]
+        #Derivative of T and Q:
+        vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
+        vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+        vθx, vθy, vθz = VF[_θx], VF[_θy], VF[_θz]
 
-      # Radiation contribution
-      F_rad = ρ * radiation(aux)
+        # Radiation contribution
+        F_rad = ρ * radiation(aux)
 
-    SijSij = VF[_SijSij]
-    θ      = aux[_a_θ]
-    buoyancy_factor = buoyancy_correction(SijSij, θ, vθz)
-    #buoyancy_factor = KASM_coefficient(SijSij, θ, vθz, Δsqr)
-    #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) #*buoyancy_factor
-    D_e = ν_e / Prandtl_t
+        SijSij = VF[_SijSij]
+        θ      = aux[_a_θ]
+        buoyancy_factor = buoyancy_correction(SijSij, θ, vθz)
+        #buoyancy_factor = KASM_coefficient(SijSij, θ, vθz, Δsqr)
+        #Dynamic eddy viscosity from Smagorinsky:
+        ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) #*buoyancy_factor
+        D_e = ν_e / Prandtl_t
 
-    # Multiply stress tensor by viscosity coefficient:
-    τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
-    τ12 = τ21 = VF[_τ12] * ν_e
-    τ13 = τ31 = VF[_τ13] * ν_e
-    τ23 = τ32 = VF[_τ23] * ν_e
+        # Multiply stress tensor by viscosity coefficient:
+        τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
+        τ12 = τ21 = VF[_τ12] * ν_e
+        τ13 = τ31 = VF[_τ13] * ν_e
+        τ23 = τ32 = VF[_τ23] * ν_e
 
-    # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-    F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
-    F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
-    F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
+        # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
+        F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
+        F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
+        F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
 
-    q_v = q_tot - q_liq
-    I_v = cv_v * (T - T_0) + e_int_v0
-    I_l = cv_l * (T - T_0)
-    e_kin   = 0.5*(u^2 + v^2 + w^2)
-    e_pot   = grav*z
-    e_tot_v = e_kin + e_pot + I_v
-    e_tot_l = e_kin + e_pot + I_l
-    d_qv1, d_qv2, d_qv3 = q_v*u,   q_v*v,   q_v*w
-    d_ql1, d_ql2, d_ql3 = q_liq*u, q_liq*v, q_liq*w
-     
-    D1, D2, D3 = (e_tot_v + R_v*T)*d_qv1 + e_tot_l*d_ql1, (e_tot_v + R_v*T)*d_qv2 + e_tot_l*d_ql2, (e_tot_v + R_v*T)*d_qv3 + e_tot_l*d_ql3
-      
-    # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e + ρ*D1
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e + ρ*D2
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e + ρ*D3
+        q_v = q_tot - q_liq
+        I_v = cv_v * (T - T_0) + e_int_v0
+        I_l = cv_l * (T - T_0)
+        e_kin   = 0.5*(u^2 + v^2 + w^2)
+        e_pot   = grav*z
+        e_tot_v = e_kin + e_pot + I_v
+        e_tot_l = e_kin + e_pot + I_l
+        d_qv1, d_qv2, d_qv3 = q_v*u,   q_v*v,   q_v*w
+        d_ql1, d_ql2, d_ql3 = q_liq*u, q_liq*v, q_liq*w
+        
+        D1, D2, D3 = (e_tot_v + R_v*T)*d_qv1 + e_tot_l*d_ql1, (e_tot_v + R_v*T)*d_qv2 + e_tot_l*d_ql2, (e_tot_v + R_v*T)*d_qv3 + e_tot_l*d_ql3
+        
+        # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e #+ ρ*D1
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e #+ ρ*D2
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e #+ ρ*D3
 
-    F[3, _E] += F_rad
-    # Viscous contributions to mass flux terms
-    F[1, _QT] -=  vqx * D_e
-    F[2, _QT] -=  vqy * D_e
-    F[3, _QT] -=  vqz * D_e
-      
-  end
+        F[3, _E] += F_rad
+        # Viscous contributions to mass flux terms
+        F[1, _ρ]  -= ρ * vqx * D_e 
+        F[2, _ρ]  -= ρ * vqy * D_e 
+        F[3, _ρ]  -= ρ * vqz * D_e 
+
+        #As for mass
+        F[1, _QT] -= ρ *vqx * D_e
+        F[2, _QT] -= ρ *vqy * D_e
+        F[3, _QT] -= ρ *vqz * D_e
+        
+    end
 end
 
 # -------------------------------------------------------------------------
@@ -831,7 +836,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney, Nez)
-  dt = 0.0005
+  dt = 0.001
    
   #timeend = 4*dt
   timeend = 14400
