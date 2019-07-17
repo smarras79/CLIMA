@@ -88,12 +88,12 @@ function global_mean(A::MPIStateArray, states=1:size(A,2))
 end
 
 # User Input
-const numdims = 3
+const numdims = 2
 const Npoly = 4
 
 # Define grid size 
 Δx    = 35
-Δy    = 35
+Δy    = 10
 Δz    = 10
 
 #
@@ -105,7 +105,7 @@ const Npoly = 4
 
 # Physical domain extents 
 const (xmin, xmax) = (0,  820)
-const (ymin, ymax) = (0,  820)
+const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -138,7 +138,8 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
 @parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
-Δ = (Δx * Δy * Δz)^(1/3)
+#Δ = (Δx * Δy * Δz)^(1/3)
+Δ = min(Δx, Δy)
 const Δsqr = Δ * Δ
 
 # -------------------------------------------------------------------------
@@ -210,8 +211,8 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     D_subsidence = 3.75e-6
     ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     P = aux[_a_P]
-    z = aux[_a_z]
-    w -= D_subsidence*z
+    xvert = aux[_a_y]
+    w -= D_subsidence * xvert
     W = w*ρ
     # Inviscid contributions
     F[1, _ρ],  F[2, _ρ],  F[3, _ρ]  = U          , V          , W
@@ -437,6 +438,7 @@ end
 
       
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
+        xvert = y
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
@@ -456,7 +458,7 @@ end
             q_liq  = auxM[_a_q_liq]
             e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
             e_kin  = 0.5*(QP[_U]^2/ρM^2 + QP[_V]^2/ρM^2 + QP[_W]^2/ρM^2)
-            e_pot  = grav*z
+            e_pot  = grav*xvert
             E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = E
         end
@@ -544,8 +546,8 @@ function preodefun!(disc, Q, t)
   DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
     @inbounds let
       ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-      z = aux[_a_z]
-      e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+      xvert = aux[_a_y]
+      e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * xvert) / ρ
       q_tot = QT / ρ
       TS = PhaseEquil(e_int, q_tot, ρ)
       T = air_temperature(TS)
@@ -591,23 +593,23 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     randnum1   = rand(seed, DFloat) / 150
     randnum2   = rand(seed, DFloat) / 150
     
-    xvert  = z
+    xvert  = y
     P      = spl_pinit(xvert)     #P
     θ_l    = spl_thetainit(xvert) #θ_l
     q_tot  = spl_qinit(xvert)     #qtot
     T      = spl_tinit(xvert)    #T
-        
+    
     zi = 840.0
-    if ( z <= zi)
-  θ_lx   = 289.0;
-  q_totx = 9.0e-3; #specific humidity
+    if ( xvert <= zi)
+        θ_lx   = 289.0;
+        q_totx = 9.0e-3; #specific humidity
     else
-  θ_lx   = 297.5 + (z - zi)^(1/3);
-  q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
+        θ_lx   = 297.5 + (z - zi)^(1/3);
+        q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
     end  
-   
+    
     q_liq = 0.0
-    if z >= 600.0 && z <= 840.0
+    if xvert >= 600.0 && xvert <= 840.0
         q_liq = (z - 600)*0.00045/200.0 
     end
     θ_l   = θ_l   + randnum1 * θ_l
@@ -633,13 +635,11 @@ end
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
-                range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
-
-
+                range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
+    
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
-  @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
+  @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,false))
 
   @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
                                                                  FloatType = DFloat,
@@ -750,19 +750,12 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
 
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-subsidence-visc/dy_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
                postprocessarray, postnames)
-      #= 
-      pvtuprefix = @sprintf("vtk/cns_%dD_step%04d", dim, step[1])
-      prefixes = ntuple(i->
-      @sprintf("vtk/cns_%dD_mpirank%04d_step%04d",
-      dim, i-1, step[1]),
-      MPI.Comm_size(mpicomm))
-      writepvtu(pvtuprefix, prefixes, postnames)
-      =# 
+      
       step[1] += 1
       nothing
     end
@@ -778,31 +771,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   @info @sprintf """Finished...
     norm(Q) = %25.16e""" norm(Q)
-
-#=
-    # Print some end of the simulation information
-    engf = norm(Q)
-    if integration_testing
-        Qe = MPIStateArray(spacedisc,
-                           (Q, x...) -> initialcondition!(Val(dim), Q,
-                                                          DFloat(timeend), x...))
-        engfe = norm(Qe)
-        errf = euclidean_distance(Q, Qe)
-        @info @sprintf """Finished
-        norm(Q)                 = %.16e
-        norm(Q) / norm(Q₀)      = %.16e
-        norm(Q) - norm(Q₀)      = %.16e
-        norm(Q - Qe)            = %.16e
-        norm(Q - Qe) / norm(Qe) = %.16e
-        """ engf engf/eng0 engf-eng0 errf errf / engfe
-    else
-        @info @sprintf """Finished
-        norm(Q)            = %.16e
-        norm(Q) / norm(Q₀) = %.16e
-        norm(Q) - norm(Q₀) = %.16e""" engf engf/eng0 engf-eng0
-    end
-integration_testing ? errf : (engf / eng0)
-=#
 
 end
 
@@ -824,7 +792,7 @@ let
   # User defined timestep estimate
   # User defined simulation end time
   # User defined polynomial order 
-  numelem = (Nex,Ney,Nez)
+  numelem = (Nex, Ney)
   dt = 0.0025
   timeend = 14400
   polynomialorder = Npoly
