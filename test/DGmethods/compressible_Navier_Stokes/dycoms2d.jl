@@ -124,12 +124,12 @@ function global_mean(A::MPIStateArray, states=1:size(A,2))
 end
 
 # User Input
-const numdims = 3
+const numdims = 2
 const Npoly = 4
 
 # Define grid size 
 Δx    = 35
-Δy    = 35
+Δy    = 5
 Δz    = 5
 
 #
@@ -141,7 +141,7 @@ const Npoly = 4
 
 # Physical domain extents 
 const (xmin, xmax) = (0,  820)
-const (ymin, ymax) = (0,  120)
+const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -174,8 +174,9 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
 @parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
-Δ = numdims < 3 ? min(Δx, Δy, Δz) : (Δx * Δy * Δz)^(1/3)
+#Δ = numdims < 3 ? min(Δx, Δy, Δz) : (Δx * Δy * Δz)^(1/3)
 #Δ = (Δx * Δy * Δz)^(1/3)
+Δ = min(Δx, Δy, Δz)
 const Δsqr = Δ * Δ
 
 # -------------------------------------------------------------------------
@@ -621,7 +622,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     randnum1   = rand(seed, DFloat) / 100
     randnum2   = rand(seed, DFloat) / 100
     
-    xvert  = z
+    xvert  = y
     P      = spl_pinit(xvert)     #P
     θ_l    = spl_thetainit(xvert) #θ_l
     q_tot  = spl_qinit(xvert)     #qtot
@@ -665,9 +666,9 @@ end
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
-                range(DFloat(zmin), length=Ne[end]+1, DFloat(zmax)))
-
+                range(DFloat(zmin), length=Ne[2]+1, DFloat(zmax)))
+    #range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
+    
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
   @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
@@ -835,7 +836,7 @@ let
   # User defined timestep estimate
   # User defined simulation end time
   # User defined polynomial order 
-  numelem = (Nex, Ney, Nez)
+  numelem = (Nex, Nez)
   dt = 0.001
    
   #timeend = 4*dt
