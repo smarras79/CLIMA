@@ -749,6 +749,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                   oSijSij  = VF[_SijSij]
                   oθ       = aux[_a_θ]
                   bfactor = buoyancy_correction(oSijSij, oθ, ovθz)
+                  
                   ovisc = sqrt(2*oSijSij) * C_smag^2 * DFloat(Δsqr)*bfactor                  
                   R[_o_ν_e] = visc
                   R[_o_buoyancy_factor] = bfactor
