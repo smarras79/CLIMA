@@ -74,7 +74,7 @@ const seed = MersenneTwister(0)
 #
 # Zero equation Deardorff:
 #
-@exportparameter C_smag         0.23                    "Standard Smagorinsky Coefficient"
+@exportparameter C_smag         0.15                    "Standard Smagorinsky Coefficient"
 @exportparameter Prandtl_turb   1//3                    "Turbulent Prandtl Number" 
 @exportparameter Prandtl_air    71//100                 "Molecular Prandtl Number, air" 
 @exportparameter c_a_KASM  0.10                         "cₐ KASM (2006)"
@@ -128,7 +128,7 @@ const numdims = 3
 const Npoly = 4
 
 # Define grid size 
-Δx    = 30
+Δx    = 10
 Δy    = 35
 Δz    = 5
 
@@ -831,7 +831,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex,Ney,Nez)
-  dt = 0.0005
+  dt = 0.0025
   #timeend = 4*dt
   timeend = 14400
   polynomialorder = Npoly
