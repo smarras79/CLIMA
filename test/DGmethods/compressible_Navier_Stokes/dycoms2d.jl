@@ -741,7 +741,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       =#
       
       step = [0]
-      cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
+      cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
           DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
               @inbounds let
                   u, v, w = preflux(Q, QV, aux)
