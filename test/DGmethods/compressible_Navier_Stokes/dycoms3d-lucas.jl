@@ -721,19 +721,16 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postnames = ("LWP", "u", "v", "w", "_q_liq", "T")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
-
-
-
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         DGBalanceLawDiscretizations.apply!(Q, 1:_nstate, spacedisc,
                                            filter_dycoms;
                                            horizontal=true,
                                            vertical=true)
         nothing
-      end
+    end
+     
     step = [0]
-
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(2) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, QV, aux)
@@ -746,7 +743,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
 
-      outprefix = @sprintf("cns_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-lucas/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -769,7 +766,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   # Initialise the integration computation. Kernels calculate this at every timestep?? 
   @timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
-  @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk,cbfilter))
+  @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
 
 
   @info @sprintf """Finished...
