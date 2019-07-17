@@ -742,15 +742,15 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       
       step = [0]
       cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
-          DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, VF, aux
+          DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
               @inbounds let
-                  u, v, w = preflux(Q, VF, aux)
-                  ovθz     = VF[_θz]
-                  oSijSij  = VF[_SijSij]
+                  u, v, w = preflux(Q, QV, aux)
+                  ovθz     = QV[_θz]
+                  oSijSij  = QV[_SijSij]
                   oθ       = aux[_a_θ]
                   bfactor = buoyancy_correction(oSijSij, oθ, ovθz)
                   
-                  ovisc = sqrt(2*oSijSij) * C_smag^2 * DFloat(Δsqr)*bfactor                  
+                  ovisc = sqrt(2*oSijSij) * C_smag^2 * Δsqr*bfactor                  
                   R[_o_ν_e] = ovisc
                   R[_o_buoyancy_factor] = bfactor
                   R[_o_LWP] = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
