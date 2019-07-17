@@ -830,7 +830,7 @@ let
   # User defined timestep estimate
   # User defined simulation end time
   # User defined polynomial order 
-  numelem = (Nex,Nez)
+  numelem = (Nex, Ney, Nez)
   dt = 0.001
   #timeend = 4*dt
   timeend = 14400
