@@ -124,12 +124,12 @@ function global_mean(A::MPIStateArray, states=1:size(A,2))
 end
 
 # User Input
-const numdims = 2
+const numdims = 3
 const Npoly = 4
 
 # Define grid size 
 Δx    = 10
-Δy    = 5
+Δy    = 500
 Δz    = 5
 
 #
@@ -660,12 +660,12 @@ end
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                #range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
+                range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                 range(DFloat(zmin), length=Ne[end]+1, DFloat(zmax)))
 
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
-  @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,false))
+  @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
 
   @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
                                                                  FloatType = DFloat,
@@ -830,7 +830,7 @@ let
   # User defined timestep estimate
   # User defined simulation end time
   # User defined polynomial order 
-  numelem = (Nex,Ney,Nez)
+  numelem = (Nex,Nez)
   dt = 0.001
   #timeend = 4*dt
   timeend = 14400
