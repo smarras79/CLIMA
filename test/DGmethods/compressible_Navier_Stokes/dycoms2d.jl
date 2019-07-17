@@ -831,7 +831,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney, Nez)
-  dt = 0.001
+  dt = 0.0005
   #timeend = 4*dt
   timeend = 14400
   polynomialorder = Npoly
