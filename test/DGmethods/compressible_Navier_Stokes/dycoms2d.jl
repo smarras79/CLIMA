@@ -124,13 +124,13 @@ function global_mean(A::MPIStateArray, states=1:size(A,2))
 end
 
 # User Input
-const numdims = 2
+const numdims = 3
 const Npoly = 4
 
 # Define grid size 
-Δx    = 35
-Δy    = 5
-Δz    = 5
+Δx    = 40
+Δy    = 40
+Δz    = 10
 
 #
 # OR:
@@ -141,7 +141,7 @@ const Npoly = 4
 
 # Physical domain extents 
 const (xmin, xmax) = (0,  820)
-const (ymin, ymax) = (0, 1500)
+const (ymin, ymax) = (0,  820)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -623,7 +623,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     randnum1   = rand(seed, DFloat) / 100
     randnum2   = rand(seed, DFloat) / 100
     
-    xvert  = y
+    xvert  = z
     P      = spl_pinit(xvert)     #P
     θ_l    = spl_thetainit(xvert) #θ_l
     q_tot  = spl_qinit(xvert)     #qtot
@@ -652,7 +652,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     
     ρ  = air_density(T, P, q_partition)
 
-    u, v, w = 0, 0, 0 #7.0, -5.5, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    u, v, w = 7.0, -5.5, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     
     e_kin = (u^2 + v^2 + w^2) / 2
     e_pot = grav * xvert
@@ -837,8 +837,8 @@ let
   # User defined timestep estimate
   # User defined simulation end time
   # User defined polynomial order 
-  numelem = (Nex, Nez)
-  dt = 0.001
+  numelem = (Nex, Ney, Nez)
+  dt = 0.0025
    
   #timeend = 4*dt
   timeend = 14400
