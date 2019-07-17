@@ -253,8 +253,8 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         q_liq = aux[_a_q_liq]
         
         D_subsidence = DFloat(3.75e-6)
-        w -= D_subsidence*z
-        W = w*ρ
+        #w -= D_subsidence*z
+        #W = w*ρ
         
         # Inviscid contributions
         F[1, _ρ],  F[2, _ρ],  F[3, _ρ]  = U          , V          , w * ρ
