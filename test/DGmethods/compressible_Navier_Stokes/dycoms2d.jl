@@ -262,8 +262,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
     SijSij = VF[_SijSij]
     θ      = aux[_a_θ]
-      buoyancy_factor = KASM_coefficient(SijSij, θ, vθz, Δsqr)
-      @show(buoyancy_factor)
+    buoyancy_factor = KASM_coefficient(SijSij, θ, vθz, Δsqr)
     #Dynamic eddy viscosity from Smagorinsky:
     ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)*buoyancy_factor
     D_e = ν_e / Prandtl_t
