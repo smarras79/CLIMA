@@ -128,7 +128,7 @@ const numdims = 3
 const Npoly = 4
 
 # Define grid size 
-Δx    = 20
+Δx    = 35
 Δy    = 500
 Δz    = 5
 
