@@ -87,7 +87,7 @@ function buoyancy_correction(normSij, θv, dθvdz)
     # Brunt-Vaisala frequency
     N2 = grav / θv * dθvdz 
     # Richardson number
-    Richardson = N2 / (2 * normSij + eps(normSij))
+    Richardson = N2 / (2 * normSij + 1.0e-12)
     # Buoyancy correction factor
     buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_turb))
     return buoyancy_factor
@@ -99,7 +99,7 @@ function KASM_coefficient(normSij,θv, dθvdz, Δsqr)
     
     N2 = grav / θv * dθvdz 
     # Richardson number
-    Richardson = N2 / (2 * normSij + eps(normSij))
+    Richardson = N2 / (2 * normSij + 1.0e-12)
     # Kirkpatrick, Ackerman, Stevens, Mansour correction (≡ SSM in neutral conditions)
     c_ϵ_KASM = c_e1_KASM + c_e2_KASM * buoyancy_correction(normSij, θv, dθvdz)
     L_mixing = N2 <=0 ? sqrt(Δsqr) : sqrt(Δsqr)*(c_1_KASM*(1/Richardson - 1) - c_e1_KASM)/c_2_KASM
@@ -741,7 +741,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       =#
       
       step = [0]
-      cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+      cbvtk = GenericCallbacks.EveryXSimulationSteps(10) do (init=false)
           DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, VF, aux
               @inbounds let
                   u, v, w = preflux(Q, VF, aux)
@@ -751,7 +751,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                   bfactor = buoyancy_correction(oSijSij, oθ, ovθz)
                   
                   ovisc = sqrt(2*oSijSij) * C_smag^2 * DFloat(Δsqr)*bfactor                  
-                  R[_o_ν_e] = visc
+                  R[_o_ν_e] = ovisc
                   R[_o_buoyancy_factor] = bfactor
                   R[_o_LWP] = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
                   R[_o_u] = u
