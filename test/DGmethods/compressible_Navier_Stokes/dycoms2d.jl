@@ -461,10 +461,8 @@ end
                 zid = (z - zd)/(zmax - zd) # normalized coordinate
                 if zid >= 0.0 && zid <= 0.5
                     abstaud = alpha_coe*(1.0 - cos(zid*pi))
-
                 else
                     abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
-
                 end
                 ctop = ct*abstaud
             end
