@@ -731,7 +731,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
      
-      cbfilter = GenericCallbacks.EveryXSimulationSteps(200) do
+      cbfilter = GenericCallbacks.EveryXSimulationSteps(1000) do
           DGBalanceLawDiscretizations.apply!(Q, 1:_nstate, spacedisc,
                                              filter_dycoms;
                                              horizontal=true,
