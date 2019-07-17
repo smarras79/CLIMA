@@ -9,6 +9,7 @@ using CLIMA.LowStorageRungeKuttaMethod
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 using CLIMA.ParametersType
+using CLIMA.PlanetParameters
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
@@ -127,9 +128,9 @@ const numdims = 3
 const Npoly = 4
 
 # Define grid size 
-Δx    = 20
+Δx    = 30
 Δy    = 35
-Δz    = 3.5
+Δz    = 5
 
 #
 # OR:
@@ -241,32 +242,41 @@ end
 cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 @inline function cns_flux!(F, Q, VF, aux, t, u, v, w)
   @inbounds begin
-    DFloat = eltype(F)
-    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    P = aux[_a_P]
-    # Inviscid contributions
-    F[1, _ρ],  F[2, _ρ],  F[3, _ρ]  = U          , V          , W
-    F[1, _U],  F[2, _U],  F[3, _U]  = u * U  + P , v * U      , w * U
-    F[1, _V],  F[2, _V],  F[3, _V]  = u * V      , v * V + P  , w * V
-    F[1, _W],  F[2, _W],  F[3, _W]  = u * W      , v * W      , w * W + P
-    F[1, _E],  F[2, _E],  F[3, _E]  = u * (E + P), v * (E + P), w * (E + P)
-    F[1, _QT], F[2, _QT], F[3, _QT] = u * QT     , v * QT     , w * QT
+      DFloat = eltype(F)
+      ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+      P     = aux[_a_P]
+      z     = aux[_a_z]
+      T     = aux[_a_T]
+      q_tot = Q[_QT]/ρ
+      q_liq = aux[_a_q_liq]
+      
+      D_subsidence = DFloat(3.75e-6)
+      w -= D_subsidence*z
+      W = w*ρ
+      
+      # Inviscid contributions
+      F[1, _ρ],  F[2, _ρ],  F[3, _ρ]  = U          , V          , w * ρ
+      F[1, _U],  F[2, _U],  F[3, _U]  = u * U  + P , v * U      , w * U
+      F[1, _V],  F[2, _V],  F[3, _V]  = u * V      , v * V + P  , w * V
+      F[1, _W],  F[2, _W],  F[3, _W]  = u * W      , v * W      , w * W + P
+      F[1, _E],  F[2, _E],  F[3, _E]  = u * (E + P), v * (E + P), w * (E + P)
+      F[1, _QT], F[2, _QT], F[3, _QT] = u * QT     , v * QT     , w * QT
 
-    #Derivative of T and Q:
-    vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
-    vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
-    vθx, vθy, vθz = VF[_θx], VF[_θy], VF[_θz]
+      #Derivative of T and Q:
+      vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
+      vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+      vθx, vθy, vθz = VF[_θx], VF[_θy], VF[_θz]
 
-    # Radiation contribution
-    F_rad = ρ * radiation(aux)
+      # Radiation contribution
+      F_rad = ρ * radiation(aux)
 
     SijSij = VF[_SijSij]
     θ      = aux[_a_θ]
     buoyancy_factor = buoyancy_correction(SijSij, θ, vθz)
     #buoyancy_factor = KASM_coefficient(SijSij, θ, vθz, Δsqr)
     #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)*buoyancy_factor
-    D_e = ν_e / Prandtl_t
+    ν_e = 30.0 #sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr) #*buoyancy_factor
+    D_e = 30.0 #ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
     τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -279,10 +289,22 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
     F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
 
+    q_v = q_tot - q_liq
+    I_v = cv_v * (T - T_0) + e_int_v0
+    I_l = cv_l * (T - T_0)
+    e_kin   = 0.5*(u^2 + v^2 + w^2)
+    e_pot   = grav*z
+    e_tot_v = e_kin + e_pot + I_v
+    e_tot_l = e_kin + e_pot + I_l
+    d_qv1, d_qv2, d_qv3 = q_v*u,   q_v*v,   q_v*w
+    d_ql1, d_ql2, d_ql3 = q_liq*u, q_liq*v, q_liq*w
+     
+    D1, D2, D3 = (e_tot_v + R_v*T)*d_qv1 + e_tot_l*d_ql1, (e_tot_v + R_v*T)*d_qv2 + e_tot_l*d_ql2, (e_tot_v + R_v*T)*d_qv3 + e_tot_l*d_ql3
+      
     # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
+    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e + ρ*D1
+    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e + ρ*D2
+    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e + ρ*D3
 
     F[3, _E] += F_rad
     # Viscous contributions to mass flux terms
@@ -533,8 +555,8 @@ end
     q_tot = QT * ρinv
     # Establish the current thermodynamic state using the prognostic variables
     q_liq = aux[_a_q_liq]
-    val[1] = ρ * κ * (q_liq / (1.0 + q_liq)) 
-    val[2] = ρ * (q_liq / (1.0 + q_liq)) # Liquid Water Path Integrand
+    val[1] = ρ * κ * (q_liq / (1.0 - q_tot)) 
+    val[2] = ρ * (q_liq / (1.0 - q_tot)) # Liquid Water Path Integrand
   end
 end
 
@@ -612,8 +634,10 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     if z >= 600.0 && z <= 840.0
         q_liq = (z - 600)*0.00045/200.0 
     end
-    θ_l   = θ_l   + randnum1 * θ_l
-    q_tot = q_tot + randnum2 * q_tot
+    if z <= 200.0
+        θ_l   = θ_l   + randnum1 * θ_l
+        q_tot = q_tot + randnum2 * q_tot
+    end
     
     q_partition = PhasePartition(q_tot, q_liq, 0.0)
     e_int  = internal_energy(T, q_partition)
@@ -635,7 +659,7 @@ end
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
+                #range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                 range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
 
 
@@ -694,7 +718,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     spl_qinit    = Spline1D(zinit, qinit; k=1) #sensible T (K)
     
     # Set type of filter 
-    #filter_dycoms = CLIMA.Mesh.Grids.CutoffFilter(spacedisc.grid)
+    filter_dycoms = CLIMA.Mesh.Grids.CutoffFilter(spacedisc.grid)
 
     initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x...)
     Q = MPIStateArray(spacedisc, initialcondition)
@@ -730,8 +754,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "theta_l", "BFactor", "dthetadz", "|Sij|", "Km")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
-     #=
-      cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+     
+      #=cbfilter = GenericCallbacks.EveryXSimulationSteps(1000) do
           DGBalanceLawDiscretizations.apply!(Q, 1:_nstate, spacedisc,
                                              filter_dycoms;
                                              horizontal=true,
@@ -739,7 +763,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
           nothing
       end
       =#
-      
       step = [0]
       cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
           DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
@@ -765,7 +788,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
               end
           end
 
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms2d/dy_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms2d-filter/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
