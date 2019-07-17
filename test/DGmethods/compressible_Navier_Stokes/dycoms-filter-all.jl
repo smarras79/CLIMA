@@ -127,7 +127,7 @@ const numdims = 3
 const Npoly = 4
 
 # Define grid size 
-Δx    = 20
+Δx    = 30
 Δy    = 35
 Δz    = 3.5
 
@@ -265,7 +265,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     buoyancy_factor = buoyancy_correction(SijSij, θ, vθz)
     #buoyancy_factor = KASM_coefficient(SijSij, θ, vθz, Δsqr)
     #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)*buoyancy_factor
+    ν_e = 0.0 #sqrt(2SijSij) * C_smag^2 * DFloat(Δsqr)*buoyancy_factor
     D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
@@ -694,7 +694,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     spl_qinit    = Spline1D(zinit, qinit; k=1) #sensible T (K)
     
     # Set type of filter 
-    #filter_dycoms = CLIMA.Mesh.Grids.CutoffFilter(spacedisc.grid)
+    filter_dycoms = CLIMA.Mesh.Grids.CutoffFilter(spacedisc.grid)
 
     initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x...)
     Q = MPIStateArray(spacedisc, initialcondition)
@@ -730,15 +730,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "theta_l", "BFactor", "dthetadz", "|Sij|", "Km")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
-     #=
-      cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+     
+      cbfilter = GenericCallbacks.EveryXSimulationSteps(200) do
           DGBalanceLawDiscretizations.apply!(Q, 1:_nstate, spacedisc,
                                              filter_dycoms;
                                              horizontal=true,
                                              vertical=true)
           nothing
       end
-      =#
       
       step = [0]
       cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
@@ -765,7 +764,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
               end
           end
 
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms2d/dy_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms2d-filter/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -781,7 +780,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   # Initialise the integration computation. Kernels calculate this at every timestep?? 
   @timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
-  @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
+  @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbfilter))
 
 
   @info @sprintf """Finished...
