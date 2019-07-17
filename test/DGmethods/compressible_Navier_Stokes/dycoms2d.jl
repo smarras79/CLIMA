@@ -174,7 +174,8 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
 @parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
-Δ = (Δx * Δy * Δz)^(1/3)
+Δ = numdims < 3 ? min(Δx, Δy, Δz) : (Δx * Δy * Δz)^(1/3)
+#Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
 
 # -------------------------------------------------------------------------
@@ -660,12 +661,11 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                 #range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
-                range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
-
+                range(DFloat(zmin), length=Ne[end]+1, DFloat(zmax)))
 
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
-  @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
+  @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,false))
 
   @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
                                                                  FloatType = DFloat,
