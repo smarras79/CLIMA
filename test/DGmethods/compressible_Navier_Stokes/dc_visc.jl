@@ -104,7 +104,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 25600)
+const (xmin, xmax) = (0, 10000)
 const (ymin, ymax) = (0,  6400)
 const (zmin, zmax) = (0,  6400)
 
@@ -229,8 +229,8 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         SijSij = VF[_SijSij]
 
         #Dynamic eddy viscosity from Smagorinsky:
-        ν_e = sqrt(2SijSij) * C_smag^2 * Δsqr
-        D_e = ν_e / Prandtl_t
+        ν_e = 75.0  #sqrt(2SijSij) * C_smag^2 * Δsqr
+        D_e = 75.0  #ν_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -247,11 +247,11 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
         F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
         F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
         F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
-
+        
         # Viscous contributions to mass flux terms
-        F[1, _QT] -=  vqx * D_e
-        F[2, _QT] -=  vqy * D_e
-        F[3, _QT] -=  vqz * D_e
+        F[1, _QT] -=  0.0 #vqx * D_e
+        F[2, _QT] -=  0.0 #vqy * D_e
+        F[3, _QT] -=  0.0 #vqz * D_e
     end
 end
 
@@ -348,21 +348,28 @@ end
 
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, uM, vM, wM)
     @inbounds begin
-
         
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         xvert = y
+        
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
+        
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        #QP[_ρ] = ρM
-        #QP[_QT] = QTM
-        VFP .= 0
-
+        QP[_ρ] = ρM   #this is:  dρ/dn = 0  i.e. ρ+ = ρ-
+        QP[_E] = EM   #this is:  dE/dn = 0  i.e. E+ = E-        
+        #VFP   .= VFM 
+        VFP   .= 0.0    #This means that stress tau at the boundary is zero (notice
+        #  that we are solving a viscous problem (nu=75) with a slip boundary; clearly this is physically incosistent but it will do for the sake of this benchmark (Straka 1993).
+        Pr = 0.7
+        ν = 75
+        VFP[_Ty] = -grav*Pr/(ν*cv_d*cp_d)
+        VFP[_Tz] = -grav*Pr/(ν*cv_d*cp_d)
+  
         #=if xvert < 0.0001
         #if bctype  CODE_BOTTOM_BOUNDARY  FIXME: THIS NEEDS TO BE CHANGED TO CODE-BASED B.C. FOR TOPOGRAPHY
             #Dirichelt on T:
@@ -379,10 +386,20 @@ end
         nothing
     end
 end
-
 # -------------------------------------------------------------------------
-@inline function stresses_boundary_penalty!(VF, _...) 
-  VF .= 0
+"""
+ Neumann boundary conditions on
+ all states, and on T for viscous problems:
+
+ dQ/dn = 0  
+ dT/dn = -g/cv_d
+
+"""
+@inline function stresses_boundary_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, bctype, t) 
+    VF .= 0
+
+    
+    stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
 end
 
 @inline function stresses_penalty!(VF, nM, gradient_listM, QM, aM, gradient_listP, QP, aP, t)
@@ -430,21 +447,6 @@ function preodefun!(disc, Q, t)
       R[_a_θ] = virtual_pottemp(TS)
     end
   end
-
-  integral_computation(disc, Q, t)
-end
-
-function integral_computation(disc, Q, t)
-  DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integrand, Q,
-                                                         (_a_02z, _a_LWP_02z))
-    
-  DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
-                                                                 _a_z2inf,
-                                                                 _a_02z)
-
-  DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
-                                                                 _a_LWP_z2inf,
-                                                                 _a_LWP_02z)
 end
 
 # initial condition
@@ -562,19 +564,11 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       end
     end
 
-    npoststates = 6
-    _o_LWP, _o_u, _o_v, _o_w, _o_θ = 1:npoststates
-    postnames = ("LWP", "u", "v", "w", "THETA")
+    npoststates = 4
+    _o_u, _o_v, _o_w, _o_θ = 1:npoststates
+    postnames = ("u", "v", "w", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
-    cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        DGBalanceLawDiscretizations.apply!(Q, 1:_nstate, spacedisc,
-                                           filter_dycoms;
-                                           horizontal=true,
-                                           vertical=true)
-        nothing
-    end
-     
     step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
@@ -590,8 +584,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       outprefix = @sprintf("./CLIMA-output-scratch/dc/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
-      writevtk(outprefix, Q, spacedisc, statenames,
-               postprocessarray, postnames)
+      writevtk(outprefix, Q, spacedisc, statenames, postprocessarray, postnames)
       
       step[1] += 1
       nothing
@@ -602,9 +595,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     norm(Q) = %25.16e""" norm(Q)
 
   # Initialise the integration computation. Kernels calculate this at every timestep?? 
-  @timeit to "initial integral" integral_computation(spacedisc, Q, 0) 
   @timeit to "solve" solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk))
-
 
   @info @sprintf """Finished...
     norm(Q) = %25.16e""" norm(Q)
@@ -630,7 +621,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.001
+  dt = 0.025
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
