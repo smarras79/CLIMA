@@ -104,7 +104,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 10000)
+const (xmin, xmax) = (0, 25600)
 const (ymin, ymax) = (0,  6400)
 const (zmin, zmax) = (0,  6400)
 
@@ -365,14 +365,13 @@ end
         # B.C. that should prevent the thermal boundary layer from forming
         #
         QP[_ρ] = ρM  #this is:  dρ/dn = 0  i.e. ρ+ = ρ-
-        QP[_E] = EM  #this is:  dE/dn = 0  i.e. E+ = E-        
-        
-        VFP   .= 0.0 #This means that stress tau at the boundary is zero (notice
+        QP[_E] = EM  #this is:  dE/dn = 0  i.e. E+ = E-                
+        VFP   .= VFM #This means that stress tau at the boundary is zero (notice
                     #  that we are solving a viscous problem (nu=75) with a slip boundary; clearly this is physically incosistent but it will do for the sake of this benchmark (Straka 1993).
-        Pr = 0.7
-        ν = 75
-        VFP[_Ty] = -grav*Pr/(ν*cv_d*cp_d)
-        VFP[_Tz] = -grav*Pr/(ν*cv_d*cp_d)
+#        Pr = 0.7
+#        ν = 75
+#        VFP[_Ty] = -grav*Pr/(ν*cv_d*cp_d)
+#        VFP[_Tz] = -grav*Pr/(ν*cv_d*cp_d)
         
         nothing
     end
