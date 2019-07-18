@@ -364,8 +364,8 @@ end
         #
         # B.C. that should prevent the thermal boundary layer from forming
         #
-        QP[_ρ] = ρM  #this is:  dρ/dn = 0  i.e. ρ+ = ρ-
-        QP[_E] = EM  #this is:  dE/dn = 0  i.e. E+ = E-                
+        #QP[_ρ] = ρM  #this is:  dρ/dn = 0  i.e. ρ+ = ρ-
+        #QP[_E] = EM  #this is:  dE/dn = 0  i.e. E+ = E-                
         VFP   .= VFM #This means that stress tau at the boundary is zero (notice
                     #  that we are solving a viscous problem (nu=75) with a slip boundary; clearly this is physically incosistent but it will do for the sake of this benchmark (Straka 1993).
 #        Pr = 0.7
