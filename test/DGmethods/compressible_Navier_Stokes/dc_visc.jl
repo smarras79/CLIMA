@@ -531,11 +531,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   @timeit to "Time stepping init" begin
     lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-
-    #=eng0 = norm(Q)
-    @info @sprintf """Starting
-    norm(Q₀) = %.16e""" eng0
-    =#
+      
     # Set up the information callback
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
@@ -560,7 +556,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, QV, aux)
@@ -611,8 +607,8 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.01
-  timeend = 14400
+  dt = 0.005
+  timeend = 900
   polynomialorder = Npoly
   DFloat = Float64
   dim = numdims
