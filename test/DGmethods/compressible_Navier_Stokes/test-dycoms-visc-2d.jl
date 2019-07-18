@@ -443,7 +443,7 @@ end
         #QP[_QT] = QTM
         VFP .= VFM
 
-        if xvert < 0.0001
+       #= if xvert < 0.0001
         #if bctype  CODE_BOTTOM_BOUNDARY  FIXME: THIS NEEDS TO BE CHANGED TO CODE-BASED B.C. FOR TOPOGRAPHY
             #Dirichelt on T:
             SST    = 292.5            
@@ -455,7 +455,7 @@ end
             E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = E
         end
-        
+        =#
         nothing
     end
 end
@@ -605,10 +605,10 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     if xvert >= 600.0 && xvert <= 840.0
         q_liq = (xvert - 600)*0.00045/200.0 
     end
-    if ( xvert > 10 && xvert <= 200)
-        θ_l   += randnum1 * θ_l
-        q_tot += randnum2 * q_tot
-    end
+    #if ( xvert > 10 && xvert <= 200)
+    #    θ_l   += randnum1 * θ_l
+    #    q_tot += randnum2 * q_tot
+    #end
     
     q_partition = PhasePartition(q_tot, q_liq, 0.0)
     e_int  = internal_energy(T, q_partition)
@@ -789,7 +789,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.005
+  dt = 0.0025
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
