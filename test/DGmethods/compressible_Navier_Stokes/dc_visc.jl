@@ -360,10 +360,10 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        QP[_ρ] = ρM   #this is:  dρ/dn = 0  i.e. ρ+ = ρ-
-        QP[_E] = EM   #this is:  dE/dn = 0  i.e. E+ = E-        
+        #QP[_ρ] = ρM   #this is:  dρ/dn = 0  i.e. ρ+ = ρ-
+        #QP[_E] = EM   #this is:  dE/dn = 0  i.e. E+ = E-        
         #VFP   .= VFM 
-        VFP   .= 0.0    #This means that stress tau at the boundary is zero (notice
+        #VFP   .= 0.0    #This means that stress tau at the boundary is zero (notice
         #  that we are solving a viscous problem (nu=75) with a slip boundary; clearly this is physically incosistent but it will do for the sake of this benchmark (Straka 1993).
         Pr = 0.7
         ν = 75
