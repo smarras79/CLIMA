@@ -92,8 +92,8 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-Δx    = 15
-Δy    = 5
+Δx    = 25
+Δy    = 10
 Δz    = 5
 
 #
@@ -232,8 +232,8 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     SijSij = VF[_SijSij]
 
     #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = sqrt(2SijSij) * C_smag^2 * Δsqr
-    D_e = ν_e / Prandtl_t
+    ν_e = ρ * sqrt(2SijSij) * C_smag^2 * Δsqr
+    D_e = ρ * ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
     τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -441,9 +441,9 @@ end
         QP[_W] = WM - 2 * nM[3] * UnM
         #QP[_ρ] = ρM
         #QP[_QT] = QTM
-        VFP .= 0
+        VFP .= VFM
 
-        #=if xvert < 0.0001
+        if xvert < 0.0001
         #if bctype  CODE_BOTTOM_BOUNDARY  FIXME: THIS NEEDS TO BE CHANGED TO CODE-BASED B.C. FOR TOPOGRAPHY
             #Dirichelt on T:
             SST    = 292.5            
@@ -455,7 +455,7 @@ end
             E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = E
         end
-        =#     
+        
         nothing
     end
 end
@@ -583,8 +583,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     DFloat     = eltype(Q)
     p0::DFloat = MSLP
     
-    randnum1   = rand(seed, DFloat) / 150
-    randnum2   = rand(seed, DFloat) / 150
+    randnum1   = rand(seed, DFloat) / 100
+    randnum2   = rand(seed, DFloat) / 100
     
     xvert  = y
     P      = spl_pinit(xvert)     #P
@@ -593,13 +593,13 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     T      = spl_tinit(xvert)    #T
     
     zi = 840.0
-    if ( xvert <= zi)
-        θ_lx   = 289.0;
-        q_totx = 9.0e-3; #specific humidity
-    else
-        θ_lx   = 297.5 + (xvert - zi)^(1/3);
-        q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
-    end  
+    #if ( xvert <= zi)
+    #    θ_lx   = 289.0;
+    #    q_totx = 9.0e-3; #specific humidity
+    #else
+    #    θ_lx   = 297.5 + (xvert - zi)^(1/3);
+    #    q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
+    #end  
     
     q_liq = 0.0
     if xvert >= 600.0 && xvert <= 840.0
@@ -789,7 +789,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.001
+  dt = 0.005
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
