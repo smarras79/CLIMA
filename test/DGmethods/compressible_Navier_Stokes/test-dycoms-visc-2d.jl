@@ -212,8 +212,8 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     P = aux[_a_P]
     xvert = aux[_a_y]
-    w -= D_subsidence * xvert
-    W = w*ρ
+    v -= D_subsidence * xvert
+    V = v*ρ
     # Inviscid contributions
     F[1, _ρ],  F[2, _ρ],  F[3, _ρ]  = U          , V          , W
     F[1, _U],  F[2, _U],  F[3, _U]  = u * U  + P , v * U      , w * U
@@ -365,7 +365,8 @@ end
 @inline function auxiliary_state_initialization!(aux, x, y, z)
   @inbounds begin
     DFloat = eltype(aux)
-    aux[_a_z] = z
+    xvert = y
+    aux[_a_y] = xvert
 
     #Sponge
     csleft  = zero(DFloat)
@@ -436,7 +437,7 @@ end
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, uM, vM, wM)
     @inbounds begin
 
-      
+        
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         xvert = y
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
@@ -450,7 +451,7 @@ end
         #QP[_QT] = QTM
         VFP .= 0
 
-        if z < 0.0001
+        if xvert < 0.0001
         #if bctype  CODE_BOTTOM_BOUNDARY            
             #Dirichelt on T:
             SST    = 292.5            
@@ -525,7 +526,7 @@ end
 end
 
 @inline function source_geopot!(S,Q,aux,t)
-  @inbounds S[_W] += - Q[_ρ] * grav
+  @inbounds S[_V] += - Q[_ρ] * grav
 end
 
 # Test integral exactly according to the isentropic vortex example
@@ -604,16 +605,18 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
         θ_lx   = 289.0;
         q_totx = 9.0e-3; #specific humidity
     else
-        θ_lx   = 297.5 + (z - zi)^(1/3);
+        θ_lx   = 297.5 + (xvert - zi)^(1/3);
         q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
     end  
     
     q_liq = 0.0
     if xvert >= 600.0 && xvert <= 840.0
-        q_liq = (z - 600)*0.00045/200.0 
+        q_liq = (xvert - 600)*0.00045/200.0 
     end
-    θ_l   = θ_l   + randnum1 * θ_l
-    q_tot = q_tot + randnum2 * q_tot
+    if ( xvert > 10 && xvert <= 200)
+        θ_l   += randnum1 * θ_l
+        q_tot += randnum2 * q_tot
+    end
     
     q_partition = PhasePartition(q_tot, q_liq, 0.0)
     e_int  = internal_energy(T, q_partition)
