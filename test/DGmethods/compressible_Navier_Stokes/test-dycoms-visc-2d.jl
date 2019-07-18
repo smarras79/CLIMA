@@ -253,12 +253,12 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
     F[3, _E] += F_rad
     # Viscous contributions to mass flux terms
-    F[1, _ρ]  -=  vqx * D_e
-    F[2, _ρ]  -=  vqy * D_e
-    F[3, _ρ]  -=  vqz * D_e
-    F[1, _QT] -=  vqx * D_e
-    F[2, _QT] -=  vqy * D_e
-    F[3, _QT] -=  vqz * D_e
+    F[1, _ρ]  -=  vqx * D_e*0.1
+    F[2, _ρ]  -=  vqy * D_e*0.1
+    F[3, _ρ]  -=  vqz * D_e*0.1
+    F[1, _QT] -=  vqx * D_e*0.1
+    F[2, _QT] -=  vqy * D_e*0.1
+    F[3, _QT] -=  vqz * D_e*0.1
   end
 end
 
@@ -746,7 +746,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
 
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d/dy_%dD_mpirank%04d_step%04d", dim,
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d-small-De-on-qt/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
