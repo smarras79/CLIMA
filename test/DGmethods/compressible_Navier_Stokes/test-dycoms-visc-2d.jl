@@ -334,11 +334,13 @@ end
 end
 # -------------------------------------------------------------------------
 @inline function radiation(aux)
-  @inbounds begin
+    @inbounds begin
+        
     DFloat = eltype(aux)
+    xvert = aux[_a_y]     
     zero_to_z = aux[_a_02z]
     z_to_inf = aux[_a_z2inf]
-    z = aux[_a_z]
+    z = xvert
     z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
     Δz_i = max(z - z_i, zero(DFloat))
     # Constants
@@ -443,7 +445,7 @@ end
         #QP[_QT] = QTM
         VFP .= VFM
 
-       #= if xvert < 0.0001
+       if xvert < 0.0001
         #if bctype  CODE_BOTTOM_BOUNDARY  FIXME: THIS NEEDS TO BE CHANGED TO CODE-BASED B.C. FOR TOPOGRAPHY
             #Dirichelt on T:
             SST    = 292.5            
@@ -455,7 +457,7 @@ end
             E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = E
         end
-        =#
+        
         nothing
     end
 end
@@ -733,7 +735,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
      
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(3000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, QV, aux)
