@@ -92,9 +92,9 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-Δx    = 125
-Δy    = 125
-Δz    = 125
+Δx    = 250
+Δy    = 250
+Δz    = 250
 
 #
 # OR:
@@ -104,7 +104,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 25600)
+const (xmin, xmax) = (0, 10000)
 const (ymin, ymax) = (0,  6400)
 const (zmin, zmax) = (0,  6400)
 
@@ -360,21 +360,18 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        VFP .= 0
-        VFP[_Ty]   .= VFM[_Ty]
-        VFP[_Tz]   .= VFM[_Tz]
         
         #
         # B.C. that should prevent the thermal boundary layer from forming
         #
         QP[_ρ] = ρM  #this is:  dρ/dn = 0  i.e. ρ+ = ρ-
-        QP[_E] = EM  #this is:  dE/dn = 0  i.e. E+ = E-                
-        #VFP   .= VFM #This means that stress tau at the boundary is zero (notice
+        QP[_E] = EM  #this is:  dE/dn = 0  i.e. E+ = E-               
+        VFP .= VFM #This means that stress tau at the boundary is zero (notice
                     #  that we are solving a viscous problem (nu=75) with a slip boundary; clearly this is physically incosistent but it will do for the sake of this benchmark (Straka 1993).
-        #Pr = 0.7
-        #ν = 75
-        #VFP[_Ty] = -grav*Pr/(ν*cv_d*cp_d)
-        #VFP[_Tz] = -grav*Pr/(ν*cv_d*cp_d)
+#        Pr = 0.7
+#        ν = 75
+#        VFP[_Ty] = -grav*Pr/(ν*cv_d*cp_d)
+#        VFP[_Tz] = -grav*Pr/(ν*cv_d*cp_d)
         
         nothing
     end
@@ -534,7 +531,11 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   @timeit to "Time stepping init" begin
     lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-      
+
+    #=eng0 = norm(Q)
+    @info @sprintf """Starting
+    norm(Q₀) = %.16e""" eng0
+    =#
     # Set up the information callback
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
@@ -559,7 +560,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, QV, aux)
@@ -610,8 +611,8 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.01
-  timeend = 900
+  dt = 0.025
+  timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
   dim = numdims
