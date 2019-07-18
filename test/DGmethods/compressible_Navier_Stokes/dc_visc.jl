@@ -360,9 +360,10 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
+        VFP .= 0
         VFP[_Ty]   .= VFM[_Ty]
         VFP[_Tz]   .= VFM[_Tz]
-        #VFP .= 0
+        
         #
         # B.C. that should prevent the thermal boundary layer from forming
         #
