@@ -360,29 +360,20 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        #QP[_ρ] = ρM   #this is:  dρ/dn = 0  i.e. ρ+ = ρ-
-        #QP[_E] = EM   #this is:  dE/dn = 0  i.e. E+ = E-        
         #VFP   .= VFM 
-        #VFP   .= 0.0    #This means that stress tau at the boundary is zero (notice
-        #  that we are solving a viscous problem (nu=75) with a slip boundary; clearly this is physically incosistent but it will do for the sake of this benchmark (Straka 1993).
+        #
+        # B.C. that should prevent the thermal boundary layer from forming
+        #
+        QP[_ρ] = ρM  #this is:  dρ/dn = 0  i.e. ρ+ = ρ-
+        QP[_E] = EM  #this is:  dE/dn = 0  i.e. E+ = E-        
+        
+        VFP   .= 0.0 #This means that stress tau at the boundary is zero (notice
+                    #  that we are solving a viscous problem (nu=75) with a slip boundary; clearly this is physically incosistent but it will do for the sake of this benchmark (Straka 1993).
         Pr = 0.7
         ν = 75
         VFP[_Ty] = -grav*Pr/(ν*cv_d*cp_d)
         VFP[_Tz] = -grav*Pr/(ν*cv_d*cp_d)
-  
-        #=if xvert < 0.0001
-        #if bctype  CODE_BOTTOM_BOUNDARY  FIXME: THIS NEEDS TO BE CHANGED TO CODE-BASED B.C. FOR TOPOGRAPHY
-            #Dirichelt on T:
-            SST    = 292.5            
-            q_tot  = QP[_QT]/QP[_ρ]
-            q_liq  = auxM[_a_q_liq]
-            e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
-            e_kin  = 0.5*(QP[_U]^2/ρM^2 + QP[_V]^2/ρM^2 + QP[_W]^2/ρM^2)
-            e_pot  = grav*xvert
-            E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
-            QP[_E] = E
-        end
-        =#     
+        
         nothing
     end
 end
