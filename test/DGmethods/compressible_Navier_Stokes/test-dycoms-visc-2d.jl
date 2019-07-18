@@ -368,62 +368,54 @@ end
     xvert = y
     aux[_a_y] = xvert
 
-    #Sponge
-    csleft  = zero(DFloat)
-    csright = zero(DFloat)
-    csfront = zero(DFloat)
-    csback  = zero(DFloat)
+    #Sponge 
     ctop    = zero(DFloat)
 
     cs_left_right = zero(DFloat)
     cs_front_back = zero(DFloat)
     ct            = DFloat(0.75)
-
-    domain_left  = xmin
-    domain_right = xmax
-
-    domain_front = ymin
-    domain_back  = ymax
-
-    domain_bott  = zmin
-    domain_top   = zmax
+  
+    domain_bott  = 0
+    domain_top   = ymax
 
     #END User modification on domain parameters.
 
-    # Define Sponge Boundaries
-    xc       = (domain_right + domain_left) / 2
-    yc       = (domain_back  + domain_front) / 2
-    zc       = (domain_top   + domain_bott) / 2
+   
+      #Vertical sponge:
+      sponge_type = 2
+      if sponge_type == 1
+          
+          top_sponge  = DFloat(0.85) * domain_top          
+          if xvert >= top_sponge
+              ctop = ct * (sinpi((z - top_sponge)/2/(domain_top - top_sponge)))^4
+          end
+          
+      elseif sponge_type == 2
+          
+          alpha_coe = 0.5
+          bc_zscale = 450.0
+          zd        = domain_top - bc_zscale
+          
+          #
+          # top damping
+          # first layer: damp lee waves
+          #
+          ctop = 0.0
+          ct   = 0.5
+          if xvert >= zd
+              zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
+              if zid >= 0.0 && zid <= 0.5
+                  abstaud = alpha_coe*(1.0 - cos(zid*pi))
 
-    top_sponge  = DFloat(0.85) * domain_top
-    xsponger    = domain_right - DFloat(0.15) * (domain_right - xc)
-    xspongel    = domain_left  + DFloat(0.15) * (xc - domain_left)
-    ysponger    = domain_back  - DFloat(0.15) * (domain_back - yc)
-    yspongel    = domain_front + DFloat(0.15) * (yc - domain_front)
+              else
+                  abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
 
-    #x left and right
-    #xsl
-    if x <= xspongel
-      csleft = cs_left_right * (sinpi((x - xspongel)/2/(domain_left - xspongel)))^4
-    end
-    #xsr
-    if x >= xsponger
-      csright = cs_left_right * (sinpi((x - xsponger)/2/(domain_right - xsponger)))^4
-    end
-    #y left and right
-    #ysl
-    if y <= yspongel
-      csfront = cs_front_back * (sinpi((y - yspongel)/2/(domain_front - yspongel)))^4
-    end
-    #ysr
-    if y >= ysponger
-      csback = cs_front_back * (sinpi((y - ysponger)/2/(domain_back - ysponger)))^4
-    end
+              end
+              ctop = ct*abstaud
+          end
 
-    #Vertical sponge:
-    if z >= top_sponge
-      ctop = ct * (sinpi((z - top_sponge)/2/(domain_top - top_sponge)))^4
-    end
+      end
+          
 
     beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
     beta  = min(beta, 1)
@@ -452,7 +444,7 @@ end
         VFP .= 0
 
         if xvert < 0.0001
-        #if bctype  CODE_BOTTOM_BOUNDARY            
+        #if bctype  CODE_BOTTOM_BOUNDARY  FIXME: THIS NEEDS TO BE CHANGED TO CODE-BASED B.C. FOR TOPOGRAPHY
             #Dirichelt on T:
             SST    = 292.5            
             q_tot  = QP[_QT]/QP[_ρ]
@@ -538,8 +530,8 @@ end
     q_tot = QT * ρinv
     # Establish the current thermodynamic state using the prognostic variables
     q_liq = aux[_a_q_liq]
-    val[1] = ρ * κ * (q_liq / (1.0 + q_liq)) 
-    val[2] = ρ * (q_liq / (1.0 + q_liq)) # Liquid Water Path Integrand
+    val[1] = ρ * κ * (q_liq / (1.0 - q_tot)) 
+    val[2] = ρ * (q_liq / (1.0 - q_tot)) # Liquid Water Path Integrand
   end
 end
 
