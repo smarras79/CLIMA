@@ -92,9 +92,9 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-Δx    = 10
-Δy    = 2.5
-Δz    = 2.5
+Δx    = 15
+Δy    = 5
+Δz    = 5
 
 #
 # OR:
@@ -253,12 +253,12 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
 
     F[3, _E] += F_rad
     # Viscous contributions to mass flux terms
-    F[1, _ρ]  -=  vqx * D_e*0.1
-    F[2, _ρ]  -=  vqy * D_e*0.1
-    F[3, _ρ]  -=  vqz * D_e*0.1
-    F[1, _QT] -=  vqx * D_e*0.1
-    F[2, _QT] -=  vqy * D_e*0.1
-    F[3, _QT] -=  vqz * D_e*0.1
+    F[1, _ρ]  -=  vqx * D_e
+    F[2, _ρ]  -=  vqy * D_e
+    F[3, _ρ]  -=  vqz * D_e
+    F[1, _QT] -=  vqx * D_e
+    F[2, _QT] -=  vqy * D_e
+    F[3, _QT] -=  vqz * D_e
   end
 end
 
@@ -443,7 +443,7 @@ end
         #QP[_QT] = QTM
         VFP .= 0
 
-        if xvert < 0.0001
+        #=if xvert < 0.0001
         #if bctype  CODE_BOTTOM_BOUNDARY  FIXME: THIS NEEDS TO BE CHANGED TO CODE-BASED B.C. FOR TOPOGRAPHY
             #Dirichelt on T:
             SST    = 292.5            
@@ -455,7 +455,7 @@ end
             E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = E
         end
-                
+        =#     
         nothing
     end
 end
@@ -733,7 +733,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
      
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, QV, aux)
@@ -789,7 +789,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.00065
+  dt = 0.001
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
