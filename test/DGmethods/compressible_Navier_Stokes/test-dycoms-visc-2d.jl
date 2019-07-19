@@ -92,7 +92,7 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-Δx    = 20
+Δx    = 10
 Δy    = 5
 Δz    = 5
 
@@ -104,7 +104,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  200)
+const (xmin, xmax) = (0,  100)
 const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
@@ -734,7 +734,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
      
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(100000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(20000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, QV, aux)
@@ -790,7 +790,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.0025
+  dt = 0.005
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
