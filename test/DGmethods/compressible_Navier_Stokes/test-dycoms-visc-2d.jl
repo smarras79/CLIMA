@@ -104,7 +104,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  820)
+const (xmin, xmax) = (0,  400)
 const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
@@ -486,7 +486,7 @@ end
   @inbounds begin
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
-    source_geostrophic!(S, Q, aux, t)
+    #source_geostrophic!(S, Q, aux, t)
   end
 end
 
@@ -791,7 +791,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.01
+  dt = 0.005
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
