@@ -707,15 +707,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       if s
         starttime[] = now()
       else
-          ql_max = global_max( aux, _a_q_liq)
+          ####          ql_max = global_max(aux, _a_q_liq)
           @info @sprintf("""Update
                            simtime = %.16e
-                           runtime = %s
-                           max(q_liq) = %.16e""",
+                           runtime = %s""",
                          ODESolvers.gettime(lsrk),
                          Dates.format(convert(Dates.DateTime,
                                               Dates.now()-starttime[]),
-                                      Dates.dateformat"HH:MM:SS"), ql_max)#, globmean)
+                                      Dates.dateformat"HH:MM:SS"))#, globmean)
       end
     end
       
@@ -743,7 +742,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
           R[_o_w] = w
           R[_o_q_liq] = aux[_a_q_liq]
           R[_o_T] = aux[_a_T]
-          R[_o_θ] = aux[_a_θ]
         end
       end
 
