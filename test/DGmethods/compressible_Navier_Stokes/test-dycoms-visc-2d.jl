@@ -92,9 +92,9 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-Δx    = 15
-Δy    = 2.5
-Δz    = 2.5
+Δx    = 20
+Δy    = 5
+Δz    = 5
 
 #
 # OR:
@@ -139,7 +139,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 @parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
 #Δ = (Δx * Δy * Δz)^(1/3)
-Δ = min(Δx, Δy)
+Δ = max(Δx, Δy)
 const Δsqr = Δ * Δ
 
 # -------------------------------------------------------------------------
@@ -166,7 +166,7 @@ end
 # max eigenvalue
 @inline function wavespeed(n, Q, aux, t, u, v, w)
   @inbounds begin
-    (n[1] * u + n[2] * v + n[3] * w) + aux[_a_soundspeed_air]
+    abs(n[1] * u + n[2] * v + n[3] * w) + aux[_a_soundspeed_air]
   end
 end
 
@@ -628,10 +628,41 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     #try the filter
 end
 
+function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type)
+
+    DFloat = eltype(coord_min)
+    
+    #build physical range to be stratched
+    range_stretched = range(DFloat(coord_min), length = Ne + 1, DFloat(coord_max))
+   
+    #build logical space
+    ksi  = range(DFloat(0), length=Ne[1]+1, DFloat(1))
+
+    stretch_coe = 0.0
+    if (stretching_type == "boundary_layer")
+        stretch_coe = 2.5
+        range_stretched = (coord_max - coord_min).*(exp.(stretch_coe * ksi) .- 1.0)./(exp(stretch_coe) - 1.0)
+    elseif (stretching_type == "top_layer")
+        stretch_coe = 2.5
+        range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * ksi) .- 1.0)./(exp(stretch_coe) - 1.0)
+    elseif (stretching_type == "dycoms")
+        stretch_coe = 2.5
+        
+        
+        if 
+        range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * ksi) .- 1.0)./(exp(stretch_coe) - 1.0)
+    end
+    return range_stretched
+    
+end
+
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
-  brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
+     = grid_stretching_1d(ymin, ymax, Ne[2], "dycoms")
+    
+    brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
+                  yrange)
+                #range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
     
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
@@ -732,7 +763,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
      
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(3000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, QV, aux)
@@ -788,7 +819,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.00125
+  dt = 0.0025
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
