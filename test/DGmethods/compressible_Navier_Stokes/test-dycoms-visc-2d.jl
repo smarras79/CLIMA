@@ -634,7 +634,7 @@ function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type)
     
     #build physical range to be stratched
     range_stretched = range(DFloat(coord_min), length = Ne + 1, DFloat(coord_max))
-   
+    
     #build logical space
     ksi  = range(DFloat(0), length=Ne[1]+1, DFloat(1))
 
@@ -647,22 +647,20 @@ function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type)
         range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * ksi) .- 1.0)./(exp(stretch_coe) - 1.0)
     elseif (stretching_type == "dycoms")
         stretch_coe = 2.5
-        
-        
         if 
-        range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * ksi) .- 1.0)./(exp(stretch_coe) - 1.0)
+            range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * ksi) .- 1.0)./(exp(stretch_coe) - 1.0)
+        end
+        return range_stretched
+        
     end
-    return range_stretched
-    
 end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
-     = grid_stretching_1d(ymin, ymax, Ne[2], "dycoms")
+    # = grid_stretching_1d(ymin, ymax, Ne[2], "dycoms")
     
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                  yrange)
-                #range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
+                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
     
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
