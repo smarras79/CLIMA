@@ -104,7 +104,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  400)
+const (xmin, xmax) = (0,  200)
 const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
@@ -232,8 +232,8 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     SijSij = VF[_SijSij]
 
     #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = ρ * sqrt(2SijSij) * C_smag^2 * Δsqr
-    D_e = ρ * ν_e / Prandtl_t
+    ν_e = sqrt(2SijSij) * C_smag^2 * Δsqr
+    D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
     τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
@@ -395,7 +395,7 @@ end
       elseif sponge_type == 2
           
           alpha_coe = 0.5
-          bc_zscale = 450.0
+          bc_zscale = 300.0
           zd        = domain_top - bc_zscale
           
           #
@@ -403,21 +403,19 @@ end
           # first layer: damp lee waves
           #
           ctop = 0.0
-          ct   = 0.5
+          ct   = 0.2
           if xvert >= zd
               zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
               if zid >= 0.0 && zid <= 0.5
                   abstaud = alpha_coe*(1.0 - cos(zid*pi))
 
               else
-                  abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
+                  abstaud = alpha_coe*( 1.0 + ((zid - 0.5)*pi) )
 
               end
               ctop = ct*abstaud
           end
-
       end
-          
 
     beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
     beta  = min(beta, 1)
@@ -513,7 +511,7 @@ end
   @inbounds begin
     U, V, W  = Q[_U], Q[_V], Q[_W]
     beta     = aux[_a_sponge]
-    S[_U] -= beta * U
+    #S[_U] -= beta * U
     S[_V] -= beta * V
     S[_W] -= beta * W
   end
@@ -709,18 +707,18 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       if s
         starttime[] = now()
       else
-        #energy = norm(Q)
-        #globmean = global_mean(Q, _ρ)
-        @info @sprintf("""Update
-                       simtime = %.16e
-                       runtime = %s""",
-                       ODESolvers.gettime(lsrk),
-                       Dates.format(convert(Dates.DateTime,
-                                            Dates.now()-starttime[]),
-                                    Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
+          ql_max = global_max( aux, _a_q_liq)
+          @info @sprintf("""Update
+                           simtime = %.16e
+                           runtime = %s
+                           max(q_liq) = %.16e""",
+                         ODESolvers.gettime(lsrk),
+                         Dates.format(convert(Dates.DateTime,
+                                              Dates.now()-starttime[]),
+                                      Dates.dateformat"HH:MM:SS"), ql_max)#, globmean)
       end
     end
-
+      
     npoststates = 6
     _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T = 1:npoststates
     postnames = ("LWP", "u", "v", "w", "_q_liq", "T")
@@ -745,6 +743,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
           R[_o_w] = w
           R[_o_q_liq] = aux[_a_q_liq]
           R[_o_T] = aux[_a_T]
+          R[_o_θ] = aux[_a_θ]
         end
       end
 
