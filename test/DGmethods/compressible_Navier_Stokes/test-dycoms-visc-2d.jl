@@ -92,9 +92,9 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-Δx    = 25
-Δy    = 10
-Δz    = 5
+Δx    = 15
+Δy    = 2.5
+Δz    = 2.5
 
 #
 # OR:
@@ -232,7 +232,7 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     SijSij = VF[_SijSij]
 
     #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = sqrt(2SijSij) * C_smag^2 * Δsqr
+    ν_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr
     D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
@@ -443,7 +443,7 @@ end
         #QP[_QT] = QTM
         VFP .= VFM
 
-       if xvert < 0.0001
+     #=  if xvert < 0.0001
         #if bctype  CODE_BOTTOM_BOUNDARY  FIXME: THIS NEEDS TO BE CHANGED TO CODE-BASED B.C. FOR TOPOGRAPHY
             #Dirichelt on T:
             SST    = 292.5            
@@ -455,7 +455,7 @@ end
             E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = E
         end
-        
+        =#
         nothing
     end
 end
@@ -788,7 +788,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.005
+  dt = 0.00125
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
