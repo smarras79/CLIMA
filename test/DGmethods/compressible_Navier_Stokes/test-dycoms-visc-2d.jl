@@ -628,33 +628,6 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     #try the filter
 end
 
-function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type)
-
-    DFloat = eltype(coord_min)
-    
-    #build physical range to be stratched
-    range_stretched = range(DFloat(coord_min), length = Ne + 1, DFloat(coord_max))
-    
-    #build logical space
-    ksi  = range(DFloat(0), length=Ne[1]+1, DFloat(1))
-
-    stretch_coe = 0.0
-    if (stretching_type == "boundary_layer")
-        stretch_coe = 2.5
-        range_stretched = (coord_max - coord_min).*(exp.(stretch_coe * ksi) .- 1.0)./(exp(stretch_coe) - 1.0)
-    elseif (stretching_type == "top_layer")
-        stretch_coe = 2.5
-        range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * ksi) .- 1.0)./(exp(stretch_coe) - 1.0)
-    elseif (stretching_type == "dycoms")
-        stretch_coe = 2.5
-        if 
-            range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * ksi) .- 1.0)./(exp(stretch_coe) - 1.0)
-        end
-        return range_stretched
-        
-    end
-end
-
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     # = grid_stretching_1d(ymin, ymax, Ne[2], "dycoms")
