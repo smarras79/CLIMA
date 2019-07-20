@@ -130,7 +130,7 @@ const Npoly = 4
 # Define grid size 
 Δx    = 35
 Δy    = 35
-Δz    = 10
+Δz    = 5
 
 #
 # OR:
