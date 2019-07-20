@@ -128,8 +128,8 @@ const numdims = 3
 const Npoly = 4
 
 # Define grid size 
-Δx    = 35
-Δy    = 35
+Δx    = 15
+Δy    = 15
 Δz    = 5
 
 #
@@ -141,7 +141,7 @@ const Npoly = 4
 
 # Physical domain extents 
 const (xmin, xmax) = (0, 1500)
-const (ymin, ymax) = (0,  500)
+const (ymin, ymax) = (0,  750)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -423,7 +423,7 @@ end
 
    
       #Vertical sponge:
-      sponge_type = 3
+      sponge_type = 2
       if sponge_type == 1
           
           top_sponge  = DFloat(0.85) * domain_top          
@@ -535,7 +535,7 @@ end
   @inbounds begin
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
-    source_geostrophic!(S, Q, aux, t)
+    #source_geostrophic!(S, Q, aux, t)
   end
 end
 
@@ -640,17 +640,17 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     xvert  = z
     P      = spl_pinit(xvert)     #P
     T      = spl_tinit(xvert)    #T    
-    #θ_l    = spl_thetainit(xvert) #θ_l
-    #q_tot  = spl_qinit(xvert)     #qtot
+    θ_l    = spl_thetainit(xvert) #θ_l
+    q_tot  = spl_qinit(xvert)     #qtot
     
     zi = 840.0
-    if ( xvert <= zi)
-        θ_l   = 289.0;
-        q_tot = 9.0e-3; #specific humidity
-    else
-        θ_l   = 297.5 + (xvert - zi)^(1/3);
-        q_tot = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
-    end 
+    #if ( xvert <= zi)
+    #    θ_l   = 289.0;
+    #    q_tot = 9.0e-3; #specific humidity
+    #else
+    #    θ_l   = 297.5 + (xvert - zi)^(1/3);
+    #    q_tot = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
+    #end 
     
     q_liq = 0.0
     q_liq_max = 0.00045
@@ -660,7 +660,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     if xvert >= z1_qliq && xvert <= z2_qliq
         q_liq = (xvert - z1_qliq)*q_liq_max/Δz_qliq
     end
-    if ( xvert > 10 && xvert <= 200)
+    if ( xvert > 100 && xvert <= 200)
         θ_l   += randnum1 * θ_l
         q_tot += randnum2 * q_tot
     end
@@ -845,7 +845,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney, Nez)
-  dt = 0.002
+  dt = 0.00125
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
