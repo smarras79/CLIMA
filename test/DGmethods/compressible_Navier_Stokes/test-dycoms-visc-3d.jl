@@ -91,6 +91,7 @@ function anisotropic_lengthscale_3D(Δ1, Δ2, Δ3)
     return Δsqr
 end
 
+
 function buoyancy_correction(normSij, θv, dθvdz)
     # Brunt-Vaisala frequency
     inv_Pr_t = 3
