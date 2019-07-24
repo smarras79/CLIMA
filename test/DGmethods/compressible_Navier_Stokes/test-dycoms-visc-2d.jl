@@ -541,7 +541,7 @@ end
         xvert   = aux[_a_y]
         
         q_tot   = QT / ρ    
-        q_liq   = aux(_a_q_liq)
+        q_liq   = aux[_a_q_liq]
         q_ice   = 0.0
         
         SST         = 292.5
