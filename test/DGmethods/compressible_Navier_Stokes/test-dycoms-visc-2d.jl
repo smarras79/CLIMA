@@ -45,8 +45,8 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 16
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij = 1:_nviscstates
+const _nviscstates = 17
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij, _ν_e = 1:_nviscstates
 
 # Gradient state labels
 # Gradient state labels
@@ -92,8 +92,8 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-Δx    = 10
-Δy    = 5
+Δx    = 35
+Δy    = 15
 Δz    = 5
 
 #
@@ -104,7 +104,7 @@ const Npoly = 4
 (Nex, Ney, Nez) = (5, 5, 5)
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  100)
+const (xmin, xmax) = (0, 1500)
 const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
@@ -227,12 +227,13 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
 
     # Radiation contribution
-    F_rad = ρ * radiation(aux)
+    F_rad = radiation(aux)
 
     SijSij = VF[_SijSij]
 
-    #Dynamic eddy viscosity from Smagorinsky:
-    ν_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr
+    #Dynamic eddy viscosity
+    #ν_e = VF[_ν_e] #Vreman
+    ν_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
     D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
@@ -251,7 +252,8 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
     F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
 
-    F[3, _E] += F_rad
+    F[numdims, _E] += F_rad
+
     # Viscous contributions to mass flux terms
     F[1, _ρ]  -=  vqx * D_e
     F[2, _ρ]  -=  vqy * D_e
@@ -315,6 +317,22 @@ end
     # FIXME: Grab functions from module SubgridScaleTurbulence 
     SijSij = S11^2 + S22^2 + S33^2 + 2S12^2 + 2S13^2 + 2S23^2
 
+    Dij = SMatrix{3,3}(dudx, dudy, dudz, 
+                       dvdx, dvdy, dvdz,
+                       dwdx, dwdy, dwdz)
+    
+    DF = eltype(SijSij)
+    αij = MMatrix{3,3}(DF(0) ,DF(0), DF(0),
+                       DF(0), DF(0), DF(0),
+                       DF(0), DF(0), DF(0))
+    
+    DISS = sum(Dij .^ 2)
+    βij = similar(αij)
+    βij = Δsqr * (Dij' * Dij)
+    
+    Bβ = βij[1,1]*βij[2,2] - βij[1,2]^2 + βij[1,1]*βij[3,3] - βij[1,3]^2 + βij[2,2]*βij[3,3] - βij[2,3]^2 
+    ν_e = max(0,(C_smag^2 * 2.5) * sqrt(abs(Bβ/(DISS+1e-16)))) 
+    VF[_ν_e] = ν_e
     #--------------------------------------------
     # deviatoric stresses
     # Fix up index magic numbers
@@ -335,7 +353,6 @@ end
 # -------------------------------------------------------------------------
 @inline function radiation(aux)
     @inbounds begin
-        
     DFloat = eltype(aux)
     xvert = aux[_a_y]     
     zero_to_z = aux[_a_02z]
@@ -344,7 +361,7 @@ end
     z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
     Δz_i = max(z - z_i, zero(DFloat))
     # Constants
-    F_0 = 70
+    F_0 = 48 #70
     F_1 = 22
     α_z = 1
     ρ_i = DFloat(1.22)
@@ -352,7 +369,7 @@ end
     term1 = F_0 * exp(-z_to_inf) 
     term2 = F_1 * exp(-zero_to_z)
     term3 = ρ_i * cp_d * D_subsidence * α_z * (DFloat(0.25) * (cbrt(Δz_i))^4 + z_i * cbrt(Δz_i))
-    F_rad = term1 + term2 + term3  
+    F_rad = term1 + term2*0 + term3*0  
   end
 end
 
@@ -451,13 +468,11 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        #QP[_ρ] = ρM
-        #QP[_QT] = QTM
-        VFP .= VFM
+        QP[_ρ] = ρM
+        QP[_QT] = QTM
+        VFP .= 0
 
-     #=  if xvert < 0.0001
-        #if bctype  CODE_BOTTOM_BOUNDARY  FIXME: THIS NEEDS TO BE CHANGED TO CODE-BASED B.C. FOR TOPOGRAPHY
-            #Dirichelt on T:
+       if xvert < 0.0001
             SST    = 292.5            
             q_tot  = QP[_QT]/QP[_ρ]
             q_liq  = auxM[_a_q_liq]
@@ -467,7 +482,7 @@ end
             E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = E
         end
-        =#
+        
         nothing
     end
 end
@@ -496,7 +511,7 @@ end
   @inbounds begin
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
-    #source_geostrophic!(S, Q, aux, t)
+    source_geostrophic!(S, Q, aux, t)
   end
 end
 
@@ -515,7 +530,7 @@ const Ω = Omega
         W = Q[_W]
         
         S[_U] -= f_coriolis * (U - ρ*u_geostrophic)
-        S[_V] -= f_coriolis * (V - ρ*v_geostrophic)
+        #S[_V] -= f_coriolis * (V - ρ*v_geostrophic)
     end
 end
 
@@ -523,9 +538,7 @@ end
   @inbounds begin
     U, V, W  = Q[_U], Q[_V], Q[_W]
     beta     = aux[_a_sponge]
-    #S[_U] -= beta * U
     S[_V] -= beta * V
-    S[_W] -= beta * W
   end
 end
 
@@ -542,8 +555,8 @@ end
     q_tot = QT * ρinv
     # Establish the current thermodynamic state using the prognostic variables
     q_liq = aux[_a_q_liq]
-    val[1] = ρ * κ * (q_liq / (1.0 - q_tot)) 
-    val[2] = ρ * (q_liq / (1.0 - q_tot)) # Liquid Water Path Integrand
+    val[1] = ρ * κ * q_liq 
+    val[2] = ρ * q_liq # Liquid Water Path Integrand
   end
 end
 
@@ -615,7 +628,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     
     q_liq = 0.0
     if xvert >= 600.0 && xvert <= 840.0
-        q_liq = (xvert - 600)*0.00045/200.0 
+        q_liq = (xvert - 600)*0.00045/240.0
     end
     #if ( xvert > 10 && xvert <= 200)
     #    θ_l   += randnum1 * θ_l
@@ -627,8 +640,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     
     ρ  = air_density(T, P, q_partition)
 
-    u, v, w = 7.0, 0.0, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
-    #u, v, w = 7.0, -5.5, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    u, v, w = 7.0, 0.0, 0.0 #geostrophic
     
     e_kin = (u^2 + v^2 + w^2) / 2
     e_pot = grav * xvert
@@ -759,7 +771,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
 
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d-dt0dot01/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("/central/scratch/asridhar/dycoms-visc-2d-largedomain-smag/")
+      outprefix = @sprintf("/central/scratch/asridhar/dycoms-visc-2d-largedomain-smag/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -802,7 +815,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.005
+  dt = 0.002
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
