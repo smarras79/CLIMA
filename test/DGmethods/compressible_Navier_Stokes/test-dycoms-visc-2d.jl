@@ -97,7 +97,7 @@ const Δy    = 10
 const Δz    = 10
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  500)
+const (xmin, xmax) = (0,  800)
 const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
