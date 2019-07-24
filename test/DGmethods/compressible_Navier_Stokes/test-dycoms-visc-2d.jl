@@ -97,7 +97,7 @@ const Δy    = 10
 const Δz    = 10
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  800)
+const (xmin, xmax) = (0,  500)
 const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
@@ -383,12 +383,11 @@ end
   
     domain_bott  = 0
     domain_top   = ymax
-
     #END User modification on domain parameters.
 
    
       #Vertical sponge:
-      sponge_type = 3
+      sponge_type = 2
       if sponge_type == 1
           
           top_sponge  = DFloat(0.85) * domain_top          
@@ -398,7 +397,7 @@ end
           
       elseif sponge_type == 2
           
-          bc_zscale = 300.0
+          bc_zscale = 500.0
           zd        = domain_top - bc_zscale
           
           #
@@ -406,7 +405,7 @@ end
           # first layer: damp lee waves
           #
           ctop = 0.0
-          ct   = 0.2
+          ct   = 0.75
           if xvert >= zd
               zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
               if zid >= 0.0 && zid <= 0.5
