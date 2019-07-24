@@ -499,6 +499,7 @@ end
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
     source_geostrophic!(S, Q, aux, t)
+    source_surface_drag_evaporation!(S,Q,aux,t)
   end
 end
 
@@ -550,12 +551,12 @@ end
         Cd, Ch, Cq = 0.0011, 0.0011, 0.0011 #Drag coefficients
         h = Δz #Layer thickness
         
-        S[_U] -= ρ*Cd*(u^2 + v^2 + w^2)/h
-        S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
-        S[_W] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+        S[_U] += ρ*Cd*(u^2 + v^2 + w^2)/h
+        S[_V] += ρ*Cd*(u^2 + v^2 + w^2)/h
+        S[_W] += ρ*Cd*(u^2 + v^2 + w^2)/h
 
         qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
-        S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + w^2)*(q_tot - qv_saturation)/h
+        S[_QT]       += ρ*Cd*sqrt(u^2 + v^2 + w^2)*(q_tot - qv_saturation)/h
         
     end
 end
