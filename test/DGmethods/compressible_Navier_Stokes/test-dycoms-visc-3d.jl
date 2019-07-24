@@ -557,7 +557,7 @@ end
         SST         = 292.5
         q_partition = PhasePartition(q_tot, q_liq, q_ice)
         
-        Cd, Ch, Cq = 0.0011 #Drag coefficients
+        Cd, Ch, Cq = 0.0011, 0.0011, 0.0011 #Drag coefficients
         h = Δz #Layer thickness
         
         S[_U] -= ρ*Cd*(u^2 + v^2 + w^2)/h
