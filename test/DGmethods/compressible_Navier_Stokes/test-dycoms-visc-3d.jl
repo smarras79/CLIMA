@@ -543,30 +543,28 @@ end
     @inbounds begin
 
         xvert   = aux[_a_z]
-        if xvert > Δz
-            return nothing
-        end
-        
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        u, v, w = U/ρ, V/ρ, W/ρ    
-       
-        q_tot   = QT / ρ    
-        q_liq   = aux(_a_q_liq]
-        q_ice   = 0.0
-        
-        SST         = 292.5
-        q_partition = PhasePartition(q_tot, q_liq, q_ice)
-        
-        Cd, Ch, Cq = 0.0011, 0.0011, 0.0011 #Drag coefficients
-        h = Δz #Layer thickness
-        
-        S[_U] -= ρ*Cd*(u^2 + v^2 + w^2)/h
-        S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
-        S[_W] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+        if xvert <= Δz
+            
+            ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+            u, v, w = U/ρ, V/ρ, W/ρ    
+            
+            q_tot   = QT / ρ    
+            q_liq   = aux(_a_q_liq]
+            q_ice   = 0.0
+            
+            SST         = 292.5
+            q_partition = PhasePartition(q_tot, q_liq, q_ice)
+            
+            Cd, Ch, Cq = 0.0011, 0.0011, 0.0011 #Drag coefficients
+            h = Δz #Layer thickness
+            
+            S[_U] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+            S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+            S[_W] -= ρ*Cd*(u^2 + v^2 + w^2)/h
 
-        qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
-        S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + w^2)*(q_tot - qv_saturation)/h
-        
+            qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
+            S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + w^2)*(q_tot - qv_saturation)/h            
+        end
     end
 end
 
