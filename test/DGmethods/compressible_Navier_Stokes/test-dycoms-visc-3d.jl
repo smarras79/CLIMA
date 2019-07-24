@@ -233,8 +233,8 @@ cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
     SijSij = VF[_SijSij]
 
     #Dynamic eddy viscosity from Smagorinsky:
-    #ν_e = VF[_ν_e] #Vreman
-    ν_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky
+    ν_e = VF[_ν_e] #Vreman
+    #ν_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky
     D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
@@ -370,7 +370,7 @@ end
     # Constants
     F_0 = 48 #70
     F_1 = 22
-    α_z = 1
+    α_z = 1 
     ρ_i = DFloat(1.22)
     D_subsidence = DFloat(3.75e-6)
     term1 = F_0 * exp(-z_to_inf) 
@@ -516,7 +516,7 @@ end
   @inbounds begin
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
-    source_geostrophic!(S, Q, aux, t)
+    #source_geostrophic!(S, Q, aux, t)
   end
 end
 
@@ -543,7 +543,7 @@ end
   @inbounds begin
     U, V, W  = Q[_U], Q[_V], Q[_W]
     beta     = aux[_a_sponge]
-    S[_V] -= beta * V
+    S[_V]   -= beta * V
   end
 end
 

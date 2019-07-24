@@ -369,7 +369,7 @@ end
     term1 = F_0 * exp(-z_to_inf) 
     term2 = F_1 * exp(-zero_to_z)
     term3 = ρ_i * cp_d * D_subsidence * α_z * (DFloat(0.25) * (cbrt(Δz_i))^4 + z_i * cbrt(Δz_i))
-    F_rad = term1 + term2*0 + term3*0  
+    F_rad = term1 + term2 + term3
   end
 end
 
