@@ -153,7 +153,7 @@ const Δsqr = Δ * Δ
 # Modules: NumericalFluxes.jl 
 # functions: wavespeed, cns_flux!, bcstate!
 # -------------------------------------------------------------------------
-@inline function preflux(Q, VF, aux, _...)
+@inline function preflux(Q, aux)
   @inbounds begin
     ρ, U, V, W = Q[_ρ], Q[_U], Q[_V], Q[_W]
     ρinv = 1 / ρ
@@ -164,9 +164,12 @@ end
 #-------------------------------------------------------------------------
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
-@inline function wavespeed(n, Q, aux, t, u, v, w)
+@inline function wavespeed(n, Q, aux, t)
+    preflux(Q,aux)
+    ρ, U, V, W = Q[_ρ], Q[_U], Q[_V], Q[_W]
+    u, v, w = U/ρ, V/ρ, W/ρ
   @inbounds begin
-    abs(n[1] * u + n[2] * v + n[3] * w) + aux[_a_soundspeed_air]
+    abs(n[1]*u + n[2]*v + n[3]*w) + aux[_a_soundspeed_air]
   end
 end
 
@@ -204,12 +207,12 @@ end
 #md # Note that the preflux calculation is splatted at the end of the function call
 #md # to cns_flux!
 # -------------------------------------------------------------------------
-cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,VF, aux)...)
-@inline function cns_flux!(F, Q, VF, aux, t, u, v, w)
+@inline function cns_flux!(F, Q, VF, aux, t)
   @inbounds begin
     DFloat = eltype(F)
     D_subsidence = 3.75e-6
     ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+    u, v, w = U/ρ, V/ρ, W/ρ
     P = aux[_a_P]
     xvert = aux[_a_y]
     v -= D_subsidence * xvert
@@ -272,14 +275,13 @@ end
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 const _ngradstates = 6
-gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,~,aux)...)
-@inline function gradient_vars!(gradient_list, Q, aux, t, u, v, w)
+@inline function gradient_vars!(gradient_list, Q, aux, t)
   @inbounds begin
     T = aux[_a_T]
     θ = aux[_a_θ]
-    ρ, QT =Q[_ρ], Q[_QT]
+    U, V, W, ρ, QT = Q[_U],Q[_V],Q[_W],Q[_ρ], Q[_QT]
     # ordering should match states_for_gradient_transform
-    gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
+    gradient_list[1], gradient_list[2], gradient_list[3] = U/ρ, V/ρ, W/ρ
     gradient_list[4], gradient_list[5], gradient_list[6] = θ, QT, T
   end
 end
@@ -455,7 +457,7 @@ end
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
 
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, uM, vM, wM)
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
     @inbounds begin
 
         
@@ -551,10 +553,10 @@ end
 
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         u, v, w = U/ρ, V/ρ, W/ρ    
-        xvert   = aux[_a_z]
+        xvert   = aux[_a_y]
         
         q_tot   = QT / ρ    
-        q_liq   = aux(_a_q_liq]
+        q_liq   = aux(_a_q_liq)
         q_ice   = 0.0
         
         SST         = 292.5
@@ -696,8 +698,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                                  DeviceArray = ArrayType,
                                                                  polynomialorder = N)
 
-  numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed, preflux)
-  numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed, preflux)
+  numflux!(x...) = NumericalFluxes.rusanov!(x..., cns_flux!, wavespeed)
+  numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(x..., cns_flux!, bcstate!, wavespeed)
 
   # spacedisc = data needed for evaluating the right-hand side function
   @timeit to "Space Disc init" spacedisc = DGBalanceLaw(grid = grid,
@@ -706,8 +708,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                         numerical_flux! = numflux!,
                                                         numerical_boundary_flux! = numbcflux!, 
                                                         number_gradient_states = _ngradstates,
-                                                        states_for_gradient_transform =
-                                                        _states_for_gradient_transform,
                                                         number_viscous_states = _nviscstates,
                                                         gradient_transform! = gradient_vars!,
                                                         viscous_transform! = compute_stresses!,
@@ -789,7 +789,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     cbvtk = GenericCallbacks.EveryXSimulationSteps(20000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
-          u, v, w = preflux(Q, QV, aux)
+          u, v, w = preflux(Q, aux)
           R[_o_LWP] = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
           R[_o_u] = u
           R[_o_v] = v

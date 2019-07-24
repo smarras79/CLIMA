@@ -549,7 +549,7 @@ end
             u, v, w = U/ρ, V/ρ, W/ρ    
             
             q_tot   = QT / ρ    
-            q_liq   = aux(_a_q_liq]
+            q_liq   = aux(_a_q_liq)
             q_ice   = 0.0
             
             SST         = 292.5
@@ -713,8 +713,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                                         numerical_flux! = numflux!,
                                                         numerical_boundary_flux! = numbcflux!, 
                                                         number_gradient_states = _ngradstates,
-                                                        states_for_gradient_transform =
-                                                        _states_for_gradient_transform,
                                                         number_viscous_states = _nviscstates,
                                                         gradient_transform! = gradient_vars!,
                                                         viscous_transform! = compute_stresses!,
