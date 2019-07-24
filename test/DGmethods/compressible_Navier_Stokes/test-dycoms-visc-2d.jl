@@ -553,12 +553,12 @@ end
             Cd, Ch, Cq = 0.0011, 0.0011, 0.0011 #Drag coefficients
             h = first_node #Layer thickness
             
-            S[_U] += ρ*Cd*(u^2 + v^2 + w^2)/h
-            S[_V] += ρ*Cd*(u^2 + v^2 + w^2)/h
+            S[_U] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+            S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
             #S[_W] += ρ*Cd*(u^2 + v^2 + w^2)/h
             
             qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
-            S[_QT]       += ρ*Cd*sqrt(u^2 + v^2 + 0*w^2)*(q_tot - qv_saturation)/h
+            S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + 0*w^2)*(q_tot - qv_saturation)/h
         end
         
     end
@@ -775,7 +775,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
      
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(20000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, aux)
@@ -788,8 +788,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-visc-2d/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-visc-2d-negative-drag/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d-negative-drag/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
