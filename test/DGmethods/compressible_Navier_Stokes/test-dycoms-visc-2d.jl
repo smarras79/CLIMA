@@ -92,16 +92,9 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-Δx    = 35
-Δy    = 15
-Δz    = 5
-
-#
-# OR:
-#
-# Set Δx < 0 and define  Nex, Ney, Nez:
-#
-(Nex, Ney, Nez) = (5, 5, 5)
+const Δx    = 35
+const Δy    = 15
+const Δz    = 5
 
 # Physical domain extents 
 const (xmin, xmax) = (0, 1500)
@@ -113,21 +106,12 @@ const Lx = xmax - xmin
 const Ly = ymax - ymin
 const Lz = zmax - ymin
 
-if ( Δx > 0)
-    #
-    # User defines the grid size:
-    #
-    Nex = ceil(Int64, Lx / (Δx * Npoly))
-    Ney = ceil(Int64, Ly / (Δy * Npoly))
-    Nez = ceil(Int64, Lz / (Δz * Npoly))
-else
-    #
-    # User defines the number of elements:
-    #
-    Δx = Lx / (Nex * Npoly)
-    Δy = Ly / (Ney * Npoly)
-    Δz = Lz / (Nez * Npoly)
-end
+#
+# User defines the grid size:
+#
+Nex = ceil(Int64, Lx / (Δx * Npoly))
+Ney = ceil(Int64, Ly / (Δy * Npoly))
+Nez = ceil(Int64, Lz / (Δz * Npoly))
 
 
 DoF = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate)
@@ -207,12 +191,12 @@ end
 #md # Note that the preflux calculation is splatted at the end of the function call
 #md # to cns_flux!
 # -------------------------------------------------------------------------
-@inline function cns_flux!(F, Q, VF, aux, t)
+cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,aux)...)
+@inline function cns_flux!(F, Q, VF, aux, t, u, v, w)
   @inbounds begin
     DFloat = eltype(F)
     D_subsidence = 3.75e-6
     ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    u, v, w = U/ρ, V/ρ, W/ρ
     P = aux[_a_P]
     xvert = aux[_a_y]
     v -= D_subsidence * xvert
@@ -275,13 +259,14 @@ end
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 const _ngradstates = 6
-@inline function gradient_vars!(gradient_list, Q, aux, t)
+gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,aux)...)
+@inline function gradient_vars!(gradient_list, Q, aux, t, u, v, w)
   @inbounds begin
     T = aux[_a_T]
     θ = aux[_a_θ]
-    U, V, W, ρ, QT = Q[_U],Q[_V],Q[_W],Q[_ρ], Q[_QT]
+    ρ, QT =Q[_ρ], Q[_QT]
     # ordering should match states_for_gradient_transform
-    gradient_list[1], gradient_list[2], gradient_list[3] = U/ρ, V/ρ, W/ρ
+    gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
     gradient_list[4], gradient_list[5], gradient_list[6] = θ, QT, T
   end
 end
@@ -457,7 +442,7 @@ end
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
 
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, uM, vM, wM)
     @inbounds begin
 
         
