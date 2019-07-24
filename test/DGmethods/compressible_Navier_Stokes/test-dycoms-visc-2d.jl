@@ -546,6 +546,34 @@ end
   @inbounds S[_V] += - Q[_ρ] * grav
 end
 
+@inline function source_surface_drag_evaporation!(S,Q,aux,t)
+    @inbounds begin
+
+        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        u, v, w = U/ρ, V/ρ, W/ρ    
+        xvert   = aux[_a_z]
+        
+        q_tot   = QT / ρ    
+        q_liq   = aux(_a_q_liq]
+        q_ice   = 0.0
+        
+        SST         = 292.5
+        q_partition = PhasePartition(q_tot, q_liq, q_ice)
+        
+        Cd, Ch, Cq = 0.0011 #Drag coefficients
+        h = Δz #Layer thickness
+        
+        S[_U] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+        S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+        S[_W] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+
+        qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
+        S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + w^2)*(q_tot - qv_saturation)/h
+        
+    end
+end
+
+
 # Test integral exactly according to the isentropic vortex example
 @inline function integrand(val, Q, aux)
   κ = 85.0
