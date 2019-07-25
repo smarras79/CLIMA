@@ -149,7 +149,6 @@ end
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
 @inline function wavespeed(n, Q, aux, t)
-    preflux(Q,aux)
     ρ, U, V, W = Q[_ρ], Q[_U], Q[_V], Q[_W]
     u, v, w = U/ρ, V/ρ, W/ρ
   @inbounds begin
@@ -191,9 +190,9 @@ end
 #md # Note that the preflux calculation is splatted at the end of the function call
 #md # to cns_flux!
 # -------------------------------------------------------------------------
-cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,aux)...)
-@inline function cns_flux!(F, Q, VF, aux, t, u, v, w)
+@inline function cns_flux!(F, Q, VF, aux, t)
   @inbounds begin
+    u, v, w = preflux(Q,aux)
     DFloat = eltype(F)
     D_subsidence = 3.75e-6
     ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
@@ -259,9 +258,9 @@ end
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 const _ngradstates = 6
-gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,aux)...)
-@inline function gradient_vars!(gradient_list, Q, aux, t, u, v, w)
+@inline function gradient_vars!(gradient_list, Q, aux, t)
   @inbounds begin
+    u, v, w = preflux(Q,aux)
     T = aux[_a_T]
     θ = aux[_a_θ]
     ρ, QT =Q[_ρ], Q[_QT]
@@ -557,8 +556,8 @@ end
             S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
             #S[_W] -= ρ*Cd*(u^2 + v^2 + w^2)/h
 
-            e_int_sat = internal_energy_sat(SST, ρ,  q_tot)
-            S[_E]     = -ρ*e_int_sat
+            #e_int_sat = internal_energy_sat(SST, ρ,  q_tot)
+            #S[_E]     = -ρ*e_int_sat
             
             qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
             S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + 0*w^2)*(q_tot - qv_saturation)/h
