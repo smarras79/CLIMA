@@ -964,7 +964,7 @@ end
         
 """
 
-function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type, attractor_value=0)
+function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type, stretch_coe=1.0, attractor_value=0)
 
     DFloat = eltype(coord_min)
     
@@ -976,14 +976,12 @@ function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type, attractor
 
     stretch_coe = 0.0
     if (stretching_type == "boundary_stretching")
-        stretch_coe = 2.0
         range_stretched = (coord_max - coord_min).*(exp.(stretch_coe * s) .- 1.0)./(exp(stretch_coe) - 1.0)
+        
     elseif (stretching_type == "top_stretching")
-        stretch_coe = 2.5
         range_stretched = -(coord_max - coord_min).*(exp.(stretch_coe * s) .- 1.0)./(exp(stretch_coe) - 1.0)
-
+        
     elseif (stretching_type == "interior_stretching")
-        stretch_coe     = 1.2;
         L               = (coord_max - coord_min);
         range_stretched = L*s +  stretch_coe*(attractor_value - L*s).*(1.0 - s).*s;          
     end

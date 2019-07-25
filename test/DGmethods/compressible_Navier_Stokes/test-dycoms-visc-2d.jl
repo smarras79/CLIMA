@@ -670,12 +670,12 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
 end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
-    
-    y_range = grid_stretching_1d(zmin, zmax, Ne[end], "boundary_stretching")
-    
-    brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
+
+    stretch_coe = 1.5;
+    y_range     = grid_stretching_1d(zmin, zmax, Ne[end], stretch_coe, "boundary_stretching")    
+    brickrange  = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   y_range)
-        
+    
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
   @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,false))
@@ -737,26 +737,23 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
   @timeit to "Time stepping init" begin
     lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-
-    #=eng0 = norm(Q)
-    @info @sprintf """Starting
-    norm(Q₀) = %.16e""" eng0
-    =#
+      
     # Set up the information callback
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
       if s
         starttime[] = now()
       else
-          ql_max = global_max(spacedic.auxstate, _a_q_liq)
+          ql_max = global_max(spacedisc.auxstate, _a_q_liq)
           @info @sprintf("""Update
                            simtime = %.16e
                            runtime = %s
-                           runtime = %.16e""",
+                           max(ql) = %.16e""",
                          ODESolvers.gettime(lsrk),
                          Dates.format(convert(Dates.DateTime,
                                               Dates.now()-starttime[]),
-                                      Dates.dateformat"HH:MM:SS"), ql_max)#, globmean)      
+                                              Dates.dateformat"HH:MM:SS"),
+                         ql_max)
       end
     end
       
@@ -831,7 +828,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.0035
+  dt = 0.001
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
