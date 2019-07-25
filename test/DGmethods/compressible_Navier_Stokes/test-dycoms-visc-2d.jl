@@ -93,8 +93,10 @@ const Npoly = 4
 
 # Define grid size 
 const Δx    = 35
-const Δy    = 5
-const Δz    = 5
+const Δy    = 15
+const Δz    = 10
+
+const stretch_coe = 2.0
 
 # Physical domain extents 
 const (xmin, xmax) = (0, 1000)
@@ -123,7 +125,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 @parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
 #Δ = (Δx * Δy * Δz)^(1/3)
-Δ = max(Δx, Δy)
+Δ = min(Δx, Δy)
 const Δsqr = Δ * Δ
 
 # -------------------------------------------------------------------------
@@ -439,7 +441,6 @@ end
 
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
-
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
     @inbounds begin
 
@@ -457,8 +458,9 @@ end
         QP[_QT] = QTM
         VFP .= 0
 
-       if xvert < 0.0001
-            SST    = 292.5            
+        if xvert < 0.0001
+            #SST    = 292.5
+            SST    = 300.0
             q_tot  = QP[_QT]/QP[_ρ]
             q_liq  = auxM[_a_q_liq]
             e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
@@ -625,7 +627,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     DFloat     = eltype(Q)
     p0::DFloat = MSLP
     
-    randnum1   = rand(seed, DFloat) / 100
+    randnum1   = rand(seed, DFloat) / 10
     randnum2   = rand(seed, DFloat) / 100
     
     xvert  = y
@@ -642,6 +644,19 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     #    θ_lx   = 297.5 + (xvert - zi)^(1/3);
     #    q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
     #end  
+    
+    rx           = 300
+    ry           = 250
+    xc           = 0.5*(xmin + xmax)
+    yc           = 255
+    r            = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2)
+    θ_c::DFloat  =  3.0
+    Δθ::DFloat   = 0.0
+    
+    if r <= 1
+        Δθ = θ_c * (1 + cospi(r))/2
+    end
+    θ_l += Δθ
     
     q_liq = 0.0
     if xvert >= 600.0 && xvert <= 840.0
@@ -670,8 +685,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
 end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
-
-    stretch_coe = 1.5;
+    
     y_range     = grid_stretching_1d(zmin, zmax, Ne[end], stretch_coe, "boundary_stretching")    
     brickrange  = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   y_range)
@@ -828,7 +842,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.001
+  dt = 0.002
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64

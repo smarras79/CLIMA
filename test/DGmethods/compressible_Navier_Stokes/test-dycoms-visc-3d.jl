@@ -96,6 +96,8 @@ const Δx    = 30
 const Δy    = 30
 const Δz    = 5
 
+const stretch_coe = 2.0
+
 # Physical domain extents 
 const (xmin, xmax) = (0, 1000)
 const (ymin, ymax) = (0, 1000)
@@ -630,7 +632,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     DFloat     = eltype(Q)
     p0::DFloat = MSLP
     
-    randnum1   = rand(seed, DFloat) / 100
+    randnum1   = rand(seed, DFloat) / 10
     randnum2   = rand(seed, DFloat) / 100
     
     xvert  = z
@@ -676,7 +678,6 @@ end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
-    stretch_coe = 1.5;
     z_range = grid_stretching_1d(zmin, zmax, Ne[end], stretch_coe, "boundary_stretching")
     
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
