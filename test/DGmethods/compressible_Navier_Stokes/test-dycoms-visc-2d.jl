@@ -371,73 +371,76 @@ end
 #md # where a local Richardson number via potential temperature gradient is required)
 # -------------------------------------------------------------------------
 @inline function auxiliary_state_initialization!(aux, x, y, z)
-  @inbounds begin
-    DFloat = eltype(aux)
-    xvert = y
-    aux[_a_y] = xvert
+    @inbounds begin
+        DFloat = eltype(aux)
+        xvert = y
+        aux[_a_y] = xvert
 
-    #Sponge 
-    ctop    = zero(DFloat)
+        #Sponge 
+        ctop    = zero(DFloat)
 
-    cs_left_right = zero(DFloat)
-    cs_front_back = zero(DFloat)
-    ct            = DFloat(0.75)
-  
-    domain_bott  = 0
-    domain_top   = ymax
-    #END User modification on domain parameters.
+        cs_left_right = zero(DFloat)
+        cs_front_back = zero(DFloat)
+        ct            = DFloat(0.75)
+        
+        domain_bott  = 0
+        domain_top   = ymax
+        #END User modification on domain parameters.
 
-   
-      #Vertical sponge:
-      sponge_type = 2
-      if sponge_type == 1
-          
-          top_sponge  = DFloat(0.85) * domain_top          
-          if xvert >= top_sponge
-              ctop = ct * (sinpi((z - top_sponge)/2/(domain_top - top_sponge)))^4
-          end
-          
-      elseif sponge_type == 2
-          
-          bc_zscale = 500.0
-          zd        = domain_top - bc_zscale
-          
-          #
-          # top damping
-          # first layer: damp lee waves
-          #
-          ctop = 0.0
-          ct   = 0.75
-          if xvert >= zd
-              zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
-              if zid >= 0.0 && zid <= 0.5
-                  ctop = ct*(1.0 - cos(zid*pi))
+        
+        #Vertical sponge:
+        sponge_type = 2
+        if sponge_type == 1
+            
+            top_sponge  = DFloat(0.85) * domain_top          
+            if xvert >= top_sponge
+                ctop = ct * (sinpi((z - top_sponge)/2/(domain_top - top_sponge)))^4
+            end
+            
+        elseif sponge_type == 2
+            
+            bc_zscale = 500.0
+            zd        = domain_top - bc_zscale
+            
+            #
+            # top damping
+            # first layer: damp lee waves
+            #
+            alpha_coe = 0.5
+            ct        = 0.5
+            ctop      = 0.0
+            if z >= zd
+                zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
+                if zid >= 0.0 && zid <= 0.5
+                    abstaud = alpha_coe*(1.0 - cos(zid*pi))
 
-              else
-                  ctop = ct*( 1.0 + cos((zid - 0.5)*pi) )
-              end
-          end
+                else
+                    abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
 
-      elseif sponge_type == 3
-          
-          bc_zscale = 500.0
-          zd        = domain_top - bc_zscale
-          
-          #
-          # top damping
-          # first layer: damp lee waves
-          #
-          ctop = 0.0
-          ct   = 0.02
-          if xvert >= zd
-              ctop = ct * sinpi(0.5 * (1.0 - (domain_top - xvert) / bc_zscale))^2.0
-          end
-      end
-      
-      beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-      beta  = min(beta, 1)
-      aux[_a_sponge] = beta
-  end
+                end
+                ctop = ct*abstaud
+            end
+            
+        elseif sponge_type == 3
+            
+            bc_zscale = 500.0
+            zd        = domain_top - bc_zscale
+            
+            #
+            # top damping
+            # first layer: damp lee waves
+            #
+            ctop = 0.0
+            ct   = 0.02
+            if xvert >= zd
+                ctop = ct * sinpi(0.5 * (1.0 - (domain_top - xvert) / bc_zscale))^2.0
+            end
+        end
+        
+        beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
+        beta  = min(beta, 1)
+        aux[_a_sponge] = beta
+    end
 end
 
 # -------------------------------------------------------------------------
