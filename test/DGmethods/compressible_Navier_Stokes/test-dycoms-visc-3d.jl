@@ -676,7 +676,8 @@ end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
-    z_range = grid_stretching_1d(zmin, zmax, Ne[end], "boundary_stretching")
+    stretch_coe = 1.5;
+    z_range = grid_stretching_1d(zmin, zmax, Ne[end], stretch_coe, "boundary_stretching")
     
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
