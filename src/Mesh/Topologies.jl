@@ -976,7 +976,7 @@ function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type, attractor
 
     stretch_coe = 0.0
     if (stretching_type == "boundary_stretching")
-        stretch_coe = 2.5
+        stretch_coe = 2.0
         range_stretched = (coord_max - coord_min).*(exp.(stretch_coe * s) .- 1.0)./(exp(stretch_coe) - 1.0)
     elseif (stretching_type == "top_stretching")
         stretch_coe = 2.5

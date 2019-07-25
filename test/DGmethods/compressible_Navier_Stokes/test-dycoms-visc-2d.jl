@@ -93,7 +93,7 @@ const Npoly = 4
 
 # Define grid size 
 const Δx    = 35
-const Δy    = 15
+const Δy    = 5
 const Δz    = 10
 
 # Physical domain extents 
@@ -670,12 +670,12 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
 end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
-
-    # = grid_stretching_1d(ymin, ymax, Ne[2], "dycoms")
+    
+    y_range = grid_stretching_1d(zmin, zmax, Ne[end], "boundary_stretching")
     
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
-    
+                  y_range)
+        
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
   @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,false))
@@ -748,14 +748,15 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       if s
         starttime[] = now()
       else
-          ####          ql_max = global_max(aux, _a_q_liq)
+          ql_max = global_max(spacedic.auxstate, _a_q_liq)
           @info @sprintf("""Update
                            simtime = %.16e
-                           runtime = %s""",
+                           runtime = %s
+                           runtime = %.16e""",
                          ODESolvers.gettime(lsrk),
                          Dates.format(convert(Dates.DateTime,
                                               Dates.now()-starttime[]),
-                                      Dates.dateformat"HH:MM:SS"))#, globmean)
+                                      Dates.dateformat"HH:MM:SS"), ql_max)#, globmean)      
       end
     end
       

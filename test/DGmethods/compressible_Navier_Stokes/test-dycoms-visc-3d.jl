@@ -662,7 +662,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     
     ρ  = air_density(T, P, q_partition)
 
-    u, v, w = 7.0, 0.0, 0.0 #geostrophic
+    u, v, w = 7.0, -5.5, 0.0 #geostrophic
     
     e_kin = (u^2 + v^2 + w^2) / 2
     e_pot = grav * xvert
@@ -676,10 +676,17 @@ end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
-    # = grid_stretching_1d(ymin, ymax, Ne[2], "dycoms")
-    
+    z_range = grid_stretching_1d(zmin, zmax, Ne[end], "boundary_stretching")
+        
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
+                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
+                  z_range)
+    
+    #-----------------------------------------------------------------
+    # END grid stretching 
+    #-----------------------------------------------------------------
+    
+    
     
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
@@ -746,21 +753,24 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     #=eng0 = norm(Q)
     @info @sprintf """Starting
     norm(Q₀) = %.16e""" eng0
-    =#
+      =#
+      spacedic.auxstate
+      
     # Set up the information callback
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
       if s
         starttime[] = now()
       else
-          ####          ql_max = global_max(aux, _a_q_liq)
+          ql_max = global_max(spacedic.auxstate, _a_q_liq)
           @info @sprintf("""Update
                            simtime = %.16e
-                           runtime = %s""",
+                           runtime = %s
+                           runtime = %.16e""",
                          ODESolvers.gettime(lsrk),
                          Dates.format(convert(Dates.DateTime,
                                               Dates.now()-starttime[]),
-                                      Dates.dateformat"HH:MM:SS"))#, globmean)
+                                      Dates.dateformat"HH:MM:SS"), ql_max)#, globmean)
       end
     end
       
