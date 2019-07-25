@@ -528,10 +528,6 @@ end
     @inbounds begin
         U, V, W  = Q[_U], Q[_V], Q[_W]
         beta     = aux[_a_sponge]
-
-        us = S[_U]
-        vs = S[_V]
-        
         S[_U] -= beta * U
         S[_V] -= beta * V             
     end
@@ -634,7 +630,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     DFloat     = eltype(Q)
     p0::DFloat = MSLP
     
-    randnum1   = rand(seed, DFloat) / 10
+    randnum1   = rand(seed, DFloat) / 100
     randnum2   = rand(seed, DFloat) / 100
     
     xvert  = y
@@ -670,7 +666,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     if xvert >= 600.0 && xvert <= 840.0
         q_liq = (xvert - 600)*0.00045/240.0
     end
-    if xvert <= 200
+    if xvert > Δy && xvert <= 200
         θ_l   += randnum1 * θ_l
         q_tot += randnum2 * q_tot
     end
