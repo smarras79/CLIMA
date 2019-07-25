@@ -93,7 +93,7 @@ const Npoly = 4
 
 # Define grid size 
 const Δx    = 35
-const Δy    = 10
+const Δy    = 5
 const Δz    = 10
 
 const stretch_coe = 2.0
@@ -460,8 +460,7 @@ end
         VFP .= 0
 
         if xvert < 0.0001
-            #SST    = 292.5
-            SST    = 320.0
+            SST    = 295.0 #292.5
             q_tot  = QP[_QT]/QP[_ρ]
             q_liq  = auxM[_a_q_liq]
             e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
@@ -774,9 +773,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       end
     end
       
-    npoststates = 7
-    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ = 1:npoststates
-    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA")
+    npoststates = 8
+    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ, _o_beta = 1:npoststates
+    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA", "SPONGE")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -791,14 +790,15 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
-          u, v, w = preflux(Q, aux)
-          R[_o_LWP] = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
-          R[_o_u] = u
-          R[_o_v] = v
-          R[_o_w] = w
+          u, v, w     = preflux(Q, aux)
+          R[_o_LWP]   = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
+          R[_o_u]     = u
+          R[_o_v]     = v
+          R[_o_w]     = w
           R[_o_q_liq] = aux[_a_q_liq]
-          R[_o_T] = aux[_a_T]
-          R[_o_θ] = aux[_a_θ]
+          R[_o_T]     = aux[_a_T]
+          R[_o_θ]     = aux[_a_θ]
+          R[_o_beta]  = aux[_a_sponge]
         end
       end
         
