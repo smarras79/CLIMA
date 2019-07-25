@@ -525,11 +525,16 @@ const Ω = Omega
 end
 
 @inline function source_sponge!(S,Q,aux,t)
-  @inbounds begin
-    U, V, W  = Q[_U], Q[_V], Q[_W]
-    beta     = aux[_a_sponge]
-    S[_V] -= beta * V
-  end
+    @inbounds begin
+        U, V, W  = Q[_U], Q[_V], Q[_W]
+        beta     = aux[_a_sponge]
+
+        us = S[_U]
+        vs = S[_V]
+        
+        S[_U] -= beta * U
+        S[_V] -= beta * V             
+    end
 end
 
 @inline function source_geopot!(S,Q,aux,t)
