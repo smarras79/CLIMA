@@ -88,7 +88,7 @@ function global_mean(A::MPIStateArray, states=1:size(A,2))
 end
 
 # User Input
-const numdims = 2
+const numdims = 3
 const Npoly = 4
 
 # Define grid size 
@@ -97,7 +97,7 @@ const Δy    = 35
 const Δz    = 5
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  500)
+const (xmin, xmax) = (0, 1000)
 const (ymin, ymax) = (0, 1000)
 const (zmin, zmax) = (0, 1500)
 
@@ -120,9 +120,10 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-@parameter C_smag 0.21 "C_smag"
+@parameter C_smag 0.16 "C_smag"
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
+#Δ = max(Δx, Δy)
 const Δsqr = Δ * Δ
 
 # -------------------------------------------------------------------------
@@ -148,7 +149,6 @@ end
 #md # Soundspeed computed using the thermodynamic state TS
 # max eigenvalue
 @inline function wavespeed(n, Q, aux, t)
-    preflux(Q,aux)
     ρ, U, V, W = Q[_ρ], Q[_U], Q[_V], Q[_W]
     u, v, w = U/ρ, V/ρ, W/ρ
   @inbounds begin
@@ -190,16 +190,16 @@ end
 #md # Note that the preflux calculation is splatted at the end of the function call
 #md # to cns_flux!
 # -------------------------------------------------------------------------
-cns_flux!(F, Q, VF, aux, t) = cns_flux!(F, Q, VF, aux, t, preflux(Q,aux)...)
-@inline function cns_flux!(F, Q, VF, aux, t, u, v, w)
+@inline function cns_flux!(F, Q, VF, aux, t)
   @inbounds begin
+    u, v, w = preflux(Q,aux)
     DFloat = eltype(F)
     D_subsidence = 3.75e-6
     ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     P = aux[_a_P]
     xvert = aux[_a_z]
-    w -= D_subsidence * xvert
-    W = w*ρ
+    v -= D_subsidence * xvert
+    V = v*ρ
     # Inviscid contributions
     F[1, _ρ],  F[2, _ρ],  F[3, _ρ]  = U          , V          , W
     F[1, _U],  F[2, _U],  F[3, _U]  = u * U  + P , v * U      , w * U
@@ -258,15 +258,15 @@ end
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 const _ngradstates = 6
-gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q, aux, t, preflux(Q,aux)...)
-@inline function gradient_vars!(gradient_list, Q, aux, t, u, v, w)
+@inline function gradient_vars!(gradient_list, Q, aux, t)
   @inbounds begin
+    u, v, w = preflux(Q,aux)
     T = aux[_a_T]
     θ = aux[_a_θ]
     ρ, QT =Q[_ρ], Q[_QT]
     # ordering should match states_for_gradient_transform
     gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
-    gradient_list[4], gradient_list[5], gradient_list[6] = θ, QT, T
+    gradient_list[4], gradient_list[5], gradient_list[6] = θ, QT/ρ, T
   end
 end
 
@@ -347,7 +347,7 @@ end
     z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
     Δz_i = max(z - z_i, zero(DFloat))
     # Constants
-    F_0 = 48 #70
+    F_0 = 70
     F_1 = 22
     α_z = 1
     ρ_i = DFloat(1.22)
@@ -382,7 +382,6 @@ end
   
     domain_bott  = 0
     domain_top   = ymax
-
     #END User modification on domain parameters.
 
    
@@ -397,7 +396,7 @@ end
           
       elseif sponge_type == 2
           
-          bc_zscale = 300.0
+          bc_zscale = 500.0
           zd        = domain_top - bc_zscale
           
           #
@@ -405,7 +404,7 @@ end
           # first layer: damp lee waves
           #
           ctop = 0.0
-          ct   = 0.2
+          ct   = 0.75
           if xvert >= zd
               zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
               if zid >= 0.0 && zid <= 0.5
@@ -441,7 +440,7 @@ end
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
 
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t, uM, vM, wM)
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
     @inbounds begin
 
         
@@ -498,7 +497,7 @@ end
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
     source_geostrophic!(S, Q, aux, t)
-    source_surface_drag_evaporation!(S, Q, aux, t)
+    source_surface_drag_evaporation!(S,Q,aux,t)
   end
 end
 
@@ -523,9 +522,9 @@ end
 
 @inline function source_sponge!(S,Q,aux,t)
   @inbounds begin
-    U, V, W  = Q[_U], Q[_V], Q[_W]
+    W  = Q[_W]
     beta     = aux[_a_sponge]
-    S[_W]   -= beta * W
+    S[_W] -= beta * W
   end
 end
 
@@ -537,25 +536,29 @@ end
     @inbounds begin
 
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        u, v, w = U/ρ, V/ρ, W/ρ    
-        xvert   = aux[_a_z]
+        u, v, w           = U/ρ, V/ρ, W/ρ    
+        xvert             = aux[_a_z]
+        first_node        = Δz
         
-        q_tot   = QT / ρ    
-        q_liq   = aux(_a_q_liq)
-        q_ice   = 0.0
+        if xvert <= first_node
         
-        SST         = 292.5
-        q_partition = PhasePartition(q_tot, q_liq, q_ice)
-        
-        Cd, Ch, Cq = 0.0011 #Drag coefficients
-        h = Δz #Layer thickness
-        
-        S[_U] += ρ*Cd*(u^2 + v^2 + w^2)/h
-        S[_V] += ρ*Cd*(u^2 + v^2 + w^2)/h
-        S[_W] += ρ*Cd*(u^2 + v^2 + w^2)/h
-
-        qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
-        S[_QT]       += ρ*Cd*sqrt(u^2 + v^2 + w^2)*(q_tot - qv_saturation)/h
+            q_tot   = QT / ρ    
+            q_liq   = aux[_a_q_liq]
+            q_ice   = 0.0
+            
+            SST         = 292.5
+            q_partition = PhasePartition(q_tot, q_liq, q_ice)
+            
+            Cd, Ch, Cq = 0.0011, 0.0011, 0.0011 #Drag coefficients
+            h = first_node #Layer thickness
+            
+            S[_U] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+            S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+            S[_W] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+            
+            qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
+            S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + 0*w^2)*(q_tot - qv_saturation)/h
+        end
         
     end
 end
@@ -645,10 +648,10 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     if xvert >= 600.0 && xvert <= 840.0
         q_liq = (xvert - 600)*0.00045/240.0
     end
-    #if ( xvert > 10 && xvert <= 200)
-    #    θ_l   += randnum1 * θ_l
-    #    q_tot += randnum2 * q_tot
-    #end
+    if xvert <= 200
+        θ_l   += randnum1 * θ_l
+        q_tot += randnum2 * q_tot
+    end
     
     q_partition = PhasePartition(q_tot, q_liq, 0.0)
     e_int  = internal_energy(T, q_partition)
@@ -771,7 +774,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
      
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(20000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, aux)
@@ -784,8 +787,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-visc-3d/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-3d/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-visc-2d/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -828,7 +831,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.001
+  dt = 0.0035
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64

@@ -554,11 +554,7 @@ end
             
             S[_U] -= ρ*Cd*(u^2 + v^2 + w^2)/h
             S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
-            #S[_W] -= ρ*Cd*(u^2 + v^2 + w^2)/h
-
-            #e_int_sat = internal_energy_sat(SST, ρ,  q_tot)
-            #S[_E]     = -ρ*e_int_sat
-            
+                        
             qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
             S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + 0*w^2)*(q_tot - qv_saturation)/h
         end
