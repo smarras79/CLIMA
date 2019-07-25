@@ -261,9 +261,9 @@ const _ngradstates = 6
 @inline function gradient_vars!(gradient_list, Q, aux, t)
   @inbounds begin
     u, v, w = preflux(Q,aux)
-    T = aux[_a_T]
-    θ = aux[_a_θ]
-    ρ, QT =Q[_ρ], Q[_QT]
+    T     = aux[_a_T]
+    θ     = aux[_a_θ]
+    ρ, QT = Q[_ρ], Q[_QT]
     # ordering should match states_for_gradient_transform
     gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
     gradient_list[4], gradient_list[5], gradient_list[6] = θ, QT/ρ, T
@@ -593,7 +593,7 @@ function preodefun!(disc, Q, t)
       T = air_temperature(TS)
       P = air_pressure(TS) # Test with dry atmosphere
       q_liq = PhasePartition(TS).liq
-
+        
       R[_a_T] = T
       R[_a_P] = P
       R[_a_q_liq] = q_liq
@@ -835,7 +835,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney, Nez)
-  dt = 0.002
+  dt = 0.001
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
