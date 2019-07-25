@@ -409,7 +409,6 @@ end
               zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
               if zid >= 0.0 && zid <= 0.5
                   ctop = ct*(1.0 - cos(zid*pi))
-
               else
                   ctop = ct*( 1.0 + cos((zid - 0.5)*pi) )
               end
