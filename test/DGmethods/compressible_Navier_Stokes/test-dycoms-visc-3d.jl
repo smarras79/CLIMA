@@ -92,8 +92,8 @@ const numdims = 3
 const Npoly = 4
 
 # Define grid size 
-const Δx    = 35
-const Δy    = 35
+const Δx    = 30
+const Δy    = 30
 const Δz    = 5
 
 # Physical domain extents 
@@ -386,7 +386,7 @@ end
 
    
       #Vertical sponge:
-      sponge_type = 3
+      sponge_type = 2
       if sponge_type == 1
           
           top_sponge  = DFloat(0.85) * domain_top          
@@ -404,14 +404,14 @@ end
           # first layer: damp lee waves
           #
           ctop = 0.0
-          ct   = 0.75
+          ct   = 2.0
           if xvert >= zd
               zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
               if zid >= 0.0 && zid <= 0.5
                   ctop = ct*(1.0 - cos(zid*pi))
 
               else
-                  ctop = ct*( 1.0 + ((zid - 0.5)*pi) )
+                  ctop = ct*( 1.0 + cos((zid - 0.5)*pi) )
               end
           end
 
@@ -522,9 +522,14 @@ end
 
 @inline function source_sponge!(S,Q,aux,t)
   @inbounds begin
-    W  = Q[_W]
-    beta     = aux[_a_sponge]
-    S[_W] -= beta * W
+      U      = Q[_U]
+      V      = Q[_V]
+      W      = Q[_W]
+      beta   = aux[_a_sponge]
+      
+      S[_U] -= beta * U
+      S[_V] -= beta * V
+      S[_W] -= beta * W
   end
 end
 
@@ -787,8 +792,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-visc-2d/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-visc-3d/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-3d/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -831,7 +836,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney, Nez)
-  dt = 0.0035
+  dt = 0.002
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
