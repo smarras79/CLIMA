@@ -94,14 +94,14 @@ const Npoly = 4
 # Define grid size 
 const Δx    = 35
 const Δy    = 5
-const Δz    = 10
+const Δz    = 5
 
 const stretch_coe = 2.0
 
 # Physical domain extents 
 #const (xmin, xmax) = (0, 1000)
 const (xmin, xmax) = (0, 600)
-const (ymin, ymax) = (0, 1000)
+const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -409,7 +409,7 @@ end
             alpha_coe = 0.5
             ct        = 0.5
             ctop      = 0.0
-            if z >= zd
+            if xvert >= zd
                 zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
                 if zid >= 0.0 && zid <= 0.5
                     abstaud = alpha_coe*(1.0 - cos(zid*pi))
