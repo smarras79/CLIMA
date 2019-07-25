@@ -406,7 +406,7 @@ end
             # first layer: damp lee waves
             #
             alpha_coe = 0.5
-            ct        = 0.5
+            ct        = 1.0
             ctop      = 0.0
             if xvert >= zd
                 zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
@@ -414,7 +414,7 @@ end
                     abstaud = alpha_coe*(1.0 - cos(zid*pi))
 
                 else
-                    abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
+                    abstaud = alpha_coe*( 1.0 + ((zid - 0.5)*pi) )
 
                 end
                 ctop = ct*abstaud
