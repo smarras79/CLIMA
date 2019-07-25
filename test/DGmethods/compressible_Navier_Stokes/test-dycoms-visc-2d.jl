@@ -93,13 +93,14 @@ const Npoly = 4
 
 # Define grid size 
 const Δx    = 35
-const Δy    = 15
+const Δy    = 10
 const Δz    = 10
 
 const stretch_coe = 2.0
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 1000)
+#const (xmin, xmax) = (0, 1000)
+const (xmin, xmax) = (0, 600)
 const (ymin, ymax) = (0, 1000)
 const (zmin, zmax) = (0, 1500)
 
@@ -220,8 +221,8 @@ end
     SijSij = VF[_SijSij]
 
     #Dynamic eddy viscosity
-    #ν_e = VF[_ν_e] #Vreman
-    ν_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
+    ν_e = VF[_ν_e] #Vreman
+    #ν_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
     D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
@@ -388,7 +389,7 @@ end
 
    
       #Vertical sponge:
-      sponge_type = 3
+      sponge_type = 2
       if sponge_type == 1
           
           top_sponge  = DFloat(0.85) * domain_top          
@@ -413,7 +414,7 @@ end
                   ctop = ct*(1.0 - cos(zid*pi))
 
               else
-                  ctop = ct*( 1.0 + ((zid - 0.5)*pi) )
+                  ctop = ct*( 1.0 + cos((zid - 0.5)*pi) )
               end
           end
 
@@ -460,7 +461,7 @@ end
 
         if xvert < 0.0001
             #SST    = 292.5
-            SST    = 300.0
+            SST    = 320.0
             q_tot  = QP[_QT]/QP[_ρ]
             q_liq  = auxM[_a_q_liq]
             e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
@@ -498,7 +499,7 @@ end
   @inbounds begin
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
-    source_geostrophic!(S, Q, aux, t)
+    #source_geostrophic!(S, Q, aux, t)
     source_surface_drag_evaporation!(S,Q,aux,t)
   end
 end
@@ -645,18 +646,19 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     #    q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
     #end  
     
-    rx           = 300
+    rx           = 500
     ry           = 250
     xc           = 0.5*(xmin + xmax)
     yc           = 255
     r            = sqrt( (x - xc)^2/rx^2 + (y - yc)^2/ry^2)
-    θ_c::DFloat  =  3.0
+    θ_c::DFloat  = 5.0
     Δθ::DFloat   = 0.0
     
     if r <= 1
         Δθ = θ_c * (1 + cospi(r))/2
     end
-    θ_l += Δθ
+    #θ_l += Δθ
+    #T   += Δθ
     
     q_liq = 0.0
     if xvert >= 600.0 && xvert <= 840.0
@@ -672,7 +674,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     
     ρ  = air_density(T, P, q_partition)
 
-    u, v, w = 7.0, 0.0, 0.0 #geostrophic
+    #u, v, w = 7.0, 0.0, 0.0 #geostrophic
+    u, v, w = 3.0, 0.0, 0.0
     
     e_kin = (u^2 + v^2 + w^2) / 2
     e_pot = grav * xvert
@@ -771,9 +774,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
       end
     end
       
-    npoststates = 6
-    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T = 1:npoststates
-    postnames = ("LWP", "u", "v", "w", "_q_liq", "T")
+    npoststates = 7
+    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ = 1:npoststates
+    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -785,7 +788,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
      
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w = preflux(Q, aux)
@@ -795,6 +798,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
           R[_o_w] = w
           R[_o_q_liq] = aux[_a_q_liq]
           R[_o_T] = aux[_a_T]
+          R[_o_θ] = aux[_a_θ]
         end
       end
         
@@ -842,7 +846,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.002
+  dt = 0.007
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
