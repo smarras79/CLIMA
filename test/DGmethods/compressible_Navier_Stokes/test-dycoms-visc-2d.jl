@@ -386,7 +386,7 @@ end
 
    
       #Vertical sponge:
-      sponge_type = 2
+      sponge_type = 3
       if sponge_type == 1
           
           top_sponge  = DFloat(0.85) * domain_top          
@@ -651,10 +651,10 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     if xvert >= 600.0 && xvert <= 840.0
         q_liq = (xvert - 600)*0.00045/240.0
     end
-    #if ( xvert > 10 && xvert <= 200)
-    #    θ_l   += randnum1 * θ_l
-    #    q_tot += randnum2 * q_tot
-    #end
+    if xvert <= 200
+        θ_l   += randnum1 * θ_l
+        q_tot += randnum2 * q_tot
+    end
     
     q_partition = PhasePartition(q_tot, q_liq, 0.0)
     e_int  = internal_energy(T, q_partition)
