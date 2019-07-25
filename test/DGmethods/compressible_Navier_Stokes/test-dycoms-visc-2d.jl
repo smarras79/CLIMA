@@ -400,8 +400,7 @@ end
         elseif sponge_type == 2
             
             bc_zscale = 500.0
-            zd        = domain_top - bc_zscale
-            
+            zd        = domain_top - bc_zscale           
             #
             # top damping
             # first layer: damp lee waves
