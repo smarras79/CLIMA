@@ -679,7 +679,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     
   # User defined periodicity in the topl assignment
   # brickrange defines the domain extents
-  @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,false))
+  @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
 
   @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
                                                                  FloatType = DFloat,
@@ -830,7 +830,7 @@ let
   # User defined timestep estimate
   # User defined simulation end time
   # User defined polynomial order 
-  numelem = (Nex, Ney)
+  numelem = (Nex, Ney, Nez)
   dt = 0.0035
   timeend = 14400
   polynomialorder = Npoly
