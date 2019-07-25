@@ -96,11 +96,11 @@ const Δx    = 35
 const Δy    = 5
 const Δz    = 5
 
-const stretch_coe = 2.0
+const stretch_coe = 2.25
 
 # Physical domain extents 
 #const (xmin, xmax) = (0, 1000)
-const (xmin, xmax) = (0, 600)
+const (xmin, xmax) = (0, 1500)
 const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
