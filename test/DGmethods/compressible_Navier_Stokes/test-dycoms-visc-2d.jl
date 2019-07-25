@@ -92,12 +92,12 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-const Δx    = 30
-const Δy    = 10
+const Δx    = 35
+const Δy    = 15
 const Δz    = 10
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  800)
+const (xmin, xmax) = (0, 1500)
 const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
@@ -120,7 +120,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-@parameter C_smag 0.23 "C_smag"
+@parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
 #Δ = (Δx * Δy * Δz)^(1/3)
 Δ = max(Δx, Δy)
@@ -267,7 +267,7 @@ gradient_vars!(gradient_list, Q, aux, t, _...) = gradient_vars!(gradient_list, Q
     ρ, QT =Q[_ρ], Q[_QT]
     # ordering should match states_for_gradient_transform
     gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
-    gradient_list[4], gradient_list[5], gradient_list[6] = θ, QT, T
+    gradient_list[4], gradient_list[5], gradient_list[6] = θ, QT/ρ, T
   end
 end
 
@@ -348,7 +348,7 @@ end
     z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
     Δz_i = max(z - z_i, zero(DFloat))
     # Constants
-    F_0 = 48 #70
+    F_0 = 70
     F_1 = 22
     α_z = 1
     ρ_i = DFloat(1.22)
@@ -555,7 +555,10 @@ end
             
             S[_U] -= ρ*Cd*(u^2 + v^2 + w^2)/h
             S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
-            #S[_W] += ρ*Cd*(u^2 + v^2 + w^2)/h
+            #S[_W] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+
+            e_int_sat = internal_energy_sat(SST, ρ,  q_partition)
+            S[_E]     = -ρ*e_int_sat
             
             qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
             S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + 0*w^2)*(q_tot - qv_saturation)/h
@@ -788,8 +791,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-visc-2d-negative-drag/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d-negative-drag/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-visc-2d/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
