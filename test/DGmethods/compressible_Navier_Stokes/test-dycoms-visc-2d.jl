@@ -814,7 +814,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                                            vertical=true)
         nothing
     end
-     
+    
     step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
