@@ -830,8 +830,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-visc-2d-xmax1000-negative-evapo/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d-xmax1000-negative-evapo/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-visc-2d-sfc_flux/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d-sfc_flux/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
