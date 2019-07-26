@@ -249,6 +249,19 @@ end
     F[1, _QT] -=  vqx * D_e
     F[2, _QT] -=  vqy * D_e
     F[3, _QT] -=  vqz * D_e
+
+      #
+      # Surface fluxes:
+      #
+      if xvert < 0.0001
+          ft =  15.0
+          fq = 115.0
+
+          ...
+          
+      end
+
+      
   end
 end
 
@@ -459,7 +472,7 @@ end
         QP[_ρ] = ρM
         QP[_QT] = QTM
         VFP .= 0
-
+        
         if xvert < 0.0001
             SST    = 295.0 #292.5
             q_tot  = QP[_QT]/QP[_ρ]
@@ -469,6 +482,11 @@ end
             e_pot  = grav*xvert
             E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = E
+
+            #NO SLIP ?
+            QP[_U] = 0.0
+            QP[_V] = 0.0
+            #
         end
         
         nothing
@@ -541,26 +559,58 @@ end
 
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         u, v, w           = U/ρ, V/ρ, W/ρ    
-        xvert             = aux[_a_y]       
-        first_node        = Δy
+        xvert             = aux[_a_y]
         
+        first_node = 0.0001        
         if xvert <= first_node
-        
+
+            ft      =  15.0
+            fq      = 115.0
+
+#?            self.L_fp = LH.L_fp  #?
+            
             q_tot   = QT / ρ    
             q_liq   = aux[_a_q_liq]
             q_ice   = 0.0
             
             SST         = 292.5
             q_partition = PhasePartition(q_tot, q_liq, q_ice)
-            
+                        
             Cd, Ch, Cq = 0.0011, 0.0011, 0.0011 #Drag coefficients
             h = first_node #Layer thickness
+
+            windspeed = u^2 + v^2 + w^2
+            friction_velocity = Cd * windspeed
             
-            S[_U] -= ρ*Cd*(u^2 + v^2 + w^2)/h
-            S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
+            S[_U] -= ρ*Cd*windspeed/h
+            S[_V] -= ρ*Cd*windspeed/h
+
+            p_sfc      = 1017.8e2      # Pa
+            π_sfc      = exner(p_sfc, q_partition)
+            θ_sfc      = SST/exner_sfc
+            q_tot_sfc  = 13.84e-3      # qs(sst) using Teten's formula
+            ρ_sfc      = 1.22          #kg/m^3
+            q_prtn_sfc = q_tot_sfc
+            #q_prtn_sfc = PhasePartition(q_tot_sfc, 0.0, 0.0)
+            
+            cpm    = cp_m(q_prtn_sfc)
+            
+            θ_flux = ft/(density_sfc * cpm * π_sfc)
+
+            #Energy flux (TOTAL? INTERNAL?)
+            S[_E] -= ρ*Cd*sqrt(windspeed)*()
+            
+#???           
                         
-            qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
+            qv_saturation =  q_vap_saturation(SST, ρ_sfc, q_prtn_sfc)
+            
+            L_fp = latent_heart(./....)
+            qt_sfc_flux = fq/L_fp(sst,self.Lambda_fp(sst))
+            
             S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + 0*w^2)*(q_tot - qv_saturation)/h
+
+            e_int_flux = internal_energy_sat(T, ρ, q_tot)
+            
         end
         
     end
