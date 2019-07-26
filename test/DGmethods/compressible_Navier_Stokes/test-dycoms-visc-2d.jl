@@ -136,7 +136,7 @@ const ρ_sfc       = 1.22          #kg/m^3
 const ft          =  15.0
 const fq          = 115.0
 const Cd          = 0.0011        #Drag coefficient
-const sfc_level   = 0.5*Δy
+const first_node_level   = 0.5*Δy
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
 # DG RHS (but not explicitly solved for as a prognostic variable)
@@ -266,7 +266,7 @@ end
       #
       # Surface fluxes:
       #
-      if xvert < sfc_level #FIX ME: identify the surface 
+      if xvert < first_node_level #FIX ME: identify the surface 
 
           T          = aux[_a_T]
           windspeed  = u^2 + v^2
@@ -497,14 +497,13 @@ end
         QP[_W] = WM - 2 * nM[3] * UnM
         QP[_ρ] = ρM
         QP[_QT] = QTM
-        if xvert > sfc_level
-            VFP .= 0  #THIS OVERWRITES THE SFC FLUXES
+        if xvert < first_node_level
+            VFP .= VFM
         else
-            VFP[_ρ] = 0            
-            VFP[_V] = 0
+            VFP .= 0
         end
         
-        #=if xvert < sfc_level
+        #=if xvert < first_node_level
             SST    = 295.0 #292.5
             q_tot  = QP[_QT]/QP[_ρ]
             q_liq  = auxM[_a_q_liq]
