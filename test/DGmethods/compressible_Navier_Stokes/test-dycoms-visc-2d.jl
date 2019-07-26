@@ -276,7 +276,8 @@ end
           #F[3, _V]     -= ρ*Cd*windspeed*v  #UNCOMMENT FOR 3D
 
           #Surface flux of Qt
-          q_part_sfc = PhasePartition(q_tot_sfc) ##NOT SURE ABOUT THIS!
+          q_liq      = aux[_a_q_liq]
+          q_part_sfc = PhasePartition(q_tot_sfc, q_liq, 0.0) ##NOT SURE ABOUT THIS!
           q_tot      = Q[_QT]/ρ
           qv_star    = q_vap_saturation(SST, ρ_sfc, q_part_sfc)
           F[3, _QT] -= ρ*Cd*windspeed*(q_tot - qv_star)
