@@ -36,7 +36,7 @@ end
 # and consider the dry equation set to be the same as the moist equations but
 # with total specific humidity = 0. 
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0, Omega
+using CLIMA.PlanetParameters
 
 # State labels 
 const _nstate = 6
@@ -276,8 +276,9 @@ end
           #F[3, _V]     -= ρ*Cd*windspeed*v  #UNCOMMENT FOR 3D
 
           #Surface flux of Qt
+          q_part_sfc = PhasePartition(q_tot_sfc) ##NOT SURE ABOUT THIS!
           q_tot      = Q[_QT]/ρ
-          qv_star    = q_vap_saturation(SST, ρ_sfc, q_tot_sfc)
+          qv_star    = q_vap_saturation(SST, ρ_sfc, q_part_sfc)
           F[3, _QT] -= ρ*Cd*windspeed*(q_tot - qv_star)
 
           #DSurface flux of e_int (called `I` in the design doc)
