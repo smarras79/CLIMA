@@ -560,7 +560,7 @@ end
             S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
                         
             qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
-            S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + 0*w^2)*(q_tot - qv_saturation)/h
+            S[_QT]       += ρ*Cd*sqrt(u^2 + v^2 + 0*w^2)*(q_tot - qv_saturation)/h
         end
         
     end
