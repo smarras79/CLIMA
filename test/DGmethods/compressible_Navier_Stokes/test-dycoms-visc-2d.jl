@@ -272,20 +272,20 @@ end
           windspeed  = u^2 + v^2
 
           #Surface flux of momentum
-          F[3, _U]     -= ρ*Cd*windspeed*u
-          #F[3, _V]     -= ρ*Cd*windspeed*v  #UNCOMMENT FOR 3D
+          F[numdims, _U]     -= ρ*Cd*windspeed*u
+          #F[numdims, _V]     -= ρ*Cd*windspeed*v  #UNCOMMENT FOR 3D
 
           #Surface flux of Qt
           q_liq      = aux[_a_q_liq]
           q_part_sfc = PhasePartition(q_tot_sfc, q_liq, 0.0) ##NOT SURE ABOUT THIS!
           q_tot      = Q[_QT]/ρ
           qv_star    = q_vap_saturation(SST, ρ_sfc, q_part_sfc)
-          F[3, _QT] -= ρ*Cd*windspeed*(q_tot - qv_star)
+          F[numdims, _QT] -= ρ*Cd*windspeed*(q_tot - qv_star)
 
           #DSurface flux of e_int (called `I` in the design doc)
           e_int      = E/ρ
           e_int_star = internal_energy_sat(SST, ρ_sfc, q_tot_sfc)
-          F[3, _E]  -= ρ*Cd*sqrt(windspeed)*(e_int - e_int_star)
+          F[numdims, _E]  -= ρ*Cd*sqrt(windspeed)*(e_int - e_int_star)
       end      
   end
 end
