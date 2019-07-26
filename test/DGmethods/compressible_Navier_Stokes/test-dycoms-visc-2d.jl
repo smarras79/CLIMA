@@ -233,8 +233,8 @@ end
     SijSij = VF[_SijSij]
 
     #Dynamic eddy viscosity
-    #ν_e = VF[_ν_e] #Vreman
-    ν_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
+    ν_e = VF[_ν_e] #Vreman
+    #ν_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
     D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
@@ -493,9 +493,9 @@ end
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-        #QP[_U] = UM - 2 * nM[1] * UnM
+        QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
-        #QP[_W] = WM - 2 * nM[3] * UnM
+        QP[_W] = WM - 2 * nM[3] * UnM
         QP[_ρ] = ρM
         QP[_QT] = QTM
         if xvert < first_node_level
