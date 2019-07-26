@@ -99,8 +99,7 @@ const Δz    = 5
 const stretch_coe = 2.25
 
 # Physical domain extents 
-#const (xmin, xmax) = (0, 1000)
-const (xmin, xmax) = (0, 1500)
+const (xmin, xmax) = (0, 1000)
 const (ymin, ymax) = (0, 1500)
 const (zmin, zmax) = (0, 1500)
 
@@ -399,7 +398,7 @@ end
             
         elseif sponge_type == 2
             
-            bc_zscale = 500.0
+            bc_zscale = 300.0
             zd        = domain_top - bc_zscale           
             #
             # top damping
@@ -666,7 +665,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     if xvert >= 600.0 && xvert <= 840.0
         q_liq = (xvert - 600)*0.00045/240.0
     end
-    if xvert > Δy && xvert <= 200
+    if xvert > 50.0 && xvert <= 200.0
         θ_l   += randnum1 * θ_l
         q_tot += randnum2 * q_tot
     end
@@ -677,7 +676,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     ρ  = air_density(T, P, q_partition)
 
     #u, v, w = 7.0, 0.0, 0.0 #geostrophic
-    u, v, w = 3.0, 0.0, 0.0
+    u, v, w = 7.0, 0.0, 0.0
     
     e_kin = (u^2 + v^2 + w^2) / 2
     e_pot = grav * xvert
@@ -690,8 +689,13 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
 end
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
+
+    #current stretching options:
+    # "boundary_stretching" --> node clustering by the bottom boundary
+    # "top_stretching" --> node clustering by the top wall
+    # "interior_stretching" --> node clustering around the coordinate of the `attractor_value`
     
-    y_range     = grid_stretching_1d(zmin, zmax, Ne[end], stretch_coe, "boundary_stretching")    
+    y_range     = grid_stretching_1d(zmin, zmax, Ne[end], stretch_coe, "none")    
     brickrange  = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   y_range)
     
@@ -805,8 +809,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-visc-2d/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-visc-2d-xmax1500/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d-xmax1500/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -849,7 +853,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.007
+  dt = 0.004
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64

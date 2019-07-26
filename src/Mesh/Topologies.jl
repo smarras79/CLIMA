@@ -966,6 +966,11 @@ end
 
 function grid_stretching_1d(coord_min, coord_max, Ne, stretching_type, stretch_coe=1.0, attractor_value=0)
 
+    #current stretching options:
+    # "boundary_stretching" --> node clustering by the bottom boundary
+    # "top_stretching" --> node clustering by the top wall
+    # "interior_stretching" --> node clustering around the coordinate of the `attractor_value`
+    
     DFloat = eltype(coord_min)
     
     #build physical range to be stratched
