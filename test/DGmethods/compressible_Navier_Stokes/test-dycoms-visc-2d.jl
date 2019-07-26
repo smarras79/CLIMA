@@ -130,7 +130,8 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 const Δsqr = Δ * Δ
 
 # Surface values to calculate surface fluxes:
-const SST         = 292.5
+#const SST         = 292.5
+const SST         = 300.5
 const p_sfc       = 1017.8e2      # Pa
 const q_tot_sfc   = 13.84e-3      # qs(sst) using Teten's formula
 const ρ_sfc       = 1.22          #kg/m^3
@@ -544,7 +545,7 @@ end
   @inbounds begin
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
-    #source_geostrophic!(S, Q, aux, t)    
+    source_geostrophic!(S, Q, aux, t)    
   end
 end
 
@@ -660,6 +661,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     θ_l    = spl_thetainit(xvert) #θ_l
     q_tot  = spl_qinit(xvert)     #qtot
     T      = spl_tinit(xvert)    #T
+
+    q_tot = 0.0
     
     zi = 840.0
     #if ( xvert <= zi)
@@ -669,7 +672,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     #    θ_lx   = 297.5 + (xvert - zi)^(1/3);
     #    q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
     #end  
-    
+
+    #=
     rx           = 500
     ry           = 250
     xc           = 0.5*(xmin + xmax)
@@ -681,8 +685,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     if r <= 1
         Δθ = θ_c * (1 + cospi(r))/2
     end
-    #θ_l += Δθ
-    #T   += Δθ
+    θ_l += Δθ
+    T   += Δθ=#
     
     q_liq = 0.0
     if xvert >= 600.0 && xvert <= 840.0
