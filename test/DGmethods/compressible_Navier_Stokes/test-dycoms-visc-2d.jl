@@ -125,7 +125,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 @parameter C_smag 0.23 "C_smag"
 # Equivalent grid-scale
 #Δ = (Δx * Δy * Δz)^(1/3)
-Δ = max(Δx, Δy)
+Δ = min(Δx, Δy)
 #Δ = sqrt(Δx*Δy)
 const Δsqr = Δ * Δ
 
@@ -254,7 +254,7 @@ end
     F[2, _E] += u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * μ_e
     F[3, _E] += u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * μ_e
 
-    F[numdims, _E] += F_rad
+    #F[numdims, _E] += F_rad
 
     # Viscous contributions to mass flux terms
     F[1, _ρ]  -=  vqx * D_e
@@ -880,7 +880,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.002
+  dt = 0.001
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
