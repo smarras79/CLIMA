@@ -560,7 +560,7 @@ end
             S[_V] -= ρ*Cd*(u^2 + v^2 + w^2)/h
                         
             qv_saturation =  q_vap_saturation(SST, ρ, q_partition)
-            S[_QT]       += ρ*Cd*sqrt(u^2 + v^2 + 0*w^2)*(q_tot - qv_saturation)/h
+            S[_QT]       -= ρ*Cd*sqrt(u^2 + v^2 + 0*w^2)*(q_tot - qv_saturation)/h
         end
         
     end
@@ -809,8 +809,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-visc-2d-xmax1000-positive-evapo/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d-xmax1000-positive-evapo/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-visc-2d-xmax1000-negative-evapo/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-visc-2d-xmax1000-negative-evapo/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
