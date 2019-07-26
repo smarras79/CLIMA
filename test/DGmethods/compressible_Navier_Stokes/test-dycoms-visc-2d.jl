@@ -283,7 +283,8 @@ end
           F[numdims, _QT] -= ρ*Cd*windspeed*(q_tot - qv_star)
 
           #DSurface flux of e_int (called `I` in the design doc)
-          e_int      = E/ρ
+          e_kin      = 0.5*windspeed
+          e_int      = E/ρ - e_kin
           e_int_star = internal_energy_sat(SST, ρ_sfc, q_tot_sfc)
           F[numdims, _E]  -= ρ*Cd*sqrt(windspeed)*(e_int - e_int_star)
       end      
