@@ -93,7 +93,7 @@ const Npoly = 4
 
 # Define grid size 
 const Δx    = 35
-const Δy    = 5
+const Δy    = 10
 const Δz    = 5
 
 const stretch_coe = 2.25
@@ -722,7 +722,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     # "top_stretching" --> node clustering by the top wall
     # "interior_stretching" --> node clustering around the coordinate of the `attractor_value`
     
-    y_range     = grid_stretching_1d(zmin, zmax, Ne[end], stretch_coe, "none")    
+    y_range     = grid_stretching_1d(zmin, zmax, Ne[end], stretch_coe, "boundary_stretching")    
     brickrange  = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                   y_range)
     
@@ -880,7 +880,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.001
+  dt = 0.0005
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
