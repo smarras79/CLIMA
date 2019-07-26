@@ -125,7 +125,8 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 @parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
 #Δ = (Δx * Δy * Δz)^(1/3)
-Δ = min(Δx, Δy)
+#Δ = min(Δx, Δy)
+Δ = sqrt(Δx*Δy)
 const Δsqr = Δ * Δ
 
 # Surface values to calculate surface fluxes:
@@ -232,8 +233,8 @@ end
     SijSij = VF[_SijSij]
 
     #Dynamic eddy viscosity
-    ν_e = VF[_ν_e] #Vreman
-    #ν_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
+    #ν_e = VF[_ν_e] #Vreman
+    ν_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
     D_e = ν_e / Prandtl_t
 
     # Multiply stress tensor by viscosity coefficient:
@@ -243,14 +244,14 @@ end
     τ23 = τ32 = VF[_τ23] * ν_e
 
     # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-    F[1, _U] -= τ11; F[2, _U] -= τ12; F[3, _U] -= τ13
-    F[1, _V] -= τ21; F[2, _V] -= τ22; F[3, _V] -= τ23
-    F[1, _W] -= τ31; F[2, _W] -= τ32; F[3, _W] -= τ33
+    F[1, _U] += τ11; F[2, _U] += τ12; F[3, _U] += τ13
+    F[1, _V] += τ21; F[2, _V] += τ22; F[3, _V] += τ23
+    F[1, _W] += τ31; F[2, _W] += τ32; F[3, _W] += τ33
 
     # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-    F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
-    F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
-    F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
+    F[1, _E] += u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
+    F[2, _E] += u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
+    F[3, _E] += u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
 
     F[numdims, _E] += F_rad
 
@@ -269,24 +270,24 @@ end
       if xvert < first_node_level #FIX ME: identify the surface 
 
           T          = aux[_a_T]
-          windspeed  = u^2 + v^2
+          windspeed  = sqrt(u^2 + v^2)
 
           #Surface flux of momentum
-          F[numdims, _U]     -= ρ*Cd*windspeed*u
-          #F[numdims, _V]     -= ρ*Cd*windspeed*v  #UNCOMMENT FOR 3D
+          F[numdims, _U]   -= ρ*Cd*windspeed*u
 
           #Surface flux of Qt
-          q_liq      = aux[_a_q_liq]
-          q_part_sfc = PhasePartition(q_tot_sfc, q_liq, 0.0) ##NOT SURE ABOUT THIS!
-          q_tot      = Q[_QT]/ρ
-          qv_star    = q_vap_saturation(SST, ρ_sfc, q_part_sfc)
+          q_liq            = aux[_a_q_liq]
+          #q_part_sfc       = PhasePartition(q_tot_sfc, q_liq, 0.0) ##NOT SURE ABOUT THIS!
+          q_part_sfc       = PhasePartition(q_tot_sfc, q_liq, 0.0) ##NOT SURE ABOUT THIS!
+          q_tot            = Q[_QT]/ρ
+          qv_star          = q_vap_saturation(SST, ρ, q_part_sfc)
           F[numdims, _QT] -= ρ*Cd*windspeed*(q_tot - qv_star)
 
           #DSurface flux of e_int (called `I` in the design doc)
-          e_kin      = 0.5*windspeed
-          e_int      = E/ρ - e_kin
-          e_int_star = internal_energy_sat(SST, ρ_sfc, q_tot_sfc)
-          F[numdims, _E]  -= ρ*Cd*sqrt(windspeed)*(e_int - e_int_star)
+          e_kin            = 0.5*windspeed
+          e_int            = E/ρ - e_kin
+          e_int_star       = internal_energy_sat(SST, ρ, q_tot_sfc)
+          F[numdims, _E]  -= ρ*Cd*windspeed*(e_int - e_int_star)
       end      
   end
 end
@@ -363,12 +364,12 @@ end
     #--------------------------------------------
     # deviatoric stresses
     # Fix up index magic numbers
-    VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
-    VF[_τ22] = 2 * (S22 - (S11 + S22 + S33) / 3)
-    VF[_τ33] = 2 * (S33 - (S11 + S22 + S33) / 3)
-    VF[_τ12] = 2 * S12
-    VF[_τ13] = 2 * S13
-    VF[_τ23] = 2 * S23
+    VF[_τ11] = -2 * (S11 - (S11 + S22 + S33) / 3)
+    VF[_τ22] = -2 * (S22 - (S11 + S22 + S33) / 3)
+    VF[_τ33] = -2 * (S33 - (S11 + S22 + S33) / 3)
+    VF[_τ12] = -2 * S12
+    VF[_τ13] = -2 * S13
+    VF[_τ23] = -2 * S23
 
     # TODO: Viscous stresse come from SubgridScaleTurbulence module
     VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
@@ -444,7 +445,7 @@ end
             # first layer: damp lee waves
             #
             alpha_coe = 0.5
-            ct        = 1.0
+            ct        = 10.0
             ctop      = 0.0
             if xvert >= zd
                 zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
@@ -492,9 +493,9 @@ end
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-        QP[_U] = UM - 2 * nM[1] * UnM
+        #QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
-        QP[_W] = WM - 2 * nM[3] * UnM
+        #QP[_W] = WM - 2 * nM[3] * UnM
         QP[_ρ] = ρM
         QP[_QT] = QTM
         if xvert < first_node_level
@@ -875,7 +876,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.004
+  dt = 0.0025
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
