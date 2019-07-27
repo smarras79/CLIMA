@@ -457,9 +457,10 @@ end
             y       = auxM[_a_y]
             θ_ref   = 300.0
             θ_c     = 10.0
-            Δθ      = θ_c + θ_ref #* sin(pi*x.*5/Lx).*cos(x/pi);
+            Δθ      = θ_c*sin(pi*x.*10/Lx).*cos(10*x/pi);
+            #Δθ      = θ_c
             p0      = MSLP
-            θ       = Δθ # potential temperature
+            θ       = θ_ref + Δθ # potential temperature
             π_exner = 1.0 - grav / (cp_d * θ) * y # exner pressure
             ρ       = p0 / (R_d * θ) * (π_exner)^ (cv_d / R_d) # density
             P       = p0 * (R_d * (ρ * θ) / p0) ^(cp_d/cv_d) # pressure (absolute)
@@ -606,8 +607,8 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     #end
     Lx = abs(xmax - xmin)
     if y < 0.98*Δy
-        #Δθ = θ_c * sin(pi*x.*5/Lx).*cos(x/pi);
-        Δθ = θ_c
+        #Δθ = θ_c
+        Δθ = θ_c*sin(pi*x.*10/Lx).*cos(10*x/pi);
     end
 
     # Th_ref::DFloat = θ_ref
@@ -739,7 +740,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
         
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(500) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     u, v, w     = preflux(Q, aux)
