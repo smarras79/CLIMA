@@ -607,11 +607,9 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     #    Δθ = θ_c * (1 - (r/rc))
     #end
     Lx = abs(xmax - xmin)
-    if y < 0.98*Δy
+    if y < 0.00001
         θ_ref   = SST
-            Δθ      = θ_c * sin(pi*x*0.05/Lx)*cos(0.01*x/pi);
-        #Δθ = θ_c
-        Δθ = θ_c*sin(pi*x*10/Lx)*cos(10*x/pi);
+        Δθ      = θ_c * sin(pi*x*0.05/Lx)*cos(0.01*x/pi);
     end
 
     # Th_ref::DFloat = θ_ref
