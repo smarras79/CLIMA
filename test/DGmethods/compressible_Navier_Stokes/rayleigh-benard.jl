@@ -131,7 +131,7 @@ const Δsqr = Δ * Δ
 
 # Surface values to calculate surface fluxes:
 const SST         = 290.4
-const θ_c         = 2.1
+const T_c         = 2.1
 
 const p_sfc       = 1017.8e2      # Pa
 const q_tot_sfc   = 13.84e-3      # qs(sst) using Teten's formula
@@ -459,14 +459,12 @@ end
             y       = auxM[_a_y]
             x       = auxM[_a_x]
             Lx      = abs(xmax - xmin)
-            θ_ref   = SST
-            Δθ      = θ_c * sin(pi*x*0.05/Lx)*cos(0.01*x/pi);
+            T_ref   = SST
+            #ΔT      = T_c * sin(pi*x*0.05/Lx)*cos(0.01*x/pi);
+            
             p0      = MSLP
-            θ       = θ_ref + Δθ # potential temperature
-            π_exner = 1.0 - grav / (cp_d * θ) * y # exner pressure
-            ρ       = p0 / (R_d * θ) * (π_exner)^ (cv_d / R_d) # density
-            P       = p0 * (R_d * (ρ * θ) / p0) ^(cp_d/cv_d) # pressure (absolute)
-            T       = P / (ρ * R_d) # temperature
+            T       = T_ref
+            ρ       = ρ_sfc
             
             QP[_E]  = ρ*internal_energy(T, PhasePartition(DFloat(0))) + 0.5*ρ*(u^2 + v^2 + w^2)
             #elseif bctype == 4
@@ -608,27 +606,32 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     #end
     Lx = abs(xmax - xmin)
     if y < 0.00001
-        θ_ref   = SST
-        Δθ      = θ_c * sin(pi*x*0.05/Lx)*cos(0.01*x/pi);
+        T_ref   = SST
+        ΔT      = T_c * sin(pi*x*0.05/Lx)*cos(0.01*x/pi);
     end
 
     # Th_ref::DFloat = θ_ref
     # Th::DFloat  = Th_ref + randnum1 * Th_ref 
     # Tc::DFloat  = 275 
     # T           = 0.5 * (Th + Tc)
-    θ_ref                 = SST
-    θ                     = θ_ref + Δθ # potential temperature
-    π_exner               = 1.0 - gravity / (c_p * θ) * y # exner pressure
+    T_ref                 = SST
+    T_top                 = SST - T_c
+    #T                     = T_ref + ΔT # potential temperature
+    T                     = T_ref + y*(T_top - SST)/ymax # potential temperature
+    ρ                     = ρ_sfc*(1 - 0.2*(T - SST))
+    P                     = T * ρ * R_d
+    
+    #=π_exner               = 1.0 - gravity / (c_p * θ) * y # exner pressure
     ρ                     = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
-    #P                     = T * ρ * R_gas
+
     P                     = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
     T                     = P / (ρ * R_gas) # temperature
-    
+    =#
     U, V, W               = 0.0 , 0.0 , 0.0  # momentum components
     # energy definitions
     e_kin                 = (U^2 + V^2 + W^2) / (2*ρ)/ ρ
     e_pot                 = gravity * y
-    e_int                 = c_v*(T - T_0)
+    e_int                 = cv_d*(T - T_0)
     E                     = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
 end
