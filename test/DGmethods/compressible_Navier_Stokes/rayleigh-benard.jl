@@ -130,7 +130,9 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 const Δsqr = Δ * Δ
 
 # Surface values to calculate surface fluxes:
-const SST         = 292.5
+const SST         = 290.4
+const θ_c         = 2.1
+
 const p_sfc       = 1017.8e2      # Pa
 const q_tot_sfc   = 13.84e-3      # qs(sst) using Teten's formula
 const ρ_sfc       = 1.22          #kg/m^3
@@ -138,6 +140,7 @@ const ft          =  15.0
 const fq          = 115.0
 const Cd          = 0.0011        #Drag coefficient
 const first_node_level   = 0.5*Δy
+
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
 # DG RHS (but not explicitly solved for as a prognostic variable)
@@ -456,10 +459,8 @@ end
             y       = auxM[_a_y]
             x       = auxM[_a_x]
             Lx      = abs(xmax - xmin)
-            θ_ref   = 290.4
-            θ_c     = 2.1
-            Δθ      = θ_c*sin(pi*x*10/Lx)*cos(10*x/pi);
-            #Δθ      = θ_c
+            θ_ref   = SST
+            Δθ      = θ_c * sin(pi*x*0.05/Lx)*cos(0.01*x/pi);
             p0      = MSLP
             θ       = θ_ref + Δθ # potential temperature
             π_exner = 1.0 - grav / (cp_d * θ) * y # exner pressure
@@ -600,7 +601,6 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     yc                    = 2000.0
     r                     = sqrt((x - xc)^2 + (y - yc)^2)
     rc::DFloat            = 2000
-    θ_ref::DFloat         = 300.0
     θ_c::DFloat           =  10.0
     Δθ::DFloat            = 0.0
     #if r <= rc 
@@ -608,6 +608,8 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     #end
     Lx = abs(xmax - xmin)
     if y < 0.98*Δy
+        θ_ref   = SST
+            Δθ      = θ_c * sin(pi*x*0.05/Lx)*cos(0.01*x/pi);
         #Δθ = θ_c
         Δθ = θ_c*sin(pi*x*10/Lx)*cos(10*x/pi);
     end
