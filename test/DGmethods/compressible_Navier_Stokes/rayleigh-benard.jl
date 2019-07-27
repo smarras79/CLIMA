@@ -432,8 +432,7 @@ end
 # generic bc for 2d , 3d
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
     DFloat = eltype(QP)
-    Th::DFloat          = 300
-    Tc::DFloat          = 275
+   
     @inbounds begin
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
         u, v, w = UM/ρM, VM/ρM, WM/ρM
@@ -455,9 +454,11 @@ end
         #Dirichlet on \theta at bottom bvoundary 
         if bctype == 3
             y       = auxM[_a_y]
+            x       = auxM[_a_x]
+            Lx      = abs(xmax - xmin)
             θ_ref   = 300.0
             θ_c     = 10.0
-            Δθ      = θ_c*sin(pi*x.*10/Lx).*cos(10*x/pi);
+            Δθ      = θ_c*sin(pi*x*10/Lx)*cos(10*x/pi);
             #Δθ      = θ_c
             p0      = MSLP
             θ       = θ_ref + Δθ # potential temperature
@@ -608,7 +609,7 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     Lx = abs(xmax - xmin)
     if y < 0.98*Δy
         #Δθ = θ_c
-        Δθ = θ_c*sin(pi*x.*10/Lx).*cos(10*x/pi);
+        Δθ = θ_c*sin(pi*x*10/Lx)*cos(10*x/pi);
     end
 
     # Th_ref::DFloat = θ_ref
