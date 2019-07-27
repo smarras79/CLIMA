@@ -436,7 +436,8 @@ end
     Tc::DFloat          = 275
     @inbounds begin
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
-
+        u, v, w = UM/ρM, VM/ρM, WM/ρM
+        
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
@@ -451,15 +452,26 @@ end
         QP[_ρ] = ρM 
         QP[_QT] = QTM 
         =#
-        #if bctype == 3
-        #    y = auxM[_a_y]
-        #    T = Th 
-        #    QP[_E] = internal_energy(T, PhasePartition(DFloat(0))) + grav * y
-        #elseif bctype == 4
-        #    y = auxM[_a_y]
-        #    T = Tc
-        #    QP[_E] = internal_energy(T, PhasePartition(DFloat(0))) + grav * y 
-        #end
+
+        #Dirichlet on \theta at bottom bvoundary 
+        if bctype == 3
+            y       = auxM[_a_y]
+            θ_ref   = 300.0
+            θ_c     = 10.0
+            Δθ      = θ_c + θ_ref #* sin(pi*x.*5/Lx).*cos(x/pi);
+            p0      = MSLP
+            θ       = Δθ # potential temperature
+            π_exner = 1.0 - grav / (cp_d * θ) * y # exner pressure
+            ρ       = p0 / (R_d * θ) * (π_exner)^ (cv_d / R_d) # density
+            P       = p0 * (R_d * (ρ * θ) / p0) ^(cp_d/cv_d) # pressure (absolute)
+            T       = P / (ρ * R_d) # temperature
+            
+            QP[_E]  = ρ*internal_energy(T, PhasePartition(DFloat(0))) + 0.5*ρ*(u^2 + v^2 + w^2)
+            #elseif bctype == 4
+            #    y = auxM[_a_y]
+            #    T = Tc
+            #    QP[_E] = internal_energy(T, PhasePartition(DFloat(0))) + grav * y 
+        end
         nothing
     end
 end
@@ -588,10 +600,15 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     r                     = sqrt((x - xc)^2 + (y - yc)^2)
     rc::DFloat            = 2000
     θ_ref::DFloat         = 300.0
-    θ_c::DFloat           = 2.0
+    θ_c::DFloat           =  10.0
     Δθ::DFloat            = 0.0
-    if r <= rc 
-        Δθ = θ_c * (1 - (r/rc))
+    #if r <= rc 
+    #    Δθ = θ_c * (1 - (r/rc))
+    #end
+    Lx = abs(xmax - xmin)
+    if y < 0.98*Δy
+        #Δθ = θ_c * sin(pi*x.*5/Lx).*cos(x/pi);
+        Δθ = θ_c
     end
 
     # Th_ref::DFloat = θ_ref
@@ -694,21 +711,24 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             if s
                 starttime[] = now()
             else
+                maxVertVelo = global_max(Q, _V)
                 @info @sprintf("""Update
                                simtime = %.16e
                                runtime = %s
+                               max(vert) = %.16e
                                """,
                                ODESolvers.gettime(lsrk),
                                Dates.format(convert(Dates.DateTime,
                                                     Dates.now()-starttime[]),
                                             Dates.dateformat"HH:MM:SS"),
+                               maxVertVelo
                                )
             end
         end
         
-        npoststates = 8
-        _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ, _o_beta = 1:npoststates
-        postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA", "SPONGE")
+        npoststates = 5
+        _o_u, _o_v, _o_w, _o_T, _o_θ= 1:npoststates
+        postnames = ("u", "v", "w", "T", "THETA")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -720,23 +740,20 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
         
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(500) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     u, v, w     = preflux(Q, aux)
-                    R[_o_LWP]   = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
                     R[_o_u]     = u
                     R[_o_v]     = v
                     R[_o_w]     = w
-                    R[_o_q_liq] = aux[_a_q_liq]
                     R[_o_T]     = aux[_a_T]
                     R[_o_θ]     = aux[_a_θ]
-                    R[_o_beta]  = aux[_a_sponge]
                 end
             end
             
-            mkpath("./CLIMA-output-scratch/RB/")
-            outprefix = @sprintf("./CLIMA-output-scratch/RB/RB_%dD_mpirank%04d_step%04d", dim,
+            mkpath("./CLIMA-output-scratch/ahmad/")
+            outprefix = @sprintf("./CLIMA-output-scratch/Ahmad/ahmad_%dD_mpirank%04d_step%04d", dim,
                                  MPI.Comm_rank(mpicomm), step[1])
             @debug "doing VTK output" outprefix
             writevtk(outprefix, Q, spacedisc, statenames,
