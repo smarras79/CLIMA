@@ -618,7 +618,7 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     # Th::DFloat  = Th_ref + randnum1 * Th_ref 
     # Tc::DFloat  = 275 
     # T           = 0.5 * (Th + Tc)
-    
+    θ_ref                 = SST
     θ                     = θ_ref + Δθ # potential temperature
     π_exner               = 1.0 - gravity / (c_p * θ) * y # exner pressure
     ρ                     = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
