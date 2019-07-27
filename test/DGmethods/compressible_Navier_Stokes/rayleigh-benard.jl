@@ -456,8 +456,8 @@ end
             y       = auxM[_a_y]
             x       = auxM[_a_x]
             Lx      = abs(xmax - xmin)
-            θ_ref   = 300.0
-            θ_c     = 10.0
+            θ_ref   = 290.4
+            θ_c     = 2.1
             Δθ      = θ_c*sin(pi*x*10/Lx)*cos(10*x/pi);
             #Δθ      = θ_c
             p0      = MSLP
