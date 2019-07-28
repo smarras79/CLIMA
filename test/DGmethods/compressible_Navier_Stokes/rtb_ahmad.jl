@@ -230,7 +230,7 @@ end
 
         #Dynamic eddy viscosity
         #μ_e = ρ*VF[_ν_e] #Vreman
-        μ_e = 2 #ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky   
+        μ_e = 0.5 #ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky   
         D_e = μ_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
@@ -391,7 +391,7 @@ end
             # first layer: damp lee waves
             #
             alpha_coe = 0.5
-            ct        = 10.0
+            ct        = 1.0
             ctop      = 0.0
             if xvert >= zd
                 zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
