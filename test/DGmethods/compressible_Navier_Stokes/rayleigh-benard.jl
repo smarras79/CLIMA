@@ -92,16 +92,16 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-const Δx    = 50
-const Δy    = 50
-const Δz    = 50
+const Δx    = 0.02
+const Δy    = 0.02
+const Δz    = 0.02
 
 const stretch_coe = 2.25
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  1000)
-const (ymin, ymax) = (0,  1000)
-const (zmin, zmax) = (0,  1000)
+const (xmin, xmax) = (0,  10)
+const (ymin, ymax) = (0,  1)
+const (zmin, zmax) = (0,  1)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -457,7 +457,7 @@ end
         QP[_QT] = QTM 
         =#
         #Dirichlet on \theta at bottom bvoundary 
-        if bctype == 3
+       #= if bctype == 3
             
             #if y < 0.00001
             T_bot    = SST + 5.0
@@ -471,9 +471,9 @@ end
             E        = ρ_bot*(e_int + e_kin + e_pot)
 
             VFP[_Ty] = VFM[_Ty]
-            #QP[_ρ]   = ρ_bot
+            QP[_ρ]   = ρ_bot
             QP[_E]   = E      
-        end
+        end=#
         nothing
     end
 end
@@ -540,13 +540,18 @@ function preodefun!(disc, Q, t)
     DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
         @inbounds let
             ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+            u, v, w = U/ρ, V/ρ, W/ρ
+            
             xvert = aux[_a_y]
-            e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * xvert) / ρ
-            q_tot = QT / ρ * 0.0 
-            TS = PhaseEquil(e_int, q_tot, ρ)
-            T = air_temperature(TS)
-            P = air_pressure(TS) # Test with dry atmosphere
-            q_liq = PhasePartition(TS).liq
+            e_kin = 0.5*(u^2 + v^2 + w^2)
+            e_pot = grav * xvert
+            e_int = E/ρ -  e_kin - e_pot
+            q_tot = 0.0 * QT / ρ
+            
+            TS    = PhaseEquil(e_int, q_tot, ρ)
+            T     = air_temperature(TS)
+            P     = air_pressure(TS) # Test with dry atmosphere
+            q_liq = 0* PhasePartition(TS).liq
 
             R[_a_T] = T
             R[_a_P] = P
@@ -581,7 +586,7 @@ end
 const seed = MersenneTwister(0)
 
 # NEW FUNCTION
-function dry_benchmark!(dim, Q, t, x, y, z, _...)
+#=function dry_benchmark!(dim, Q, t, x, y, z, _...)
     DFloat                = eltype(Q)
     xvert = y
     # initialise with dry domain 
@@ -605,8 +610,8 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
 
     Taux = (1 - grav * xvert / (cp_d * SST));
     T    = SST * Taux;
-    ρ    = ρ0 * Taux.^(cv_d/R_d);
-    P    = R_d * ρ0 * SST * Taux.^(cv_d/R_d);
+    ρ    = ρ0 * Taux^(cv_d/R_d);
+    P    = R_d * ρ0 * SST * Taux^(cv_d/R_d);
     
     U, V, W               = 0.0, 0.0, 0.0
     u, v, w               = U/ρ, V/ρ, W/ρ
@@ -617,7 +622,59 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     e_int                 = cv_d*T
     E                     = ρ*(e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
+end=#
+
+
+# NEW FUNCTION
+function dry_benchmark!(dim, Q, t, x, y, z, _...)
+    DFloat                = eltype(Q)
+    
+    # can override default gas constants 
+    # to moist values later in the driver 
+    R_gas::DFloat         = R_d
+    c_p::DFloat           = cp_d
+    c_v::DFloat           = cv_d
+    p0::DFloat            = MSLP
+    gravity::DFloat       = grav
+    # initialise with dry domain 
+    q_tot::DFloat         = 0 
+    q_liq::DFloat         = 0
+    q_ice::DFloat         = 0
+    
+    # perturbation parameters for rising bubble
+    xc                    = 0.5*(xmin + xmax)
+    yc                    = 2000.0
+    r                     = sqrt((x - xc)^2 + (y - yc)^2)
+    rc::DFloat            = 2000
+    θ_ref::DFloat         = 300.0
+    θ_c::DFloat           =  10.0
+    Δθ::DFloat            = 0.0
+    #if r <= rc 
+    #    Δθ = θ_c * (1 - (r/rc))
+    #end
+    Lx = abs(xmax - xmin)
+    #if y < 0.98*Δy
+    #    #Δθ = θ_c * sin(pi*x.*5/Lx).*cos(x/pi);
+    #    Δθ = θ_c
+    #end
+   
+    θ                     = θ_ref + Δθ # potential temperature
+    π_exner               = 1.0 - gravity / (c_p * θ) * y # exner pressure
+    ρ                     = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
+    #P                     = T * ρ * R_gas
+    P                     = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
+    T                     = P / (ρ * R_gas) # temperature
+    
+    U, V, W               = 0.0 , 0.0 , 0.0  # momentum components
+    # energy definitions
+    e_kin                 = (U^2 + V^2 + W^2) / (2*ρ)/ ρ
+    e_pot                 = gravity * y
+    e_int                 = c_v*(T - T_0)
+    E                     = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
+    
+    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
 end
+
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 

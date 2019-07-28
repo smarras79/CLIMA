@@ -93,8 +93,8 @@ const Npoly = 4
 
 # Define grid size 
 const Δx    = 250
-const Δy    = 200
-const Δz    = 200
+const Δy    = 250
+const Δz    = 250
 
 const stretch_coe = 2.25
 
@@ -454,7 +454,7 @@ end
         =#
 
         #Dirichlet on \theta at bottom bvoundary 
-        if bctype == 3
+        #=if bctype == 3
             y       = auxM[_a_y]
             θ_ref   = 300.0
             θ_c     = 10.0
@@ -471,7 +471,7 @@ end
             #    y = auxM[_a_y]
             #    T = Tc
             #    QP[_E] = internal_energy(T, PhasePartition(DFloat(0))) + grav * y 
-        end
+        end=#
         nothing
     end
 end
