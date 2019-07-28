@@ -130,7 +130,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 const Δsqr = Δ * Δ
 
 # Surface values to calculate surface fluxes:
-const SST         = 273.15
+const SST         = 289.0
 const T_c         = 2
 
 const p_sfc       = 1017.8e2      # Pa
@@ -439,6 +439,8 @@ end
     @inbounds begin
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
         u, v, w = UM/ρM, VM/ρM, WM/ρM
+
+        xvert = aux[_a_y]
         
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
         QP[_U] = UM - 2 * nM[1] * UnM
@@ -456,31 +458,20 @@ end
         =#
         #Dirichlet on \theta at bottom bvoundary 
         if bctype == 3
-            y       = auxM[_a_y]
-            x       = auxM[_a_x]
-            T_bot   = 273.15
             
-            T_bot   = 273.15
-            T_top   = T_bot - 2
-            P_top   = MSLP
-            ρ_top   = P_top/(R_d*T_top)
-
-            QP[_E]  = ρM * cv_d*T_bot + 0.5 * ρM *(u^2 + v^2 + w^2)
+            #if y < 0.00001
+            T_bot = SST + 5.0
+            P_bot = MSLP
+            ρ_bot = P_bot/(SST * R_d);
             
-            #QP[_E]  = ρ*internal_energy(T, PhasePartition(DFloat(0))) + 0.5*ρ*(u^2 + v^2 + w^2)
-            #elseif bctype == 4
-            #    y = auxM[_a_y]
-            #    T = Tc
-            #    QP[_E] = internal_energy(T, PhasePartition(DFloat(0))) + grav * y
+            # energy definitions
+            e_kin   = 0.5*(u^2 + v^2 + w^2)
+            e_pot   = grav * xvert
+            e_int   = cv_d*T_bot
+            E       = ρ*(e_int + e_kin + e_pot)
             
-        elseif bctype == 4
-            y       = auxM[_a_y]
-
-            T_bot   = 273.15
-            T_top   = T_bot - 2
-                        
-            QP[_E]  = ρM * cv_d * T_top + 0.5 * ρM * (u^2 + v^2 + w^2)
-            
+            QP[_ρ]  = ρ_bot
+            QP[_E]  = E      
         end
         nothing
     end
@@ -607,20 +598,20 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
         T_top = SST - 5.0
     end
 
-    T0   = SST;
+    T0   = SST
     P0   = MSLP
-    ρ0   = P0/(T0 * R_d);
+    ρ0   = P0/(SST * R_d);
 
-    Taux = (1 - grav * xvert / (cp_d * T0));
-    T    = T0 * Taux;
-    ρ    = ρ0 * Taux.^(cv_d/(R_d));
-    P    = R_d * ρ0 * T0 * Taux.^(cv_d/R_d);
+    Taux = (1 - grav * xvert / (cp_d * SST));
+    T    = SST * Taux;
+    ρ    = ρ0 * Taux.^(cv_d/R_d);
+    P    = R_d * ρ0 * SST * Taux.^(cv_d/R_d);
     
     U, V, W               = 0.0, 0.0, 0.0
     u, v, w               = U/ρ, V/ρ, W/ρ
 
     # energy definitions
-    e_kin                 = (U^2 + V^2 + W^2) / (2*ρ)/ ρ
+    e_kin                 = 0.5*(u^2 + v^2 + w^2)
     e_pot                 = grav * xvert
     e_int                 = cv_d*T
     E                     = ρ*(e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
