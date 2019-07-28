@@ -441,8 +441,9 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        QP[_ρ] = ρM
-        QP[_QT] = QTM
+        VFP .= 0
+        #QP[_ρ] = ρM
+        #QP[_QT] = QTM
         #=
         # noslip boundary 
         QP[_U] = 0
