@@ -230,7 +230,7 @@ end
 
         #Dynamic eddy viscosity
         #μ_e = ρ*VF[_ν_e] #Vreman
-        μ_e = 20 #ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
+        μ_e = 200 #ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
         D_e = μ_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
@@ -737,7 +737,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
         
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     u, v, w     = preflux(Q, aux)
