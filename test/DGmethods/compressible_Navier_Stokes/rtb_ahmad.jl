@@ -70,7 +70,6 @@ end
 const seed = MersenneTwister(0)
 
 
-
 function global_max(A::MPIStateArray, states=1:size(A, 2))
     host_array = Array ∈ typeof(A).parameters
     h_A = host_array ? A : Array(A)
@@ -582,6 +581,9 @@ const seed = MersenneTwister(0)
 function dry_benchmark!(dim, Q, t, x, y, z, _...)
     DFloat                = eltype(Q)
     
+    randnum1   = rand(seed, DFloat) / 100
+    randnum2   = rand(seed, DFloat) / 100
+    
     # can override default gas constants 
     # to moist values later in the driver 
     R_gas::DFloat         = R_d
@@ -602,19 +604,14 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     θ_ref::DFloat         = 300.0
     θ_c::DFloat           =  10.0
     Δθ::DFloat            = 0.0
-    #if r <= rc 
-    #    Δθ = θ_c * (1 - (r/rc))
-    #end
-    Lx = abs(xmax - xmin)
-    if y < 0.98*Δy
-        #Δθ = θ_c * sin(pi*x.*5/Lx).*cos(x/pi);
-        Δθ = θ_c
+    if r <= rc 
+        Δθ = θ_c * (1 - (r/rc)) + randnum1*Δθ
     end
-
-    # Th_ref::DFloat = θ_ref
-    # Th::DFloat  = Th_ref + randnum1 * Th_ref 
-    # Tc::DFloat  = 275 
-    # T           = 0.5 * (Th + Tc)
+    #Lx = abs(xmax - xmin)
+    #if y < 0.98*Δy
+    #    #Δθ = θ_c * sin(pi*x.*5/Lx).*cos(x/pi);
+    #    Δθ = θ_c
+    #end
     
     θ                     = θ_ref + Δθ # potential temperature
     π_exner               = 1.0 - gravity / (c_p * θ) * y # exner pressure
@@ -740,7 +737,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
         
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(500) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     u, v, w     = preflux(Q, aux)
