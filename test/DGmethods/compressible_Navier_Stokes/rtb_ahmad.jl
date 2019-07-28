@@ -230,7 +230,7 @@ end
 
         #Dynamic eddy viscosity
         #μ_e = ρ*VF[_ν_e] #Vreman
-        μ_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
+        μ_e = 20 #ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
         D_e = μ_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
