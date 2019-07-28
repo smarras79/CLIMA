@@ -99,9 +99,9 @@ const Δz    = 200
 const stretch_coe = 2.25
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 20000)
-const (ymin, ymax) = (0, 10000)
-const (zmin, zmax) = (0, 10000)
+const (xmin, xmax) = (0, 10000)
+const (ymin, ymax) = (0,  5000)
+const (zmin, zmax) = (0,  5000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -130,8 +130,8 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 const Δsqr = Δ * Δ
 
 # Surface values to calculate surface fluxes:
-const SST         = 290.4
-const T_c         = 2.1
+const SST         = 273.15
+const T_c         = 2
 
 const p_sfc       = 1017.8e2      # Pa
 const q_tot_sfc   = 13.84e-3      # qs(sst) using Teten's formula
@@ -458,19 +458,29 @@ end
         if bctype == 3
             y       = auxM[_a_y]
             x       = auxM[_a_x]
-            Lx      = abs(xmax - xmin)
-            T_ref   = SST
-            #ΔT      = T_c * sin(pi*x*0.05/Lx)*cos(0.01*x/pi);
+            T_bot   = 273.15
             
-            p0      = MSLP
-            T       = T_ref
-            ρ       = ρ_sfc
+            T_bot   = 273.15
+            T_top   = T_bot - 2
+            P_top   = MSLP
+            ρ_top   = P_top/(R_d*T_top)
+
+            QP[_E]  = ρM * cv_d*T_bot + 0.5 * ρM *(u^2 + v^2 + w^2)
             
-            QP[_E]  = ρ*internal_energy(T, PhasePartition(DFloat(0))) + 0.5*ρ*(u^2 + v^2 + w^2)
+            #QP[_E]  = ρ*internal_energy(T, PhasePartition(DFloat(0))) + 0.5*ρ*(u^2 + v^2 + w^2)
             #elseif bctype == 4
             #    y = auxM[_a_y]
             #    T = Tc
-            #    QP[_E] = internal_energy(T, PhasePartition(DFloat(0))) + grav * y 
+            #    QP[_E] = internal_energy(T, PhasePartition(DFloat(0))) + grav * y
+            
+        elseif bctype == 4
+            y       = auxM[_a_y]
+
+            T_bot   = 273.15
+            T_top   = T_bot - 2
+                        
+            QP[_E]  = ρM * cv_d * T_top + 0.5 * ρM * (u^2 + v^2 + w^2)
+            
         end
         nothing
     end
@@ -581,58 +591,39 @@ const seed = MersenneTwister(0)
 # NEW FUNCTION
 function dry_benchmark!(dim, Q, t, x, y, z, _...)
     DFloat                = eltype(Q)
-    
-    # can override default gas constants 
-    # to moist values later in the driver 
-    R_gas::DFloat         = R_d
-    c_p::DFloat           = cp_d
-    c_v::DFloat           = cv_d
-    p0::DFloat            = MSLP
-    gravity::DFloat       = grav
+    xvert = y
     # initialise with dry domain 
     q_tot::DFloat         = 0 
     q_liq::DFloat         = 0
     q_ice::DFloat         = 0
     
-    # perturbation parameters for rising bubble
-    xc                    = 0.5*(xmin + xmax)
-    yc                    = 2000.0
-    r                     = sqrt((x - xc)^2 + (y - yc)^2)
-    rc::DFloat            = 2000
-    θ_c::DFloat           =  10.0
-    Δθ::DFloat            = 0.0
-    #if r <= rc 
-    #    Δθ = θ_c * (1 - (r/rc))
     #end
-    Lx = abs(xmax - xmin)
+    T_bot = 0.0
+    T_top = 0.0
     if y < 0.00001
-        T_ref   = SST
-        ΔT      = T_c * sin(pi*x*0.05/Lx)*cos(0.01*x/pi);
+        T_bot = SST + 5.0
+    end
+    if y > ymax - 0.00001
+        T_top = SST - 5.0
     end
 
-    # Th_ref::DFloat = θ_ref
-    # Th::DFloat  = Th_ref + randnum1 * Th_ref 
-    # Tc::DFloat  = 275 
-    # T           = 0.5 * (Th + Tc)
-    T_ref                 = SST
-    T_top                 = SST - T_c
-    #T                     = T_ref + ΔT # potential temperature
-    T                     = T_ref + y*(T_top - SST)/ymax # potential temperature
-    ρ                     = ρ_sfc*(1 - 0.2*(T - SST))
-    P                     = T * ρ * R_d
-    
-    #=π_exner               = 1.0 - gravity / (c_p * θ) * y # exner pressure
-    ρ                     = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
+    T0   = SST;
+    P0   = MSLP
+    ρ0   = P0/(T0 * R_d);
 
-    P                     = p0 * (R_gas * (ρ * θ) / p0) ^(c_p/c_v) # pressure (absolute)
-    T                     = P / (ρ * R_gas) # temperature
-    =#
-    U, V, W               = 0.0 , 0.0 , 0.0  # momentum components
+    Taux = (1 - grav * xvert / (cp_d * T0));
+    T    = T0 * Taux;
+    ρ    = ρ0 * Taux.^(cv_d/(R_d));
+    P    = R_d * ρ0 * T0 * Taux.^(cv_d/R_d);
+    
+    U, V, W               = 0.0, 0.0, 0.0
+    u, v, w               = U/ρ, V/ρ, W/ρ
+
     # energy definitions
     e_kin                 = (U^2 + V^2 + W^2) / (2*ρ)/ ρ
-    e_pot                 = gravity * y
-    e_int                 = cv_d*(T - T_0)
-    E                     = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
+    e_pot                 = grav * xvert
+    e_int                 = cv_d*T
+    E                     = ρ*(e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
 end
 
