@@ -92,16 +92,16 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-const Δx    = 250
-const Δy    = 200
-const Δz    = 200
+const Δx    = 50
+const Δy    = 50
+const Δz    = 50
 
 const stretch_coe = 2.25
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 10000)
-const (ymin, ymax) = (0,  5000)
-const (zmin, zmax) = (0,  5000)
+const (xmin, xmax) = (0,  1000)
+const (ymin, ymax) = (0,  1000)
+const (zmin, zmax) = (0,  1000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -440,7 +440,7 @@ end
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
         u, v, w = UM/ρM, VM/ρM, WM/ρM
 
-        xvert = aux[_a_y]
+        xvert = auxP[_a_y]
         
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
         QP[_U] = UM - 2 * nM[1] * UnM
@@ -467,11 +467,11 @@ end
             # energy definitions
             e_kin    = 0.5*(u^2 + v^2 + w^2)
             e_pot    = grav * xvert
-            e_int    = cv_d*T_bot
-            E        = ρ*(e_int + e_kin + e_pot)
+            e_int    = cv_d*(T_bot - 0*T_0)
+            E        = ρ_bot*(e_int + e_kin + e_pot)
 
             VFP[_Ty] = VFM[_Ty]
-            QP[_ρ]   = ρ_bot
+            #QP[_ρ]   = ρ_bot
             QP[_E]   = E      
         end
         nothing
@@ -595,9 +595,9 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     if y < 0.00001
         T_bot = SST + 5.0
     end
-    if y > ymax - 0.00001
-        T_top = SST - 5.0
-    end
+    #if y > ymax - 0.00001
+    #    T_top = SST - 5.0
+    #end
 
     T0   = SST
     P0   = MSLP
@@ -727,7 +727,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
         
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     u, v, w     = preflux(Q, aux)
