@@ -91,14 +91,14 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-const Δx    = 250
-const Δy    = 250
-const Δz    = 250
+const Δx    = 150
+const Δy    = 150
+const Δz    = 150
 
 const stretch_coe = 2.25
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 20000)
+const (xmin, xmax) = (0, 10000)
 const (ymin, ymax) = (0, 10000)
 const (zmin, zmax) = (0, 10000)
 
