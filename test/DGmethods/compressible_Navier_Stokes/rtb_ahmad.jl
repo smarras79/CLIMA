@@ -45,8 +45,8 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 17
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij, _ν_e = 1:_nviscstates
+const _nviscstates = 23
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _Trefx, _Trefy, _Trefz,  _Tpx, _Tpy, _Tpz, _θx, _θy, _θz, _SijSij, _ν_e = 1:_nviscstates
 
 # Gradient state labels
 # Gradient state labels
@@ -98,9 +98,9 @@ const Δz    = 125
 const stretch_coe = 2.25
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 10000)
-const (ymin, ymax) = (0, 10000)
-const (zmin, zmax) = (0, 10000)
+const (xmin, xmax) = (0,  5000)
+const (ymin, ymax) = (0,  6000)
+const (zmin, zmax) = (0,  6000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -224,6 +224,8 @@ end
         #Derivative of T and Q:
         vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+        vTrefx, vTrefy, vTrefz = VF[_Trefx], VF[_Trefy], VF[_Trefz]
+        vTpx, vTpy, vTpz = VF[_Tpx], VF[_Tpy], VF[_Tpz]
 
         # Radiation contribution
         SijSij = VF[_SijSij]
@@ -249,10 +251,16 @@ end
         F[2, _E] += u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * μ_e
         F[3, _E] += u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * μ_e
 
+        if (xvert < 0.0001 || xvert > ymax - 0.0001)
+            F[1, _E] = 0.0
+            F[2, _E] = cp_v*vTrefy/Prandtl
+        end
+
+        
         # Viscous contributions to mass flux terms
-        F[1, _ρ]  -=  vqx * D_e
-        F[2, _ρ]  -=  vqy * D_e
-        F[3, _ρ]  -=  vqz * D_e
+        #F[1, _ρ]  -=  vqx * D_e
+        #F[2, _ρ]  -=  vqy * D_e
+        #F[3, _ρ]  -=  vqz * D_e
         F[1, _QT] -=  vqx * D_e
         F[2, _QT] -=  vqy * D_e
         F[3, _QT] -=  vqz * D_e
@@ -267,16 +275,29 @@ end
 #md # in some cases. 
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
-const _ngradstates = 6
+const _ngradstates = 8
 @inline function gradient_vars!(gradient_list, Q, aux, t)
     @inbounds begin
         u, v, w = preflux(Q,aux)
         T = aux[_a_T]
         θ = aux[_a_θ]
+        xvert = aux[_a_y]
+        
         ρ, QT =Q[_ρ], Q[_QT]
         # ordering should match states_for_gradient_transform
         gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
         gradient_list[4], gradient_list[5], gradient_list[6] = θ, QT/ρ, T
+
+        #Get T_ref:
+        θ_ref       = 300;
+        π_exner_ref = 1.0 - grav / (cp_d * θ_ref) * xvert # exner pressure
+        ρ_ref       = MSLP / (R_d * θ_ref) * (π_exner_ref)^(cv_d / R_d) # density
+        P_ref       = MSLP * (R_d * (ρ_ref * θ_ref) / MSLP)^(cp_d/cv_d) # pressure (absolute)
+        T_ref       = P_ref / (ρ_ref * R_d) # temperature    
+
+        T_pert      = T - T_ref
+        gradient_list[7] = T_ref
+        gradient_list[8] = T_pert
     end
 end
 
@@ -296,6 +317,9 @@ end
         dθdx, dθdy, dθdz = grad_mat[1, 4], grad_mat[2, 4], grad_mat[3, 4]
         dqdx, dqdy, dqdz = grad_mat[1, 5], grad_mat[2, 5], grad_mat[3, 5]
         dTdx, dTdy, dTdz = grad_mat[1, 6], grad_mat[2, 6], grad_mat[3, 6]
+        dTrefdx, dTrefdy, dTrefdz = grad_mat[1, 7], grad_mat[2, 7], grad_mat[3, 7]
+        dTpdx,   dTpdy,   dTpdz   = grad_mat[1, 8], grad_mat[2, 8], grad_mat[3, 8]
+        
         # virtual potential temperature gradient: for richardson calculation
         # strains
         # --------------------------------------------
@@ -342,6 +366,8 @@ end
         # TODO: Viscous stresse come from SubgridScaleTurbulence module
         VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
         VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
+        VF[_Trefx], VF[_Trefy], VF[_Trefz] = dTrefdx, dTrefdy, dTrefdz
+        VF[_Tpx], VF[_Tpy], VF[_Tpz] = dTpdx, dTpdy, dTpdz
         VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
         VF[_SijSij] = SijSij
     end
@@ -360,70 +386,7 @@ end
         DFloat = eltype(aux)
         xvert = y
         aux[_a_y] = xvert
-
-        #Sponge 
-        ctop    = zero(DFloat)
-
-        cs_left_right = zero(DFloat)
-        cs_front_back = zero(DFloat)
-        ct            = DFloat(0.75)
-        
-        domain_bott  = 0
-        domain_top   = ymax
-        #END User modification on domain parameters.
-
-        
-        #Vertical sponge:
-        sponge_type = 2
-        if sponge_type == 1
-            
-            top_sponge  = DFloat(0.85) * domain_top          
-            if xvert >= top_sponge
-                ctop = ct * (sinpi((z - top_sponge)/2/(domain_top - top_sponge)))^4
-            end
-            
-        elseif sponge_type == 2
-            
-            bc_zscale = 300.0
-            zd        = domain_top - bc_zscale           
-            #
-            # top damping
-            # first layer: damp lee waves
-            #
-            alpha_coe = 0.5
-            ct        = 1.0
-            ctop      = 0.0
-            if xvert >= zd
-                zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
-                if zid >= 0.0 && zid <= 0.5
-                    abstaud = alpha_coe*(1.0 - cos(zid*pi))
-
-                else
-                    abstaud = alpha_coe*( 1.0 + ((zid - 0.5)*pi) )
-
-                end
-                ctop = ct*abstaud
-            end
-            
-        elseif sponge_type == 3
-            
-            bc_zscale = 500.0
-            zd        = domain_top - bc_zscale
-            
-            #
-            # top damping
-            # first layer: damp lee waves
-            #
-            ctop = 0.0
-            ct   = 0.02
-            if xvert >= zd
-                ctop = ct * sinpi(0.5 * (1.0 - (domain_top - xvert) / bc_zscale))^2.0
-            end
-        end
-        
-        beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-        beta  = min(beta, 1)
-        aux[_a_sponge] = beta
+       
     end
 end
 
@@ -442,6 +405,16 @@ end
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
         VFP .= 0
+
+        if bctype == 3 ||  bctype == 4
+            x = auxM[_a_x]
+            y = auxM[_a_y]
+            dTrefdy = -grav/cp_d
+            Pr = 1/3
+            VFP[_Trefy] = cp_d * dTrefdy / Pr
+            #VFP[_Trefy] = VFM[_Trefy]
+        end
+            
         #QP[_ρ] = ρM
         #QP[_QT] = QTM
         #=
@@ -596,24 +569,27 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     q_tot::DFloat         = 0 
     q_liq::DFloat         = 0
     q_ice::DFloat         = 0
+
     
     # perturbation parameters for rising bubble
-    xc                    = 0.5*(xmin + xmax)
-    yc                    = 2000.0
+    xc                    = 0.0
+    yc                    = 2100.0
     r                     = sqrt((x - xc)^2 + (y - yc)^2)
     rc::DFloat            = 2000.0
     θ_ref::DFloat         =  300.0
-    θ_c::DFloat           =    2.0
+    θ_c::DFloat           =    -2.0
     Δθ::DFloat            =    0.0
     if r <= rc 
         Δθ = θ_c * (1 - (r/rc)) + randnum1*Δθ
     end
-    #Lx = abs(xmax - xmin)
-    #if y < 0.98*Δy
-    #    #Δθ = θ_c * sin(pi*x.*5/Lx).*cos(x/pi);
-    #    Δθ = θ_c
-    #end
+
+    #Reference state:
+    π_exner_ref               = 1.0 - gravity / (c_p * θ_ref) * y # exner pressure
+    ρ_ref                     = p0 / (R_gas * θ_ref) * (π_exner_ref)^ (c_v / R_gas) # density
+    P_ref                     = p0 * (R_gas * (ρ_ref * θ_ref) / p0) ^(c_p/c_v) # pressure (absolute)
+    T_ref                     = P_ref / (ρ_ref * R_gas) # temperature    
     
+    #Perturbed state:
     θ                     = θ_ref + Δθ # potential temperature
     π_exner               = 1.0 - gravity / (c_p * θ) * y # exner pressure
     ρ                     = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
