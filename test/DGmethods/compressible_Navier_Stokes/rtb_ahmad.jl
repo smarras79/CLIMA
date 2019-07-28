@@ -230,7 +230,7 @@ end
 
         #Dynamic eddy viscosity
         #μ_e = ρ*VF[_ν_e] #Vreman
-        μ_e = 10 #ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky   
+        μ_e = 2 #ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky   
         D_e = μ_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
@@ -794,7 +794,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex, Ney)
-    dt = 0.0025
+    dt = 0.005
     timeend = 1200
     polynomialorder = Npoly
     DFloat = Float64
