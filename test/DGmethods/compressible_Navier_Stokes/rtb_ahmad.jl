@@ -601,10 +601,10 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     xc                    = 0.5*(xmin + xmax)
     yc                    = 2000.0
     r                     = sqrt((x - xc)^2 + (y - yc)^2)
-    rc::DFloat            = 2000
-    θ_ref::DFloat         = 300.0
-    θ_c::DFloat           =  10.0
-    Δθ::DFloat            = 0.0
+    rc::DFloat            = 2000.0
+    θ_ref::DFloat         =  300.0
+    θ_c::DFloat           =    2.0
+    Δθ::DFloat            =    0.0
     if r <= rc 
         Δθ = θ_c * (1 - (r/rc)) + randnum1*Δθ
     end
@@ -738,7 +738,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
         
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     u, v, w     = preflux(Q, aux)
@@ -795,7 +795,7 @@ let
     # User defined polynomial order 
     numelem = (Nex, Ney)
     dt = 0.005
-    timeend = 1200
+    timeend = 1020
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
