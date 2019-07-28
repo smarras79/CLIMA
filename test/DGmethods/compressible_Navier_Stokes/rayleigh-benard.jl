@@ -460,18 +460,19 @@ end
         if bctype == 3
             
             #if y < 0.00001
-            T_bot = SST + 5.0
-            P_bot = MSLP
-            ρ_bot = P_bot/(SST * R_d);
+            T_bot    = SST + 5.0
+            P_bot    = MSLP
+            ρ_bot    = P_bot/(SST * R_d);
             
             # energy definitions
-            e_kin   = 0.5*(u^2 + v^2 + w^2)
-            e_pot   = grav * xvert
-            e_int   = cv_d*T_bot
-            E       = ρ*(e_int + e_kin + e_pot)
-            
-            QP[_ρ]  = ρ_bot
-            QP[_E]  = E      
+            e_kin    = 0.5*(u^2 + v^2 + w^2)
+            e_pot    = grav * xvert
+            e_int    = cv_d*T_bot
+            E        = ρ*(e_int + e_kin + e_pot)
+
+            VFP[_Ty] = VFM[_Ty]
+            QP[_ρ]   = ρ_bot
+            QP[_E]   = E      
         end
         nothing
     end
