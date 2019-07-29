@@ -264,31 +264,6 @@ end
     F[3, _QT] -=  vqz * D_e
 
 
-      #
-      # Surface fluxes:
-      #
- #=     if xvert < first_node_level #FIX ME: identify the surface 
-
-          T          = aux[_a_T]
-          windspeed  = sqrt(u^2 + v^2)
-
-          #Surface flux of momentum
-          F[numdims, _U]   -= ρ*Cd*windspeed*u
-
-          #Surface flux of Qt
-          q_liq            = aux[_a_q_liq]
-          #q_part_sfc       = PhasePartition(q_tot_sfc, q_liq, 0.0) ##NOT SURE ABOUT THIS!
-          q_part_sfc       = PhasePartition(q_tot_sfc, q_liq, 0.0) ##NOT SURE ABOUT THIS!
-          q_tot            = Q[_QT]/ρ
-          qv_star          = q_vap_saturation(SST, ρ, q_part_sfc)
-          F[numdims, _QT] -= ρ*Cd*windspeed*(q_tot - qv_star)
-
-          #DSurface flux of e_int (called `I` in the design doc)
-          e_kin            = 0.5*windspeed
-          e_int            = E/ρ - e_kin
-          e_int_star       = internal_energy_sat(SST, ρ, q_tot_sfc)
-          F[numdims, _E]  -= ρ*Cd*windspeed*(e_int - e_int_star)
-      end     =# 
   end
 end
 
@@ -511,16 +486,8 @@ end
             #VFP[_τ13] = -Cd * windspeed * uM
             #VFP[_τ23] = -Cd * windspeed * vM
             #VFP[_τ33] = 0.0
-
-        else
-            VFP .= 0
         end
-        
-        #=if xvert < first_node_level
-            
-            
-        end=#
-        
+                
         nothing
     end
 end
@@ -549,7 +516,8 @@ end
   @inbounds begin
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
-    source_geostrophic!(S, Q, aux, t)    
+    source_geostrophic!(S, Q, aux, t)
+    source_surface_drag_evaporation!(S,Q,aux,t)
   end
 end
 
@@ -727,7 +695,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     if xvert >= 600.0 && xvert <= 840.0
         q_liq = (xvert - 600)*0.00045/240.0
     end
-    if xvert > 50.0 && xvert <= 200.0
+    if xvert <= 200.0
         θ_l   += randnum1 * θ_l
         q_tot += randnum2 * q_tot
     end
