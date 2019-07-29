@@ -479,7 +479,7 @@ end
         QP[_QT] = QTM
         #if bctype == 3
         if xvert < 0.0001
-            windspeed = sqrt(uM^2 + vM^2 + wM^2)
+            windspeed = sqrt(uM^2 + 0*vM^2)
 
             #2D
             VFP[_τ12] = -Cd * windspeed * uM
@@ -526,7 +526,7 @@ end
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
     #source_geostrophic!(S, Q, aux, t)
-    source_surface_drag_evaporation!(S,Q,aux,t)
+    source_boundary_evaporation!(S,Q,aux,t)
   end
 end
 
@@ -537,9 +537,12 @@ end
         V = Q[_V]        
         W = Q[_W]
 
+        u, v, w = U/ρ, V/ρ, W/ρ
+        
         h_first_layer = Δy
         
         #Evaporative flux: (eq 29 in CLIMA-doc)
+        windspeed = sqrt(u^2 + 0*v^2)
         q_tot  = qtM
         q_liq  = auxM[_a_q_liq]
         e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
@@ -592,15 +595,6 @@ end
 
 @inline function source_geopot!(S,Q,aux,t)
   @inbounds S[_V] += - Q[_ρ] * grav
-end
-
-@inline function source_surface_drag_evaporation!(S,Q,aux,t)
-    @inbounds begin
-
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        u, v, w           = U/ρ, V/ρ, W/ρ    
-        xvert             = aux[_a_y]       
-    end
 end
 
 
