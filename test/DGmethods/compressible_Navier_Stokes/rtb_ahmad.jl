@@ -52,8 +52,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _T
 # Gradient state labels
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 15
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air = 1:_nauxstate
+const _nauxstate = 16
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_Tref, _a_soundspeed_air = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -124,8 +124,8 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 @parameter C_smag 0.23 "C_smag"
 # Equivalent grid-scale
 #Δ = (Δx * Δy * Δz)^(1/3)
-Δ = max(Δx, Δy)
-#Δ = sqrt(Δx*Δy)
+#Δ = max(Δx, Δy)
+Δ = sqrt(Δx^2 + Δy^2)
 const Δsqr = Δ * Δ
 
 # Surface values to calculate surface fluxes:
@@ -232,7 +232,7 @@ end
 
         #Dynamic eddy viscosity
         #μ_e = ρ*VF[_ν_e] #Vreman
-        μ_e = 0.5 #ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky   
+        μ_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky   
         D_e = μ_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
@@ -251,10 +251,10 @@ end
         F[2, _E] += u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * μ_e
         F[3, _E] += u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * μ_e
 
-        if (xvert < 0.0001 || xvert > ymax - 0.0001)
-            F[1, _E] = 0.0
-            F[2, _E] = cp_v*vTrefy/Prandtl
-        end
+        #if (xvert < 0.0001 || xvert > ymax - 0.0001)
+        #    F[1, _E] = 0.0
+        #    F[2, _E] = cp_v*vTrefy/Prandtl
+        #end
 
         
         # Viscous contributions to mass flux terms
@@ -289,15 +289,13 @@ const _ngradstates = 8
         gradient_list[4], gradient_list[5], gradient_list[6] = θ, QT/ρ, T
 
         #Get T_ref:
-        θ_ref       = 300;
-        π_exner_ref = 1.0 - grav / (cp_d * θ_ref) * xvert # exner pressure
-        ρ_ref       = MSLP / (R_d * θ_ref) * (π_exner_ref)^(cv_d / R_d) # density
-        P_ref       = MSLP * (R_d * (ρ_ref * θ_ref) / MSLP)^(cp_d/cv_d) # pressure (absolute)
-        T_ref       = P_ref / (ρ_ref * R_d) # temperature    
-
-        T_pert      = T - T_ref
+        θ_ref            = 300;
+        π_exner_ref      = 1.0 - grav / (cp_d * θ_ref) * xvert # exner pressure
+        ρ_ref            = MSLP / (R_d * θ_ref) * (π_exner_ref)^(cv_d / R_d) # density
+        P_ref            = MSLP * (R_d * (ρ_ref * θ_ref) / MSLP)^(cp_d/cv_d) # pressure (absolute)
+        T_ref            = P_ref / (ρ_ref * R_d) # T reference    
         gradient_list[7] = T_ref
-        gradient_list[8] = T_pert
+        gradient_list[8] = T - T_ref #T perturbation
     end
 end
 
@@ -364,11 +362,11 @@ end
         VF[_τ23] = -2 * S23
 
         # TODO: Viscous stresse come from SubgridScaleTurbulence module
-        VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
-        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
+        VF[_qx],    VF[_qy],    VF[_qz]    = dqdx,    dqdy,    dqdz
+        VF[_Tx],    VF[_Ty],    VF[_Tz]    = dTdx,    dTdy,    dTdz
         VF[_Trefx], VF[_Trefy], VF[_Trefz] = dTrefdx, dTrefdy, dTrefdz
-        VF[_Tpx], VF[_Tpy], VF[_Tpz] = dTpdx, dTpdy, dTpdz
-        VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
+        VF[_Tpx],   VF[_Tpy],   VF[_Tpz]   = dTpdx,   dTpdy,   dTpdz
+        VF[_θx],    VF[_θy],    VF[_θz]    = dθdx,    dθdy,    dθdz
         VF[_SijSij] = SijSij
     end
 end
@@ -394,26 +392,39 @@ end
 # generic bc for 2d , 3d
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
     DFloat = eltype(QP)
-    Th::DFloat          = 300
-    Tc::DFloat          = 275
     @inbounds begin
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
-        u, v, w = UM/ρM, VM/ρM, WM/ρM
+        uM, vM, wM = UM/ρM, VM/ρM, WM/ρM
         
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        VFP .= 0
+        q1 = (uM*nM[2] - vM*nM[1])*nM[2]
+        q2 = (vM*nM[1] - uM*nM[2])*nM[1]
+        #QP[_ρ] = ρM
+        #QP[_U] = ρM*q1
+        #QP[_V] = ρM*q2
+        QP[_E] = QM[_E] + 0.5*ρM*(q1^2 + q2^2)
 
-        if bctype == 3 ||  bctype == 4
-            x = auxM[_a_x]
-            y = auxM[_a_y]
-            dTrefdy = -grav/cp_d
-            Pr = 1/3
-            VFP[_Trefy] = cp_d * dTrefdy / Pr
-            #VFP[_Trefy] = VFM[_Trefy]
-        end
+        #if bctype == 3
+        #    #VFP .= 0
+        #    QP[_U] = 0.0
+        #    QP[_V] = 0.0
+        #    QP[_W] = 0.0
+        #
+        #    T = 300 + 5;
+        #    QP[_E] = ρ*internal_energy(T, PhasePartition(DFloat(0)))
+        #end
+        
+        #if bctype == 3 ||  bctype == 4
+        #    x = auxM[_a_x]
+        #    y = auxM[_a_y]
+        #    dTrefdy = -grav/cp_d
+        #    Pr = 1/3
+        #    #VFP[_Trefy] = cp_d * dTrefdy / Pr
+        #    VFP[_Trefy] = VFM[_Trefy]
+        #end
             
         #QP[_ρ] = ρM
         #QP[_QT] = QTM
@@ -619,7 +630,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
-    @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,false), boundary=[1 3;2 4])
+    @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(false,false))
 
     @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
                                                                    FloatType = DFloat,
@@ -714,7 +725,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
         
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(2500) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     u, v, w     = preflux(Q, aux)

@@ -45,15 +45,15 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 17
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij, _ν_e = 1:_nviscstates
+const _nviscstates = 23
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _Trefx, _Trefy, _Trefz,  _Tpx, _Tpy, _Tpz, _θx, _θy, _θz, _SijSij, _ν_e = 1:_nviscstates
 
 # Gradient state labels
 # Gradient state labels
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 15
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air = 1:_nauxstate
+const _nauxstate = 16
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_Tref, _a_soundspeed_air = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -68,7 +68,6 @@ end
 
 # Random number seed
 const seed = MersenneTwister(0)
-
 
 
 function global_max(A::MPIStateArray, states=1:size(A, 2))
@@ -92,16 +91,16 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-const Δx    = 0.02
-const Δy    = 0.02
-const Δz    = 0.02
+const Δx    = 125
+const Δy    = 125
+const Δz    = 125
 
 const stretch_coe = 2.25
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  10)
-const (ymin, ymax) = (0,  1)
-const (zmin, zmax) = (0,  1)
+const (xmin, xmax) = (0,  5000)
+const (ymin, ymax) = (0,  6000)
+const (zmin, zmax) = (0,  6000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -130,9 +129,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 const Δsqr = Δ * Δ
 
 # Surface values to calculate surface fluxes:
-const SST         = 289.0
-const T_c         = 2
-
+const SST         = 292.5
 const p_sfc       = 1017.8e2      # Pa
 const q_tot_sfc   = 13.84e-3      # qs(sst) using Teten's formula
 const ρ_sfc       = 1.22          #kg/m^3
@@ -140,7 +137,6 @@ const ft          =  15.0
 const fq          = 115.0
 const Cd          = 0.0011        #Drag coefficient
 const first_node_level   = 0.5*Δy
-
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
 # DG RHS (but not explicitly solved for as a prognostic variable)
@@ -228,13 +224,15 @@ end
         #Derivative of T and Q:
         vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+        vTrefx, vTrefy, vTrefz = VF[_Trefx], VF[_Trefy], VF[_Trefz]
+        vTpx, vTpy, vTpz = VF[_Tpx], VF[_Tpy], VF[_Tpz]
 
         # Radiation contribution
         SijSij = VF[_SijSij]
 
         #Dynamic eddy viscosity
         #μ_e = ρ*VF[_ν_e] #Vreman
-        μ_e = ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky 
+        μ_e = 0.5 #ρ*sqrt(2SijSij) * C_smag^2 * Δsqr  # Smagorinsky   
         D_e = μ_e / Prandtl_t
 
         # Multiply stress tensor by viscosity coefficient:
@@ -253,10 +251,16 @@ end
         F[2, _E] += u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * μ_e
         F[3, _E] += u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * μ_e
 
+        #if (xvert < 0.0001 || xvert > ymax - 0.0001)
+        #    F[1, _E] = 0.0
+        #    F[2, _E] = cp_v*vTrefy/Prandtl
+        #end
+
+        
         # Viscous contributions to mass flux terms
-        F[1, _ρ]  -=  vqx * D_e
-        F[2, _ρ]  -=  vqy * D_e
-        F[3, _ρ]  -=  vqz * D_e
+        #F[1, _ρ]  -=  vqx * D_e
+        #F[2, _ρ]  -=  vqy * D_e
+        #F[3, _ρ]  -=  vqz * D_e
         F[1, _QT] -=  vqx * D_e
         F[2, _QT] -=  vqy * D_e
         F[3, _QT] -=  vqz * D_e
@@ -271,16 +275,27 @@ end
 #md # in some cases. 
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
-const _ngradstates = 6
+const _ngradstates = 8
 @inline function gradient_vars!(gradient_list, Q, aux, t)
     @inbounds begin
         u, v, w = preflux(Q,aux)
         T = aux[_a_T]
         θ = aux[_a_θ]
+        xvert = aux[_a_y]
+        
         ρ, QT =Q[_ρ], Q[_QT]
         # ordering should match states_for_gradient_transform
         gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
         gradient_list[4], gradient_list[5], gradient_list[6] = θ, QT/ρ, T
+
+        #Get T_ref:
+        θ_ref            = 300;
+        π_exner_ref      = 1.0 - grav / (cp_d * θ_ref) * xvert # exner pressure
+        ρ_ref            = MSLP / (R_d * θ_ref) * (π_exner_ref)^(cv_d / R_d) # density
+        P_ref            = MSLP * (R_d * (ρ_ref * θ_ref) / MSLP)^(cp_d/cv_d) # pressure (absolute)
+        T_ref            = P_ref / (ρ_ref * R_d) # temperature    
+        gradient_list[7] = T_ref
+        gradient_list[8] = T - T_ref
     end
 end
 
@@ -300,6 +315,9 @@ end
         dθdx, dθdy, dθdz = grad_mat[1, 4], grad_mat[2, 4], grad_mat[3, 4]
         dqdx, dqdy, dqdz = grad_mat[1, 5], grad_mat[2, 5], grad_mat[3, 5]
         dTdx, dTdy, dTdz = grad_mat[1, 6], grad_mat[2, 6], grad_mat[3, 6]
+        dTrefdx, dTrefdy, dTrefdz = grad_mat[1, 7], grad_mat[2, 7], grad_mat[3, 7]
+        dTpdx,   dTpdy,   dTpdz   = grad_mat[1, 8], grad_mat[2, 8], grad_mat[3, 8]
+        
         # virtual potential temperature gradient: for richardson calculation
         # strains
         # --------------------------------------------
@@ -344,9 +362,11 @@ end
         VF[_τ23] = -2 * S23
 
         # TODO: Viscous stresse come from SubgridScaleTurbulence module
-        VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
-        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
-        VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
+        VF[_qx],    VF[_qy],    VF[_qz]    = dqdx,    dqdy,    dqdz
+        VF[_Tx],    VF[_Ty],    VF[_Tz]    = dTdx,    dTdy,    dTdz
+        VF[_Trefx], VF[_Trefy], VF[_Trefz] = dTrefdx, dTrefdy, dTrefdz
+        VF[_Tpx],   VF[_Tpy],   VF[_Tpz]   = dTpdx,   dTpdy,   dTpdz
+        VF[_θx],    VF[_θy],    VF[_θz]    = dθdx,    dθdy,    dθdz
         VF[_SijSij] = SijSij
     end
 end
@@ -364,70 +384,7 @@ end
         DFloat = eltype(aux)
         xvert = y
         aux[_a_y] = xvert
-
-        #Sponge 
-        ctop    = zero(DFloat)
-
-        cs_left_right = zero(DFloat)
-        cs_front_back = zero(DFloat)
-        ct            = DFloat(0.75)
-        
-        domain_bott  = 0
-        domain_top   = ymax
-        #END User modification on domain parameters.
-
-        
-        #Vertical sponge:
-        sponge_type = 2
-        if sponge_type == 1
-            
-            top_sponge  = DFloat(0.85) * domain_top          
-            if xvert >= top_sponge
-                ctop = ct * (sinpi((z - top_sponge)/2/(domain_top - top_sponge)))^4
-            end
-            
-        elseif sponge_type == 2
-            
-            bc_zscale = 300.0
-            zd        = domain_top - bc_zscale           
-            #
-            # top damping
-            # first layer: damp lee waves
-            #
-            alpha_coe = 0.5
-            ct        = 10.0
-            ctop      = 0.0
-            if xvert >= zd
-                zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
-                if zid >= 0.0 && zid <= 0.5
-                    abstaud = alpha_coe*(1.0 - cos(zid*pi))
-
-                else
-                    abstaud = alpha_coe*( 1.0 + ((zid - 0.5)*pi) )
-
-                end
-                ctop = ct*abstaud
-            end
-            
-        elseif sponge_type == 3
-            
-            bc_zscale = 500.0
-            zd        = domain_top - bc_zscale
-            
-            #
-            # top damping
-            # first layer: damp lee waves
-            #
-            ctop = 0.0
-            ct   = 0.02
-            if xvert >= zd
-                ctop = ct * sinpi(0.5 * (1.0 - (domain_top - xvert) / bc_zscale))^2.0
-            end
-        end
-        
-        beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-        beta  = min(beta, 1)
-        aux[_a_sponge] = beta
+       
     end
 end
 
@@ -435,19 +392,43 @@ end
 # generic bc for 2d , 3d
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
     DFloat = eltype(QP)
-   
     @inbounds begin
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
-        u, v, w = UM/ρM, VM/ρM, WM/ρM
-
-        xvert = auxP[_a_y]
+        uM, vM, wM = UM/ρM, VM/ρM, WM/ρM
         
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-        QP[_U] = UM - 2 * nM[1] * UnM
-        QP[_V] = VM - 2 * nM[2] * UnM
-        QP[_W] = WM - 2 * nM[3] * UnM
-        QP[_ρ] = ρM
-        QP[_QT] = QTM
+        #QP[_U] = UM - 2 * nM[1] * UnM
+        #QP[_V] = VM - 2 * nM[2] * UnM
+        #QP[_W] = WM - 2 * nM[3] * UnM
+        q1 = (uM*nM[2] - vM*nM[1])*nM[2]
+        q2 = (vM*nM[1] - uM*nM[2])*nM[1]
+
+        #QP[_ρ] = ρM
+        #QP[_U] = ρM*q1
+        #QP[_V] = ρM*q2
+        QP[_E] = QM[_E] + 0.5*ρM*(q1^2 + q2^2)
+
+        if bctype == 3
+            #VFP .= 0
+            QP[_U] = 0.0
+            QP[_V] = 0.0
+            QP[_W] = 0.0
+
+            T = 300 + 5;
+            QP[_E] = ρ*internal_energy(T, PhasePartition(DFloat(0)))
+        end
+        
+        #if bctype == 3 ||  bctype == 4
+        #    x = auxM[_a_x]
+        #    y = auxM[_a_y]
+        #    dTrefdy = -grav/cp_d
+        #    Pr = 1/3
+        #    #VFP[_Trefy] = cp_d * dTrefdy / Pr
+        #    VFP[_Trefy] = VFM[_Trefy]
+        #end
+            
+        #QP[_ρ] = ρM
+        #QP[_QT] = QTM
         #=
         # noslip boundary 
         QP[_U] = 0
@@ -456,23 +437,25 @@ end
         QP[_ρ] = ρM 
         QP[_QT] = QTM 
         =#
-        #Dirichlet on \theta at bottom bvoundary 
-       #= if bctype == 3
-            
-            #if y < 0.00001
-            T_bot    = SST + 5.0
-            P_bot    = MSLP
-            ρ_bot    = P_bot/(SST * R_d);
-            
-            # energy definitions
-            e_kin    = 0.5*(u^2 + v^2 + w^2)
-            e_pot    = grav * xvert
-            e_int    = cv_d*(T_bot - 0*T_0)
-            E        = ρ_bot*(e_int + e_kin + e_pot)
 
-            VFP[_Ty] = VFM[_Ty]
-            QP[_ρ]   = ρ_bot
-            QP[_E]   = E      
+        #Dirichlet on \theta at bottom bvoundary 
+        #=if bctype == 3
+            y       = auxM[_a_y]
+            θ_ref   = 300.0
+            θ_c     = 10.0
+            Δθ      = θ_c + θ_ref #* sin(pi*x.*5/Lx).*cos(x/pi);
+            p0      = MSLP
+            θ       = Δθ # potential temperature
+            π_exner = 1.0 - grav / (cp_d * θ) * y # exner pressure
+            ρ       = p0 / (R_d * θ) * (π_exner)^ (cv_d / R_d) # density
+            P       = p0 * (R_d * (ρ * θ) / p0) ^(cp_d/cv_d) # pressure (absolute)
+            T       = P / (ρ * R_d) # temperature
+            
+            QP[_E]  = ρ*internal_energy(T, PhasePartition(DFloat(0))) + 0.5*ρ*(u^2 + v^2 + w^2)
+            #elseif bctype == 4
+            #    y = auxM[_a_y]
+            #    T = Tc
+            #    QP[_E] = internal_energy(T, PhasePartition(DFloat(0))) + grav * y 
         end=#
         nothing
     end
@@ -540,18 +523,13 @@ function preodefun!(disc, Q, t)
     DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
         @inbounds let
             ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-            u, v, w = U/ρ, V/ρ, W/ρ
-            
             xvert = aux[_a_y]
-            e_kin = 0.5*(u^2 + v^2 + w^2)
-            e_pot = grav * xvert
-            e_int = E/ρ -  e_kin - e_pot
-            q_tot = 0.0 * QT / ρ
-            
-            TS    = PhaseEquil(e_int, q_tot, ρ)
-            T     = air_temperature(TS)
-            P     = air_pressure(TS) # Test with dry atmosphere
-            q_liq = 0* PhasePartition(TS).liq
+            e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * xvert) / ρ
+            q_tot = QT / ρ * 0.0 
+            TS = PhaseEquil(e_int, q_tot, ρ)
+            T = air_temperature(TS)
+            P = air_pressure(TS) # Test with dry atmosphere
+            q_liq = PhasePartition(TS).liq
 
             R[_a_T] = T
             R[_a_P] = P
@@ -586,48 +564,11 @@ end
 const seed = MersenneTwister(0)
 
 # NEW FUNCTION
-#=function dry_benchmark!(dim, Q, t, x, y, z, _...)
-    DFloat                = eltype(Q)
-    xvert = y
-    # initialise with dry domain 
-    q_tot::DFloat         = 0 
-    q_liq::DFloat         = 0
-    q_ice::DFloat         = 0
-    
-    #end
-    T_bot = 0.0
-    T_top = 0.0
-    if y < 0.00001
-        T_bot = SST + 5.0
-    end
-    #if y > ymax - 0.00001
-    #    T_top = SST - 5.0
-    #end
-
-    T0   = SST
-    P0   = MSLP
-    ρ0   = P0/(SST * R_d);
-
-    Taux = (1 - grav * xvert / (cp_d * SST));
-    T    = SST * Taux;
-    ρ    = ρ0 * Taux^(cv_d/R_d);
-    P    = R_d * ρ0 * SST * Taux^(cv_d/R_d);
-    
-    U, V, W               = 0.0, 0.0, 0.0
-    u, v, w               = U/ρ, V/ρ, W/ρ
-
-    # energy definitions
-    e_kin                 = 0.5*(u^2 + v^2 + w^2)
-    e_pot                 = grav * xvert
-    e_int                 = cv_d*T
-    E                     = ρ*(e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
-    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
-end=#
-
-
-# NEW FUNCTION
 function dry_benchmark!(dim, Q, t, x, y, z, _...)
     DFloat                = eltype(Q)
+    
+    randnum1   = rand(seed, DFloat) / 100
+    randnum2   = rand(seed, DFloat) / 100
     
     # can override default gas constants 
     # to moist values later in the driver 
@@ -640,24 +581,27 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     q_tot::DFloat         = 0 
     q_liq::DFloat         = 0
     q_ice::DFloat         = 0
+
     
     # perturbation parameters for rising bubble
-    xc                    = 0.5*(xmin + xmax)
-    yc                    = 2000.0
+    xc                    = 0.0
+    yc                    = 2100.0
     r                     = sqrt((x - xc)^2 + (y - yc)^2)
-    rc::DFloat            = 2000
-    θ_ref::DFloat         = 300.0
-    θ_c::DFloat           =  10.0
-    Δθ::DFloat            = 0.0
-    #if r <= rc 
-    #    Δθ = θ_c * (1 - (r/rc))
-    #end
-    Lx = abs(xmax - xmin)
-    #if y < 0.98*Δy
-    #    #Δθ = θ_c * sin(pi*x.*5/Lx).*cos(x/pi);
-    #    Δθ = θ_c
-    #end
-   
+    rc::DFloat            = 2000.0
+    θ_ref::DFloat         =  300.0
+    θ_c::DFloat           =    -2.0
+    Δθ::DFloat            =    0.0
+    if r <= rc 
+        Δθ = θ_c * (1 - (r/rc)) + randnum1*Δθ
+    end
+
+    #Reference state:
+    π_exner_ref               = 1.0 - gravity / (c_p * θ_ref) * y # exner pressure
+    ρ_ref                     = p0 / (R_gas * θ_ref) * (π_exner_ref)^ (c_v / R_gas) # density
+    P_ref                     = p0 * (R_gas * (ρ_ref * θ_ref) / p0) ^(c_p/c_v) # pressure (absolute)
+    T_ref                     = P_ref / (ρ_ref * R_gas) # temperature    
+    
+    #Perturbed state:
     θ                     = θ_ref + Δθ # potential temperature
     π_exner               = 1.0 - gravity / (c_p * θ) * y # exner pressure
     ρ                     = p0 / (R_gas * θ) * (π_exner)^ (c_v / R_gas) # density
@@ -671,10 +615,8 @@ function dry_benchmark!(dim, Q, t, x, y, z, _...)
     e_pot                 = gravity * y
     e_int                 = c_v*(T - T_0)
     E                     = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
-    
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
 end
-
 
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
@@ -689,7 +631,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
-    @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,false), boundary=[1 3;2 4])
+    @timeit to "Topo init" topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(false,false))
 
     @timeit to "Grid init" grid = DiscontinuousSpectralElementGrid(topl,
                                                                    FloatType = DFloat,
@@ -784,7 +726,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
         
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     u, v, w     = preflux(Q, aux)
@@ -840,8 +782,8 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex, Ney)
-    dt = 0.0025
-    timeend = 14400
+    dt = 0.005
+    timeend = 1020
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims

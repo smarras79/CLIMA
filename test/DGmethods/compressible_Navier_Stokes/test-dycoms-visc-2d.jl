@@ -130,15 +130,14 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 const Δsqr = Δ * Δ
 
 # Surface values to calculate surface fluxes:
-#const SST         = 292.5
-const SST         = 300.5
+const SST         = 292.5
 const p_sfc       = 1017.8e2      # Pa
 const q_tot_sfc   = 13.84e-3      # qs(sst) using Teten's formula
 const ρ_sfc       = 1.22          #kg/m^3
 const ft          =  15.0
 const fq          = 115.0
 const Cd          = 0.0011        #Drag coefficient
-const first_node_level   = 0.5*Δy
+const first_node_level   = 0.0001
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
 # DG RHS (but not explicitly solved for as a prognostic variable)
@@ -268,7 +267,7 @@ end
       #
       # Surface fluxes:
       #
-      if xvert < first_node_level #FIX ME: identify the surface 
+ #=     if xvert < first_node_level #FIX ME: identify the surface 
 
           T          = aux[_a_T]
           windspeed  = sqrt(u^2 + v^2)
@@ -289,7 +288,7 @@ end
           e_int            = E/ρ - e_kin
           e_int_star       = internal_energy_sat(SST, ρ, q_tot_sfc)
           F[numdims, _E]  -= ρ*Cd*windspeed*(e_int - e_int_star)
-      end      
+      end     =# 
   end
 end
 
@@ -491,6 +490,9 @@ end
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         xvert = y
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
+        uM, vM, wM = UM/ρM, VM/ρM, WM/ρM
+        qtM = QM[_QT]/QM[_ρ]
+        
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
@@ -499,21 +501,23 @@ end
         QP[_W] = WM - 2 * nM[3] * UnM
         QP[_ρ] = ρM
         QP[_QT] = QTM
-        if xvert < first_node_level
-            VFP .= VFM
+        if bctype == 3
+            windspeed = sqrt(u^2 + v^2 + w^2)
+
+            #2D
+            VFP[_τ12] = -Cd * windspeed * uM
+            VFP[_τ22] = 0.0
+            #3D
+            #VFP[_τ13] = -Cd * windspeed * uM
+            #VFP[_τ23] = -Cd * windspeed * vM
+            #VFP[_τ33] = 0.0
+
         else
             VFP .= 0
         end
         
         #=if xvert < first_node_level
-            SST    = 295.0 #292.5
-            q_tot  = QP[_QT]/QP[_ρ]
-            q_liq  = auxM[_a_q_liq]
-            e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
-            e_kin  = 0.5*(QP[_U]^2/ρM^2 + QP[_V]^2/ρM^2 + QP[_W]^2/ρM^2)
-            e_pot  = grav*xvert
-            E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
-            QP[_E] = E
+            
             
         end=#
         
@@ -548,6 +552,37 @@ end
     source_geostrophic!(S, Q, aux, t)    
   end
 end
+
+@inline function source_boundary_evaporation!(S,Q,aux,t)
+    @inbounds begin
+        ρ = Q[_ρ]
+        U = Q[_U]
+        V = Q[_V]        
+        W = Q[_W]
+
+        h_first_layer = Δy
+        
+        #Evaporative flux: (eq 29 in CLIMA-doc)
+        q_tot  = qtM
+        q_liq  = auxM[_a_q_liq]
+        e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
+        e_kin  = 0.5*windspeed^2
+        e_pot  = grav*xvert
+
+        #Evaporative flux of total specific humidity
+        Lv        =   latent_heat_vapor(SST)
+        qv_star   =   saturation_vapor_pressure(SST)
+        Evap_flux = - Lv * Cd * windspeed * (q_tot - qv_star) / h_fisrt_layer
+        
+        #Evaporative flux of total specific humidity
+        cpm    =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
+        SHF    = - Cd * windspeed * (cpm*(T - SST) + grav * (xvert - ymin)) / h_first_layer
+
+        #Update energy source
+        S[_E] += Evap_flux + SHF
+    end
+end
+
 
 """
     Geostrophic wind forcing
