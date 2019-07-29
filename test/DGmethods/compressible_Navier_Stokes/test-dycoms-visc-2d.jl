@@ -125,7 +125,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 @parameter C_smag 0.23 "C_smag"
 # Equivalent grid-scale
 #Δ = (Δx * Δy * Δz)^(1/3)
-Δ = min(Δx, Δy)
+Δ = max(Δx, Δy)
 #Δ = sqrt(Δx*Δy)
 const Δsqr = Δ * Δ
 
@@ -403,7 +403,7 @@ end
 
         
         #Vertical sponge:
-        sponge_type = 3
+        sponge_type = 2
         if sponge_type == 1
             
             top_sponge  = DFloat(0.85) * domain_top          
@@ -420,7 +420,7 @@ end
             # first layer: damp lee waves
             #
             alpha_coe = 0.5
-            ct        = 10.0
+            ct        = 2.0
             ctop      = 0.0
             if xvert >= zd
                 zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
@@ -429,7 +429,7 @@ end
 
                 else
                     abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
-
+                    
                 end
                 ctop = ct*abstaud
             end
@@ -581,10 +581,11 @@ end
 
 @inline function source_sponge!(S,Q,aux,t)
     @inbounds begin
-        U, V, W  = Q[_U], Q[_V], Q[_W]
+        U, V, W, E  = Q[_U], Q[_V], Q[_W], Q[_E]
         beta     = aux[_a_sponge]
-        #S[_U] -= beta * U
-        S[_V] -= beta * V             
+        S[_U] -= beta * U
+        S[_V] -= beta * V     
+        #S[_E] -= beta * E
     end
 end
 
@@ -714,7 +715,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     ρ  = air_density(T, P, q_partition)
 
     #u, v, w = 7.0, 0.0, 0.0 #geostrophic
-    u, v, w = 7.0, 0.0, 0.0
+    u, v, w = 5.0, 0.0, 0.0
     
     e_kin = (u^2 + v^2 + w^2) / 2
     e_pot = grav * xvert
