@@ -569,9 +569,7 @@ end
         
         #Evaporative flux of total specific humidity
         cpm    =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
-
-       
-        T      =   
+        
         SHF    = - Cd * windspeed * (cpm*(T - SST) + grav * (xvert - ymin)) / h_first_layer
 
         #Update energy source
