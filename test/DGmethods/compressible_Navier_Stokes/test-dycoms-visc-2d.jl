@@ -125,8 +125,9 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 @parameter C_smag 0.23 "C_smag"
 # Equivalent grid-scale
 #Δ = (Δx * Δy * Δz)^(1/3)
-Δ = max(Δx, Δy)
+#Δ = min(Δx, Δy)
 #Δ = sqrt(Δx*Δy)
+Δ = sqrt(Δx^2 + Δy^2)
 const Δsqr = Δ * Δ
 
 # Surface values to calculate surface fluxes:
