@@ -482,10 +482,16 @@ end
             #2D
             VFP[_τ12] = -Cd * windspeed * uM
             VFP[_τ22] = 0.0
-            #3D
-            #VFP[_τ13] = -Cd * windspeed * uM
-            #VFP[_τ23] = -Cd * windspeed * vM
-            #VFP[_τ33] = 0.0
+            
+            #Fixt sfc T to SST:
+            Tsfc   = SST
+            q_tot  = qtM
+            q_liq  = auxM[_a_q_liq]
+            e_int  = internal_energy(Tsfc, PhasePartition(q_tot, q_liq, 0.0))
+            e_kin  = 0.5*windspeed^2
+            e_pot  = grav*xvert            
+            E      = ρM * total_energy(e_kin, e_pot, Tsfc, PhasePartition(q_tot, q_liq, 0.0))
+            QP[_E] = E           
         end
                 
         nothing
