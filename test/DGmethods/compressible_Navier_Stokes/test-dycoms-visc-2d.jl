@@ -130,13 +130,13 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 const Δsqr = Δ * Δ
 
 # Surface values to calculate surface fluxes:
-const SST         = 292.5
-const p_sfc       = 1017.8e2      # Pa
-const q_tot_sfc   = 13.84e-3      # qs(sst) using Teten's formula
-const ρ_sfc       = 1.22          #kg/m^3
-const ft          =  15.0
-const fq          = 115.0
-const Cd          = 0.0011        #Drag coefficient
+const SST        = 292.5
+const psfc       = 1017.8e2      # Pa
+const qtot_sfc   = 13.84e-3      # qs(sst) using Teten's formula
+const ρsfc       = 1.22          #kg/m^3
+const ft         =  15.0
+const fq         = 115.0
+const Cd         = 0.0011        #Drag coefficient
 const first_node_level   = 0.0001
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
@@ -474,9 +474,10 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        QP[_ρ] = ρM
+        QP[_ρ] = ρsfc #ρM
         QP[_QT] = QTM
-        if bctype == 3
+        #if bctype == 3
+        if xvert < 0.0001
             windspeed = sqrt(uM^2 + vM^2 + wM^2)
 
             #2D
@@ -490,7 +491,7 @@ end
             e_int  = internal_energy(Tsfc, PhasePartition(q_tot, q_liq, 0.0))
             e_kin  = 0.5*windspeed^2
             e_pot  = grav*xvert            
-            E      = ρM * total_energy(e_kin, e_pot, Tsfc, PhasePartition(q_tot, q_liq, 0.0))
+            E      = ρsfc * total_energy(e_kin, e_pot, Tsfc, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = E           
         end
                 
