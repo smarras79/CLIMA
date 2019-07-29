@@ -438,7 +438,7 @@ end
             
         elseif sponge_type == 2
             
-            bc_zscale = 300.0
+            bc_zscale = 500.0
             zd        = domain_top - bc_zscale           
             #
             # top damping
@@ -453,7 +453,7 @@ end
                     abstaud = alpha_coe*(1.0 - cos(zid*pi))
 
                 else
-                    abstaud = alpha_coe*( 1.0 + ((zid - 0.5)*pi) )
+                    abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
 
                 end
                 ctop = ct*abstaud
@@ -476,7 +476,7 @@ end
         end
         
         beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-        beta  = min(beta, 1)
+        #beta  = min(beta, 1)
         aux[_a_sponge] = beta
     end
 end
