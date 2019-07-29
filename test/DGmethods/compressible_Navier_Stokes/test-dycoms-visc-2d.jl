@@ -93,14 +93,14 @@ const Npoly = 4
 
 # Define grid size 
 const Δx    = 35
-const Δy    = 10
+const Δy    = 200
 const Δz    = 5
 
 const stretch_coe = 2.25
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 1000)
-const (ymin, ymax) = (0, 1500)
+const (xmin, xmax) = (0,  1000)
+const (ymin, ymax) = (0, 20000)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
@@ -404,7 +404,7 @@ end
 
         
         #Vertical sponge:
-        sponge_type = 2
+        sponge_type = 3
         if sponge_type == 1
             
             top_sponge  = DFloat(0.85) * domain_top          
@@ -414,7 +414,7 @@ end
             
         elseif sponge_type == 2
             
-            bc_zscale = 500.0
+            bc_zscale = 5000.0
             zd        = domain_top - bc_zscale           
             #
             # top damping
@@ -429,7 +429,7 @@ end
                     abstaud = alpha_coe*(1.0 - cos(zid*pi))
 
                 else
-                    abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
+                    abstaud = alpha_coe*( 1.0 + ((zid - 0.5)*pi) )
                     
                 end
                 ctop = ct*abstaud
