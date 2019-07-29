@@ -531,9 +531,9 @@ end
       # Surface evaporation effects:
       #
       xvert = aux[_a_y]
-      if xvert < 0.0001
-          source_boundary_evaporation!(S,Q,aux,t)
-      end
+      #if xvert < 0.0001
+      #    source_boundary_evaporation!(S,Q,aux,t)
+      #end
   end
 end
 
@@ -845,7 +845,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
     
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(500) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(100) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w     = preflux(Q, aux)
