@@ -254,7 +254,7 @@ end
     F[2, _E] += u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * μ_e
     F[3, _E] += u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * μ_e
 
-    #F[numdims, _E] += F_rad
+    F[numdims, _E] += F_rad
 
     # Viscous contributions to mass flux terms
     F[1, _ρ]  -=  vqx * D_e
@@ -398,7 +398,7 @@ end
         cs_front_back = zero(DFloat)
         ct            = DFloat(0.75)
         
-        domain_bott  = 0
+        domain_bott  = ymin
         domain_top   = ymax
         #END User modification on domain parameters.
 
@@ -421,7 +421,7 @@ end
             # first layer: damp lee waves
             #
             alpha_coe = 0.5
-            ct        = 2.0
+            ct        = 0.5
             ctop      = 0.0
             if xvert >= zd
                 zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
@@ -525,7 +525,7 @@ end
   @inbounds begin
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
-    source_geostrophic!(S, Q, aux, t)
+    #source_geostrophic!(S, Q, aux, t)
     source_surface_drag_evaporation!(S,Q,aux,t)
   end
 end
@@ -893,7 +893,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.00025
+  dt = 0.0005
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
