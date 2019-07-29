@@ -525,17 +525,26 @@ end
   @inbounds begin
     source_geopot!(S, Q, aux, t)
     source_sponge!(S, Q, aux, t)
-    #source_geostrophic!(S, Q, aux, t)
-    source_boundary_evaporation!(S,Q,aux,t)
+      #source_geostrophic!(S, Q, aux, t)
+
+      #
+      # Surface evaporation effects:
+      #
+      xvert = aux[_a_y]
+      if xvert < 0.0001
+          source_boundary_evaporation!(S,Q,aux,t)
+      end
   end
 end
 
 @inline function source_boundary_evaporation!(S,Q,aux,t)
     @inbounds begin
-        ρ = Q[_ρ]
-        U = Q[_U]
-        V = Q[_V]        
-        W = Q[_W]
+
+        ρ  = Q[_ρ]
+        U  = Q[_U]
+        V  = Q[_V]
+        W  = Q[_W]   
+        qt = Q[_QT]/ρ
 
         u, v, w = U/ρ, V/ρ, W/ρ
         
@@ -543,8 +552,8 @@ end
         
         #Evaporative flux: (eq 29 in CLIMA-doc)
         windspeed = sqrt(u^2 + 0*v^2)
-        q_tot  = qtM
-        q_liq  = auxM[_a_q_liq]
+        q_tot  = qt
+        q_liq  = aux[_a_q_liq]
         e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
         e_kin  = 0.5*windspeed^2
         e_pot  = grav*xvert
@@ -560,6 +569,7 @@ end
 
         #Update energy source
         S[_E] += Evap_flux + SHF
+        
     end
 end
 
