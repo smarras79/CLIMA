@@ -476,7 +476,9 @@ end
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
         QP[_ρ] = ρM
+        QP[_E] = EM
         QP[_QT] = QTM
+        
         #if bctype == 3
         if xvert < 0.0001
             windspeed = sqrt(uM^2 + 0*vM^2)
