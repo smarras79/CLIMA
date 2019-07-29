@@ -502,7 +502,7 @@ end
         QP[_ρ] = ρM
         QP[_QT] = QTM
         if bctype == 3
-            windspeed = sqrt(u^2 + v^2 + w^2)
+            windspeed = sqrt(uM^2 + vM^2 + wM^2)
 
             #2D
             VFP[_τ12] = -Cd * windspeed * uM
@@ -856,7 +856,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
     
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(500) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w     = preflux(Q, aux)
