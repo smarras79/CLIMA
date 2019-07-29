@@ -93,14 +93,14 @@ const Npoly = 4
 
 # Define grid size 
 const Δx    = 35
-const Δy    = 200
+const Δy    = 10
 const Δz    = 5
 
 const stretch_coe = 2.25
 
 # Physical domain extents 
-const (xmin, xmax) = (0,  1000)
-const (ymin, ymax) = (0, 20000)
+const (xmin, xmax) = (0, 1000)
+const (ymin, ymax) = (0, 2000)
 const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
