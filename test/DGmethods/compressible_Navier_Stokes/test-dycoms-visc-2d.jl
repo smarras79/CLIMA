@@ -540,11 +540,13 @@ end
 @inline function source_boundary_evaporation!(S,Q,aux,t)
     @inbounds begin
 
-        ρ  = Q[_ρ]
-        U  = Q[_U]
-        V  = Q[_V]
-        W  = Q[_W]   
-        qt = Q[_QT]/ρ
+        xvert = aux[_a_y]
+        
+        ρ     = Q[_ρ]
+        U     = Q[_U]
+        V     = Q[_V]
+        W     = Q[_W]   
+        q_tot = Q[_QT]/ρ
 
         u, v, w = U/ρ, V/ρ, W/ρ
         
@@ -552,19 +554,24 @@ end
         
         #Evaporative flux: (eq 29 in CLIMA-doc)
         windspeed = sqrt(u^2 + 0*v^2)
-        q_tot  = qt
         q_liq  = aux[_a_q_liq]
         e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
         e_kin  = 0.5*windspeed^2
         e_pot  = grav*xvert
+        TS     = PhaseEquil(e_int, q_tot, ρ)
+        T      = air_temperature(TS)
+        
 
         #Evaporative flux of total specific humidity
         Lv        =   latent_heat_vapor(SST)
-        qv_star   =   saturation_vapor_pressure(SST)
-        Evap_flux = - Lv * Cd * windspeed * (q_tot - qv_star) / h_fisrt_layer
+        qv_star   =   q_vap_saturation(SST, ρsfc, PhasePartition(q_tot, q_liq, 0.0))
+        Evap_flux = - Lv * Cd * windspeed * (q_tot - qv_star) / h_first_layer
         
         #Evaporative flux of total specific humidity
         cpm    =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
+
+       
+        T      =   
         SHF    = - Cd * windspeed * (cpm*(T - SST) + grav * (xvert - ymin)) / h_first_layer
 
         #Update energy source
