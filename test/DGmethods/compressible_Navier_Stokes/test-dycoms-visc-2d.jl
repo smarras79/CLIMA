@@ -474,7 +474,7 @@ end
         QP[_U] = UM - 2 * nM[1] * UnM
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
-        QP[_ρ] = ρsfc #ρM
+        QP[_ρ] = ρM
         QP[_QT] = QTM
         #if bctype == 3
         if xvert < 0.0001
@@ -492,6 +492,7 @@ end
             e_kin  = 0.5*windspeed^2
             e_pot  = grav*xvert            
             E      = ρsfc * total_energy(e_kin, e_pot, Tsfc, PhasePartition(q_tot, q_liq, 0.0))
+            QP[_ρ] = ρsfc
             QP[_E] = E           
         end
                 
