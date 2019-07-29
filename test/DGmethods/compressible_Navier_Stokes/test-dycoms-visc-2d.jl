@@ -472,11 +472,11 @@ end
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-        QP[_U] = UM - 2 * nM[1] * UnM
-        QP[_V] = VM - 2 * nM[2] * UnM
-        QP[_W] = WM - 2 * nM[3] * UnM
-        QP[_ρ] = ρM
-        QP[_E] = EM
+        QP[_U]  = UM - 2 * nM[1] * UnM
+        QP[_V]  = VM - 2 * nM[2] * UnM
+        QP[_W]  = WM - 2 * nM[3] * UnM
+        QP[_ρ]  = ρM
+        QP[_E]  = EM
         QP[_QT] = QTM
         
         #if bctype == 3
@@ -484,8 +484,8 @@ end
             windspeed = sqrt(uM^2 + 0*vM^2)
 
             #2D
-            VFP[_τ12] = -Cd * windspeed * uM
-            VFP[_τ22] = 0.0
+            #VFP[_τ12] = -Cd * windspeed * uM
+            #VFP[_τ22] = 0.0
             
             #Fixt sfc T to SST:
             Tsfc   = SST
