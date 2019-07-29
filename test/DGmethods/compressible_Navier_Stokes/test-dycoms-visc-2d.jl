@@ -904,7 +904,7 @@ let
   # User defined simulation end time
   # User defined polynomial order 
   numelem = (Nex, Ney)
-  dt = 0.0001
+  dt = 0.0005
   timeend = 14400
   polynomialorder = Npoly
   DFloat = Float64
