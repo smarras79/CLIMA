@@ -403,7 +403,7 @@ end
 
         
         #Vertical sponge:
-        sponge_type = 2
+        sponge_type = 3
         if sponge_type == 1
             
             top_sponge  = DFloat(0.85) * domain_top          
@@ -451,7 +451,7 @@ end
         end
         
         beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-        #beta  = min(beta, 1)
+        beta  = min(beta, 1)
         aux[_a_sponge] = beta
     end
 end
