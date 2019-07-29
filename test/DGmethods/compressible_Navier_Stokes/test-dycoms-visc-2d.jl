@@ -404,7 +404,7 @@ end
 
         
         #Vertical sponge:
-        sponge_type = 3
+        sponge_type = 2
         if sponge_type == 1
             
             top_sponge  = DFloat(0.85) * domain_top          
