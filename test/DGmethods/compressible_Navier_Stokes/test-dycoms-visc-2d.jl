@@ -214,8 +214,9 @@ end
     P = aux[_a_P]
       
     xvert = aux[_a_y]
-    v -= D_subsidence * xvert
-    V = v*ρ
+    #v -= D_subsidence * xvert
+    #V = v*ρ
+      
     # Inviscid contributions
     F[1, _ρ],  F[2, _ρ],  F[3, _ρ]  = U          , V          , W
     F[1, _U],  F[2, _U],  F[3, _U]  = u * U  + P , v * U      , w * U
