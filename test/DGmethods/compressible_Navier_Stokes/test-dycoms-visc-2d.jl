@@ -245,6 +245,20 @@ end
     τ13 = τ31 = VF[_τ13] * μ_e
     τ23 = τ32 = VF[_τ23] * μ_e
 
+    #
+    # Drag at bottom boundary: see CLIMA-doc
+    #
+    if xvert > 0.0001 && xvert < 2*Δy
+        #Thios must be done on the first node ABOVE the boundary            
+        windspeed = sqrt(u^2 + v^2)
+
+        #2D
+        τ12 = τ21 = -Cd * windspeed * u
+        τ22       = -Cd * windspeed * v          
+    end
+      
+
+
     # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
     F[1, _U] += τ11; F[2, _U] += τ12; F[3, _U] += τ13
     F[1, _V] += τ21; F[2, _V] += τ22; F[3, _V] += τ23
@@ -265,6 +279,7 @@ end
     F[2, _QT] -=  vqy * D_e
     F[3, _QT] -=  vqz * D_e
 
+    
 
   end
 end
@@ -476,30 +491,13 @@ end
         QP[_U]  = UM - 2 * nM[1] * UnM
         QP[_V]  = VM - 2 * nM[2] * UnM
         QP[_W]  = WM - 2 * nM[3] * UnM
+        if xvert < 0.0001
+            QP[_U] = QP[_V] = 0.0  # --> this is(?) consistent with the Drag flux term in cns_flux
+        end
         QP[_ρ]  = ρM
         QP[_E]  = EM
         QP[_QT] = QTM
         
-        #if bctype == 3
-        if xvert < 0.0001
-            windspeed = sqrt(uM^2 + 0*vM^2)
-
-            #2D
-            #VFP[_τ12] = -Cd * windspeed * uM
-            #VFP[_τ22] = 0.0
-            
-            #Fixt sfc T to SST:
-            Tsfc   = SST
-            q_tot  = qtM
-            q_liq  = auxM[_a_q_liq]
-            e_int  = internal_energy(Tsfc, PhasePartition(q_tot, q_liq, 0.0))
-            e_kin  = 0.5*windspeed^2
-            e_pot  = grav*xvert            
-            E      = ρsfc * total_energy(e_kin, e_pot, Tsfc, PhasePartition(q_tot, q_liq, 0.0))
-            #QP[_ρ] = ρsfc
-            #QP[_E] = E           
-        end
-                
         nothing
     end
 end
