@@ -247,7 +247,7 @@ end
 
     #
     # Drag at bottom boundary: see CLIMA-doc
-    #
+    #=
     if xvert > 0.0001 && xvert < 2*Δy
         #Thios must be done on the first node ABOVE the boundary            
         windspeed = sqrt(u^2 + v^2)
@@ -255,10 +255,8 @@ end
         #2D
         τ12 = τ21 = -Cd * windspeed * u
         τ22       = -Cd * windspeed * v          
-    end
+    end=#
       
-
-
     # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
     F[1, _U] += τ11; F[2, _U] += τ12; F[3, _U] += τ13
     F[1, _V] += τ21; F[2, _V] += τ22; F[3, _V] += τ23
@@ -277,9 +275,7 @@ end
     F[3, _ρ]  -=  vqz * D_e
     F[1, _QT] -=  vqx * D_e
     F[2, _QT] -=  vqy * D_e
-    F[3, _QT] -=  vqz * D_e
-
-    
+    F[3, _QT] -=  vqz * D_e    
 
   end
 end
@@ -491,12 +487,57 @@ end
         QP[_U]  = UM - 2 * nM[1] * UnM
         QP[_V]  = VM - 2 * nM[2] * UnM
         QP[_W]  = WM - 2 * nM[3] * UnM
+
+        e_int         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*xvert_FN
+        TS            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN)           #themordynamic state at first node        
+        q_vap         = PhasePartition(TS_FN).vap
+        q_liq         = PhasePartition(TS_FN).liq
+        T             = air_temperature(TS_FN)
+        
         if xvert < 0.0001
-            QP[_U] = QP[_V] = 0.0  # --> this is(?) consistent with the Drag flux term in cns_flux
+            #Thios must be done on the first node ABOVE the boundary
+            #uFN
+
+            xvert_FN         = aux[_a_y_fn]
+            ρ_FN             = aux[_a_ρ_fn]
+            U_FN             = aux[_a_U_fn]
+            V_FN             = aux[_a_V_fn]
+            W_FN             = aux[_a_W_fn]
+            E_FN             = aux[_a_E_fn]
+            u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
+            windspeed_FN     = sqrt(uFN^2 + 0*vFN^2)
+            q_tot_FN         = aux[_a_qt_fn]
+                
+            e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*xvert_FN
+            TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN)           #themordynamic state at first node
+            
+            q_vap_FN         = PhasePartition(TS_FN).vap
+            q_liq_FN         = PhasePartition(TS_FN).liq
+            T_FN             = air_temperature(TS_FN)
+            
+            #Momentum
+            #2D
+            τ12 = τ21 = -Cd * windspeed_FN * u_FN
+            τ22       = -Cd * windspeed_FN * v_FN
+
+            #Water flux: (eq 29 in CLIMA-doc)
+            Lv         =   latent_heat_vapor(SST)
+            q_vap_star =   q_vap_saturation(SST, ρsfc, PhasePartition(q_tot, q_liq, 0.0))
+            Evap_flux  = - Cd * windspeed * (q_vap_FN - q_vap_star) / h_first_layer
+
+            #Energy flux associate with evaporation: (eq 30 in CLIMA-doc)
+            cpv        =   cp_v(PhasePartition(q_tot, q_liq, 0.0))
+            ene_v_sfc  =   (cp_v*(T_FN - T_0) + Lv_0 + grav * xvert) * Evap_flux
+            
+            #Sensible heat flux: (eq 31 in CLIMA-doc)
+            cpm    =   cp_m(PhasePartition(q_tot, q_liq, 0.0))            
+            SHF    = - Cd * windspeed * (cpm*(T_FN - SST) + grav * (xvert_FN - ymin)) / h_first_layer
+            
+            
         end
         QP[_ρ]  = ρM
         QP[_E]  = EM
-        QP[_QT] = QTM
+        QP[_QT] = QTM        
         
         nothing
     end
@@ -572,7 +613,7 @@ end
         cpm    =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
         
         SHF    = - Cd * windspeed * (cpm*(T - SST) + grav * (xvert - ymin)) / h_first_layer
-
+        
         #Update energy source
         S[_E] += Evap_flux + SHF
         
