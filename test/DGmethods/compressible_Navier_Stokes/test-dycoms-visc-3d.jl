@@ -522,7 +522,7 @@ end
             e_pot  = grav*xvert
 
             TS     = PhaseEquil(e_int, q_tot, ρ)
-            q_liq  = q_tot - PhasePartition(TS).liq
+            q_liq  = PhasePartition(TS).liq
             
             Esfc   = ρ * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = Esfc
