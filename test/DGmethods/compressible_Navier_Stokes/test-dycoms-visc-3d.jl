@@ -103,7 +103,7 @@ const stretch_coe = 2.25
 
 # Physical domain extents 
 const (xmin, xmax) = (0, 500)
-const (ymin, ymax) = (0, 500)
+const (ymin, ymax) = (0, 250)
 const (zmin, zmax) = (0, 2000)
 
 #Get Nex, Ney from resolution
@@ -526,7 +526,7 @@ end
             
             Esfc   = ρ * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = Esfc
-            QP[_QT]= qtot*ρ
+            QP[_QT]= q_tot*ρ
         end
         
         nothing
