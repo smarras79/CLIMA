@@ -550,7 +550,7 @@ end
     @inbounds begin
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
-        #source_geostrophic!(S, Q, aux, t)
+        source_geostrophic!(S, Q, aux, t)
 
         # Surface evaporation effects:
         xvert = aux[_a_z]
@@ -580,6 +580,9 @@ end
             e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*xvert_FN
             TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN)           #themordynamic state at first node
             T_FN             = air_temperature(TS_FN)
+            q_liq_FN         = PhasePartition(TS_FN).liq
+            cpm_FN           = cp_m(TS_FN)
+            
             # -----------------------------------
             # Bottom boundary quantities 
             # -----------------------------------
@@ -592,6 +595,7 @@ end
             TS          = PhaseEquil(e_int, q_tot, ρ)           #thermodynamic state at first node        
             q_vap       = q_tot - PhasePartition(TS).liq
             T           = air_temperature(TS)
+            cpm         = cp_m(TS)   #PhasePartition(q_tot, q_liq, 0.0))
             # ------------------------------------
             #Momentum
             # ------------------------------------
@@ -616,14 +620,13 @@ end
             # ---------------------------------------
             #Sensible heat flux: (eq 31 in CLIMA-doc)
             # ---------------------------------------
-            q_liq_FN = PhasePartition(TS_FN).liq
-            cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))            
-            SHF      = - Cd * windspeed_FN * (cpm*(T_FN - SST) + grav * (xvert_FN - ymin)) / h_first_layer
+            cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
+            SHF      = - Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - ymin)) / h_first_layer
             
             S[_U] += dτ13dn 
             S[_V] += dτ23dn
-            #S[_E] += SHF + n_D_sfc
-            #S[_QT] += Evap_flux
+            S[_E] += SHF + n_D_sfc
+            S[_QT] += Evap_flux
         end
         nothing
     end
@@ -764,8 +767,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     
     ρ  = air_density(T, P, q_partition)
 
-    #u, v, w = 7.0, 0.0, 0.0 #geostrophic
-    u, v, w = 5.0, 0.0, 0.0
+    u, v, w = 7.0, -5.5, 0.0 #geostrophic
+    #u, v, w = 5.0, 0.0, 0.0
     
     e_kin = (u^2 + v^2 + w^2) / 2
     e_pot = grav * xvert
@@ -875,7 +878,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA", "SPONGE", "RHO_FN", "U_FN", "V_FN", "W_FN", "E_FN")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
-        cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+        cbfilter = GenericCallbacks.EveryXSimulationSteps(10) do
             DGBalanceLawDiscretizations.apply!(Q, 1:_nstate, spacedisc,
                                                filter_dycoms;
                                                horizontal=true,
