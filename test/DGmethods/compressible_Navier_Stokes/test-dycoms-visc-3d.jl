@@ -632,7 +632,7 @@ end
          =#   
             S[_U]  += dτ13dn 
             S[_V]  += dτ23dn
-            S[_E]  += (15 + 115)/h_first_layer
+            S[_E]  += -(15 + 115)/h_first_layer
             #S[_E]  += SHF + LHF
             S[_QT] += Evap_flux
         end
