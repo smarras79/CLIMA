@@ -94,7 +94,7 @@ const Npoly = 4
 # Define grid size 
 const Δx    = 35
 const Δy    = 35
-const Δz    = 200
+const Δz    = 10
 
 const h_first_layer = Δz
 
@@ -104,7 +104,7 @@ const stretch_coe = 2.25
 # Physical domain extents 
 const (xmin, xmax) = (0, 1000)
 const (ymin, ymax) = (0, 1000)
-const (zmin, zmax) = (0, 10000)
+const (zmin, zmax) = (0, 2600)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -449,14 +449,14 @@ end
             
         elseif sponge_type == 2
             
-            bc_zscale = 7000.0
+            bc_zscale = 800.0
             zd        = domain_top - bc_zscale           
             #
             # top damping
             # first layer: damp lee waves
             #
-            alpha_coe = 0.5
-            ct        = 1
+            alpha_coe = 1
+            ct        = 0.9
             ctop      = 0.0
             if xvert >= zd
                 zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
@@ -487,7 +487,7 @@ end
         end
         
         beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-        #beta  = min(beta, 1)
+        beta  = min(beta, 1)
         aux[_a_sponge] = beta
     end
 end
@@ -788,7 +788,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     # "top_stretching" --> node clustering by the top wall
     # "interior_stretching" --> node clustering around the coordinate of the `attractor_value`
     
-    z_range     = grid_stretching_1d(zmin, zmax, Ne[end], stretch_coe, "boundary_stretching")    
+    z_range     = grid_stretching_1d(zmin, zmax, Ne[end], stretch_coe, "no_boundary_stretching")    
     brickrange  = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
                    range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
                    z_range)
