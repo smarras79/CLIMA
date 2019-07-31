@@ -475,10 +475,8 @@ end
         QP[_E] = EM
         
         if xvert < h_first_layer && t < 0.0025
-
-            randnum1   = rand(seed, DFloat) / 100
             
-            SST    = 292.5 + randnum1
+            SST    = 292.5
             q_tot  = QP[_QT]/QP[_ρ]
             q_liq  = auxM[_a_q_liq]
             e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
