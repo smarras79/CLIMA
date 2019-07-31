@@ -299,7 +299,7 @@ end
 #md # in some cases. 
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
-const _ngradstates = 6
+const _ngradstates = 8
 @inline function gradient_vars!(gradient_list, Q, aux, t)
   @inbounds begin
     u, v, w = preflux(Q,aux)
@@ -967,3 +967,41 @@ end
 isinteractive() || MPI.Finalize()
 
 Nothing
+
+#=
+
+# -------------------------------------------------------------------------
+# generic bc for 2d , 3d
+@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
+    @inbounds begin
+
+        DFloat = eltype(QP)
+        x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
+        xvert = z
+        ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
+        # No flux boundary conditions
+        # No shear on walls (free-slip condition)
+        UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
+        QP[_U] = UM - 2 * nM[1] * UnM
+        QP[_V] = VM - 2 * nM[2] * UnM
+        QP[_W] = WM - 2 * nM[3] * UnM
+        QP[_ρ] = ρM
+        QP[_QT] = QTM        
+        QP[_E] = EM
+        
+        if xvert < h_first_layer && t < 0.0025
+            
+            SST    = 292.5
+            q_tot  = QP[_QT]/QP[_ρ]
+            q_liq  = auxM[_a_q_liq]
+            e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
+            e_kin  = 0.5*(QP[_U]^2/ρM^2 + QP[_V]^2/ρM^2 + QP[_W]^2/ρM^2)
+            e_pot  = grav*xvert
+            E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
+            QP[_E] = E       
+        end
+        nothing
+    end
+end
+
+=#
