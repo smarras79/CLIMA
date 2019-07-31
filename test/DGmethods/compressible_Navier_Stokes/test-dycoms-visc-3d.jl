@@ -93,7 +93,7 @@ const Npoly = 4
 
 # Define grid size 
 const Δx    = 35
-const Δy    = 20
+const Δy    = 200
 const Δz    = 5
 
 const h_first_layer = Δz
@@ -623,9 +623,6 @@ end
             # ---------------------------------------
             cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
             SHF      = - ρ * Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - zmin)) / h_first_layer
-
-            aux[_a_SFH] = SHF
-            aux[_a_LFH] = LHF
             
             S[_U]  += dτ13dn 
             S[_V]  += dτ23dn
@@ -909,8 +906,6 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     R[_o_V_FN]  = aux[_a_V_FN]
                     R[_o_W_FN]  = aux[_a_W_FN]
                     R[_o_E_FN]  = aux[_a_E_FN]
-                    
-                    R[_o_water_flux_z]  = aux[_a_water_flux_z]
                 end
             end
             
