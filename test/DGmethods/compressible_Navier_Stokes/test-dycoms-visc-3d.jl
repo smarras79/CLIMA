@@ -126,7 +126,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-@parameter C_smag 0.15 "C_smag"
+@parameter C_smag 0.25 "C_smag"
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
@@ -513,15 +513,20 @@ end
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
         if xvert < h_first_layer #&& t < 0.0025
-            SST    = 292.5            
-            q_tot  = QP[_QT]/QP[_ρ]
+            ρ      = ρsfc
+            q_tot  = qtot_sfc #QP[_QT]/QP[_ρ]
             q_liq  = auxM[_a_q_liq]
+
             e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
             e_kin  = 0.5*(QP[_U]^2/ρM^2 + QP[_V]^2/ρM^2 + QP[_W]^2/ρM^2)
             e_pot  = grav*xvert
-            ρ      = ρsfc
-            E      = ρ * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
-            QP[_E] = E     
+
+            TS     = PhaseEquil(e_int, q_tot, ρ)
+            q_liq  = q_tot - PhasePartition(TS).liq
+            
+            Esfc   = ρ * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
+            QP[_E] = Esfc
+            QP[_QT]= qtot*ρ
         end
         
         nothing
