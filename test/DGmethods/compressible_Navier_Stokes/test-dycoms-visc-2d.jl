@@ -417,7 +417,7 @@ end
             
         elseif sponge_type == 2
             
-            bc_zscale = 5000.0
+            bc_zscale = 500.0
             zd        = domain_top - bc_zscale           
             #
             # top damping
