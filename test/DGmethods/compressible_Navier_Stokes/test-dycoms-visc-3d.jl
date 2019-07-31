@@ -658,8 +658,8 @@ end
         U, V, W, E  = Q[_U], Q[_V], Q[_W], Q[_E]
         beta     = aux[_a_sponge]
 
-        S[_U] -= beta * U
-        S[_V] -= beta * V
+        S[_U] -= 0.1*beta * U
+        S[_V] -= 0.1*beta * V
         S[_W] -= beta * W    
         
     end
