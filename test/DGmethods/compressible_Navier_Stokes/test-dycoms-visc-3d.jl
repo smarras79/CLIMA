@@ -93,8 +93,8 @@ const Npoly = 4
 
 # Define grid size 
 const Δx    = 35
-const Δy    = 200
-const Δz    = 5
+const Δy    = 35
+const Δz    = 200
 
 const h_first_layer = Δz
 
