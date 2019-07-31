@@ -126,7 +126,7 @@ DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstat
 
 
 # Smagorinsky model requirements : TODO move to SubgridScaleTurbulence module 
-@parameter C_smag 0.23 "C_smag"
+@parameter C_smag 0.15 "C_smag"
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
@@ -555,7 +555,7 @@ end
 
         # Surface evaporation effects:
         xvert = aux[_a_z]
-        if xvert < 0.0001 && t > 0.0025 
+        if xvert < 0.0001 && t > 0.001
             source_boundary_evaporation!(S,Q,aux,t)
         end
     end
@@ -596,7 +596,7 @@ end
             TS          = PhaseEquil(e_int, q_tot, ρ)           #thermodynamic state at first node        
             q_vap       = q_tot - PhasePartition(TS).liq
             T           = air_temperature(TS)
-            cpm         = cp_m(TS)   #PhasePartition(q_tot, q_liq, 0.0))
+            cpm         = cp_m(TS)
             
             # ------------------------------------
             #Momentum
@@ -874,9 +874,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
         
-        npoststates = 16
-        _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ, _o_beta, _o_ρ_FN, _o_U_FN, _o_V_FN, _o_W_FN, _o_E_FN, _o_water_flux_z, _o_SHF, _o_LHF = 1:npoststates
-        postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA", "SPONGE", "RHO_FN", "U_FN", "V_FN", "W_FN", "E_FN", "Water_flux_z", "LHF", "SHF")
+        npoststates = 8
+        _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ, _o_beta = 1:npoststates
+        postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA", "SPONGE")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         cbfilter = GenericCallbacks.EveryXSimulationSteps(10) do
@@ -901,11 +901,11 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     R[_o_θ]     = aux[_a_θ]
                     R[_o_beta]  = aux[_a_sponge]
                     
-                    R[_o_ρ_FN]  = aux[_a_ρ_FN]
-                    R[_o_U_FN]  = aux[_a_U_FN]
-                    R[_o_V_FN]  = aux[_a_V_FN]
-                    R[_o_W_FN]  = aux[_a_W_FN]
-                    R[_o_E_FN]  = aux[_a_E_FN]
+                    #R[_o_ρ_FN]  = aux[_a_ρ_FN]
+                    #R[_o_U_FN]  = aux[_a_U_FN]
+                    #R[_o_V_FN]  = aux[_a_V_FN]
+                    #R[_o_W_FN]  = aux[_a_W_FN]
+                    #R[_o_E_FN]  = aux[_a_E_FN]
                 end
             end
             
