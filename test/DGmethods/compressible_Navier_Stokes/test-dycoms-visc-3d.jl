@@ -52,8 +52,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 # Gradient state labels
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 22
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air,_a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_z_FN = 1:_nauxstate
+const _nauxstate = 25
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air,_a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_z_FN, _a_water_flux_z, _a_SHF, _a_LHF = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -276,10 +276,12 @@ end
 
         F[numdims, _E] += F_rad
         
-        #F[1, _E] += ql_fx + qv_fx 
-        #F[2, _E] += ql_fy + qv_fy 
-        #F[3, _E] += ql_fz + qv_fz 
+        F[1, _E] += ql_fx + qv_fx 
+        F[2, _E] += ql_fy + qv_fy 
+        F[3, _E] += ql_fz + qv_fz        
 
+        aux[_a_water_flux_z] = ql_fz + qv_fz   
+        
         # Viscous contributions to mass flux terms
         F[1, _ρ]  -=  vqx * D_e
         F[2, _ρ]  -=  vqy * D_e
@@ -600,34 +602,34 @@ end
             #Momentum
             # ------------------------------------
             #2D
-            dτ13dn = dτ31dn = -Cd * windspeed_FN * u_FN / h_first_layer
-            dτ23dn = dτ32dn = -Cd * windspeed_FN * v_FN / h_first_layer
-            dτ33dn          =  0 #-Cd * windspeed_FN * v_FN
+            dτ13dn = dτ31dn = -ρ * Cd * windspeed_FN * u_FN / h_first_layer
+            dτ23dn = dτ32dn = -ρ * Cd * windspeed_FN * v_FN / h_first_layer
+            dτ33dn          =  0 #-ρ * Cd * windspeed_FN * v_FN
             
             # ------------------------------------
             #Water flux: (eq 29 in CLIMA-doc)
             # ------------------------------------
             q_vap_FN   = q_tot_FN - PhasePartition(TS_FN).liq
-            Lv         = latent_heat_vapor(SST)
             q_vap_star = q_vap_saturation(SST, ρ, PhasePartition(q_tot, q_liq, 0.0))
-            Evap_flux  = - Cd * windspeed_FN * (q_vap_FN - q_vap_star) / h_first_layer
+            Evap_flux  = - ρ * Cd * windspeed_FN * (q_vap_FN - q_vap_star) / h_first_layer
 
             # --------------------------------------
             #Energy flux associate with evaporation: (eq 30 in CLIMA-doc)
             # --------------------------------------
-            n_D_sfc  =   (cp_v*(T - T_0) + Lv + grav * xvert) * Evap_flux # LH_v0
+            LHF  =   (cp_v*(T - T_0) + LH_v0 + grav * xvert) * Evap_flux
             
             # ---------------------------------------
             #Sensible heat flux: (eq 31 in CLIMA-doc)
             # ---------------------------------------
             cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
-            SHF      = - Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - zmin)) / h_first_layer
+            SHF      = - ρ * Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - zmin)) / h_first_layer
 
-            @show(Evap_flux, n_D_sfc, SHF, dτ13dn)
+            aux[_a_SFH] = SHF
+            aux[_a_LFH] = LHF
             
             S[_U]  += dτ13dn 
             S[_V]  += dτ23dn
-            S[_E]  += SHF + n_D_sfc
+            S[_E]  += SHF + LHF
             S[_QT] += Evap_flux
         end
         nothing
@@ -659,7 +661,7 @@ end
         U, V, W, E  = Q[_U], Q[_V], Q[_W], Q[_E]
         beta     = aux[_a_sponge]
 
-        S[_W] -= beta * V     
+        S[_W] -= beta * W    
         
     end
 end
@@ -875,9 +877,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
         
-        npoststates = 13
-        _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ, _o_beta, _o_ρ_FN, _o_U_FN, _o_V_FN, _o_W_FN, _o_E_FN = 1:npoststates
-        postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA", "SPONGE", "RHO_FN", "U_FN", "V_FN", "W_FN", "E_FN")
+        npoststates = 16
+        _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ, _o_beta, _o_ρ_FN, _o_U_FN, _o_V_FN, _o_W_FN, _o_E_FN, _o_water_flux_z, _o_SHF, _o_LHF = 1:npoststates
+        postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA", "SPONGE", "RHO_FN", "U_FN", "V_FN", "W_FN", "E_FN", "Water_flux_z", "LHF", "SHF")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         cbfilter = GenericCallbacks.EveryXSimulationSteps(10) do
@@ -907,6 +909,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     R[_o_V_FN]  = aux[_a_V_FN]
                     R[_o_W_FN]  = aux[_a_W_FN]
                     R[_o_E_FN]  = aux[_a_E_FN]
+                    
+                    R[_o_water_flux_z]  = aux[_a_water_flux_z]
                 end
             end
             

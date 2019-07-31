@@ -593,14 +593,13 @@ end
       #Water flux: (eq 29 in CLIMA-doc)
       # ------------------------------------
       q_vap_FN   = q_tot_FN - PhasePartition(TS_FN).liq
-      Lv         = latent_heat_vapor(SST)
       q_vap_star = q_vap_saturation(SST, ρ, PhasePartition(q_tot, q_liq, 0.0))
       Evap_flux  = - Cd * windspeed_FN * (q_vap_FN - q_vap_star) / h_first_layer
 
       # --------------------------------------
       #Energy flux associate with evaporation: (eq 30 in CLIMA-doc)
       # --------------------------------------
-      n_D_sfc  =   (cp_v*(T - T_0) + Lv + grav * xvert) * Evap_flux # LH_v0
+      n_D_sfc  =   (cp_v*(T - T_0) + LH_v0 + grav * xvert) * Evap_flux
       
       # ---------------------------------------
       #Sensible heat flux: (eq 31 in CLIMA-doc)
