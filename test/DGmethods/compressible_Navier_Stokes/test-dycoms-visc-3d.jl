@@ -517,9 +517,9 @@ end
 
         # Surface evaporation effects:
         xvert = aux[_a_z]
-        if xvert < h_first_layer && t > 0.0025 
-            source_boundary_evaporation!(S, Q, aux, t)
-        end
+        #if xvert < h_first_layer && t > 0.0025 
+        #    source_boundary_evaporation!(S, Q, aux, t)
+        #end
     end       
 end
 
@@ -527,9 +527,6 @@ end
     @inbounds begin
         z = aux[_a_z]
         xvert = z
-        
-        u = Q[_U]/Q[_ρ]
-        v = Q[_V]/Q[_ρ]
         
         # ------------------------------
         # First node quantities (first-model level here represents the first node)
@@ -629,16 +626,6 @@ end
     @inbounds S[_W] += - Q[_ρ] * grav
 end
 
-@inline function source_surface_drag_evaporation!(S,Q,aux,t)
-    @inbounds begin
-
-        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-        u, v, w           = U/ρ, V/ρ, W/ρ    
-        xvert             = aux[_a_z]
-    end
-end
-
-
 # Test integral exactly according to the isentropic vortex example
 @inline function integrand(val, Q, aux)
     κ = 85.0
@@ -673,7 +660,7 @@ function preodefun!(disc, Q, t)
         end
     end
 
-    firstnode_info(disc,Q,t)
+    #firstnode_info(disc,Q,t)
     integral_computation(disc, Q, t)
 end
 
