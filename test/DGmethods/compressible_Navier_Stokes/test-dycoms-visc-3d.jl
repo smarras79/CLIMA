@@ -52,8 +52,8 @@ const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _�
 # Gradient state labels
 const _states_for_gradient_transform = (_ρ, _U, _V, _W, _E, _QT)
 
-const _nauxstate = 15
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air = 1:_nauxstate
+const _nauxstate = 22
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_z_FN = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -135,7 +135,7 @@ const ρ_sfc       = 1.22          #kg/m^3
 const ft          =  15.0
 const fq          = 115.0
 const Cd          = 0.0011        #Drag coefficient
-const first_node_level   = 0.0001
+const h_first_layer = 0.0001
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
 # DG RHS (but not explicitly solved for as a prognostic variable)
@@ -460,7 +460,7 @@ end
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
     @inbounds begin
 
-        
+        DFloat = eltype(QP)
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         xvert = z
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
@@ -471,9 +471,10 @@ end
         QP[_V] = VM - 2 * nM[2] * UnM
         QP[_W] = WM - 2 * nM[3] * UnM
         QP[_ρ] = ρM
-        QP[_QT] = QTM
+        QP[_QT] = QTM        
+        QP[_E] = EM
         
-        if xvert < first_node_level
+        if xvert < h_first_layer && t < 0.0025
 
             randnum1   = rand(seed, DFloat) / 100
             
@@ -484,9 +485,8 @@ end
             e_kin  = 0.5*(QP[_U]^2/ρM^2 + QP[_V]^2/ρM^2 + QP[_W]^2/ρM^2)
             e_pot  = grav*xvert
             E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
-            QP[_E] = E          
+            QP[_E] = E       
         end
-        
         nothing
     end
 end
@@ -516,77 +516,85 @@ end
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
         source_geostrophic!(S, Q, aux, t)
-        source_boundary_evaporation!(S, Q, aux, t)
-    end
+
+        # Surface evaporation effects:
+        xvert = aux[_a_z]
+        if xvert < h_first_layer && t > 0.0025 
+            source_boundary_evaporation!(S, Q, aux, t)
+        end
+    end       
 end
 
 @inline function source_boundary_evaporation!(S,Q,aux,t)
-  @inbounds begin
-      z = aux[_a_z]
-      xvert = z
-      if xvert < 0.0001
-          # ------------------------------
-          # First node quantities (first-model level here represents the first node)
-          # ------------------------------
-          xvert_FN         = aux[_a_y_FN]
-          ρ_FN             = aux[_a_ρ_FN]
-          U_FN             = aux[_a_U_FN]
-          V_FN             = aux[_a_V_FN]
-          W_FN             = aux[_a_W_FN]
-          E_FN             = aux[_a_E_FN]
-          u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
-          windspeed_FN     = sqrt(u_FN^2 + v_FN^2)
-          q_tot_FN         = aux[_a_QT_FN] / ρ_FN
-          e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*xvert_FN
-          TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN)           #themordynamic state at first node
-          T_FN             = air_temperature(TS_FN)
-          # -----------------------------------
-          # Bottom boundary quantities 
-          # -----------------------------------
-          ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-          u, v, w     = U/ρ, V/ρ, W/ρ
-          q_tot       = Q[_QT]/Q[_ρ]
-          q_liq       = aux[_a_q_liq]
-          windspeed   = sqrt(u^2)
-          e_int       = E/ρ - 0.5*windspeed^2 - grav*xvert
-          TS          = PhaseEquil(e_int, q_tot, ρ)           #thermodynamic state at first node        
-          q_vap       = q_tot - PhasePartition(TS).liq
-          T           = air_temperature(TS)
-          # ------------------------------------
-          #Momentum
-          # ------------------------------------
-          #2D
-          dτ13dn = dτ31dn = -Cd * windspeed_FN * u_FN / h_first_layer
-          dτ23dn = dτ32dn = -Cd * windspeed_FN * v_FN / h_first_layer
-          dτ33dn          =  0 #-Cd * windspeed_FN * v_FN
-          # ------------------------------------
-          #Water flux: (eq 29 in CLIMA-doc)
-#=          # ------------------------------------
-          q_vap_FN   = q_tot_FN - PhasePartition(TS_FN).liq
-          Lv         = latent_heat_vapor(SST)
-          q_vap_star = q_vap_saturation(SST, ρ, PhasePartition(q_tot, q_liq, 0.0))
-          Evap_flux  = - Cd * windspeed_FN * (q_vap_FN - q_vap_star) / h_first_layer
+    @inbounds begin
+        z = aux[_a_z]
+        xvert = z
+        
+        u = Q[_U]/Q[_ρ]
+        v = Q[_V]/Q[_ρ]
+        
+        # ------------------------------
+        # First node quantities (first-model level here represents the first node)
+        # ------------------------------
+        xvert_FN         = aux[_a_z_FN]
+        ρ_FN             = aux[_a_ρ_FN]
+        U_FN             = aux[_a_U_FN]
+        V_FN             = aux[_a_V_FN]
+        W_FN             = aux[_a_W_FN]
+        E_FN             = aux[_a_E_FN]
+        u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
+        windspeed_FN     = sqrt(u_FN^2 + v_FN^2)
+        q_tot_FN         = aux[_a_QT_FN] / ρ_FN
+        e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*xvert_FN
+        TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN)           #themordynamic state at first node
+        T_FN             = air_temperature(TS_FN)
+        # -----------------------------------
+        # Bottom boundary quantities 
+        # -----------------------------------
+        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        u, v, w     = U/ρ, V/ρ, W/ρ
+        q_tot       = Q[_QT]/Q[_ρ]
+        q_liq       = aux[_a_q_liq]
+        windspeed   = sqrt(u^2)
+        e_int       = E/ρ - 0.5*windspeed^2 - grav*xvert
+        TS          = PhaseEquil(e_int, q_tot, ρ)           #thermodynamic state at first node        
+        q_vap       = q_tot - PhasePartition(TS).liq
+        T           = air_temperature(TS)
+        # ------------------------------------
+        #Momentum
+        # ------------------------------------
+        #2D
+        dτ13dn = dτ31dn = -Cd * windspeed_FN * (u_FN - u) / h_first_layer
+        dτ23dn = dτ32dn = -Cd * windspeed_FN * (v_FN - v) / h_first_layer
+        dτ33dn          =  0 #-Cd * windspeed_FN * v_FN
+        # ------------------------------------
+        #Water flux: (eq 29 in CLIMA-doc)
+        #=          # ------------------------------------
+        q_vap_FN   = q_tot_FN - PhasePartition(TS_FN).liq
+        Lv         = latent_heat_vapor(SST)
+        q_vap_star = q_vap_saturation(SST, ρ, PhasePartition(q_tot, q_liq, 0.0))
+        Evap_flux  = - Cd * windspeed_FN * (q_vap_FN - q_vap_star) / h_first_layer
 
-          # --------------------------------------
-          #Energy flux associate with evaporation: (eq 30 in CLIMA-doc)
-          # --------------------------------------
-          n_D_sfc  =   (cp_v*(T - T_0) + Lv + grav * xvert) * Evap_flux # LH_v0
-          
-          # ---------------------------------------
-          #Sensible heat flux: (eq 31 in CLIMA-doc)
-          # ---------------------------------------
-          q_liq_FN = PhasePartition(TS_FN).liq
-          cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))            
-          SHF      = - Cd * windspeed_FN * (cpm*(T_FN - SST) + grav * (xvert_FN - ymin)) / h_first_layer
-          =#
-          S[_U] = dτ13dn 
-          S[_V] = dτ23dn
-          S[_W] = dτ33dn
-          #S[_E] += SHF + n_D_sfc
-          #S[_QT] += Evap_flux
-      end
-      nothing
-  end
+        # --------------------------------------
+        #Energy flux associate with evaporation: (eq 30 in CLIMA-doc)
+        # --------------------------------------
+        n_D_sfc  =   (cp_v*(T - T_0) + Lv + grav * xvert) * Evap_flux # LH_v0
+        
+        # ---------------------------------------
+        #Sensible heat flux: (eq 31 in CLIMA-doc)
+        # ---------------------------------------
+        q_liq_FN = PhasePartition(TS_FN).liq
+        cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))            
+        SHF      = - Cd * windspeed_FN * (cpm*(T_FN - SST) + grav * (xvert_FN - ymin)) / h_first_layer
+        =#
+        S[_U] = dτ13dn 
+        S[_V] = dτ23dn
+        S[_W] = dτ33dn
+        #S[_E] += SHF + n_D_sfc
+        #S[_QT] += Evap_flux
+        
+        nothing
+    end
 end
 
 
@@ -667,7 +675,15 @@ function preodefun!(disc, Q, t)
         end
     end
 
+    firstnode_info(disc,Q,t)
     integral_computation(disc, Q, t)
+end
+
+function firstnode_info(disc,Q,t) 
+  DGBalanceLawDiscretizations.aux_firstnode_values!(disc, Q,
+                                                    (_a_z_FN), (_a_z))
+  DGBalanceLawDiscretizations.state_firstnode_values!(disc, Q,
+                                                    (_a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN), (_ρ, _U, _V, _W, _E, _QT))
 end
 
 function integral_computation(disc, Q, t)
