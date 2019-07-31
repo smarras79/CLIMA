@@ -102,9 +102,9 @@ const h_first_layer = Δz
 const stretch_coe = 2.25
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 1000)
-const (ymin, ymax) = (0, 1000)
-const (zmin, zmax) = (0, 2600)
+const (xmin, xmax) = (0, 500)
+const (ymin, ymax) = (0, 500)
+const (zmin, zmax) = (0, 2000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -449,14 +449,14 @@ end
             
         elseif sponge_type == 2
             
-            bc_zscale = 1600.0
+            bc_zscale = 1000.0
             zd        = domain_top - bc_zscale           
             #
             # top damping
             # first layer: damp lee waves
             #
             alpha_coe = 1
-            ct        = 0.9
+            ct        = 1
             ctop      = 0.0
             if xvert >= zd
                 zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
@@ -464,7 +464,7 @@ end
                     abstaud = alpha_coe*(1.0 - cos(zid*pi))
 
                 else
-                    abstaud = alpha_coe*( 1.0 + ((zid - 0.5)*pi) )
+                    abstaud = alpha_coe*( 1.0 + ((zid - 0.5)) )
                     
                 end
                 ctop = ct*abstaud
@@ -658,6 +658,8 @@ end
         U, V, W, E  = Q[_U], Q[_V], Q[_W], Q[_E]
         beta     = aux[_a_sponge]
 
+        S[_U] -= beta * U
+        S[_V] -= beta * V
         S[_W] -= beta * W    
         
     end
