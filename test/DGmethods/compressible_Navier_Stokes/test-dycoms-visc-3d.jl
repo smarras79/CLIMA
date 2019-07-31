@@ -512,14 +512,15 @@ end
         
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
-        if xvert < h_first_layer && t < 0.0025
-            SST    = 292.5
+        if xvert < h_first_layer #&& t < 0.0025
+            SST    = 292.5            
             q_tot  = QP[_QT]/QP[_ρ]
             q_liq  = auxM[_a_q_liq]
             e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
             e_kin  = 0.5*(QP[_U]^2/ρM^2 + QP[_V]^2/ρM^2 + QP[_W]^2/ρM^2)
             e_pot  = grav*xvert
-            E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
+            ρ      = ρsfc
+            E      = ρ * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = E     
         end
         
@@ -554,10 +555,10 @@ end
         source_geostrophic!(S, Q, aux, t)
 
         # Surface evaporation effects:
-        xvert = aux[_a_z]
-        if xvert < 0.0001 && t > 0.001
-            source_boundary_evaporation!(S,Q,aux,t)
-        end
+        #xvert = aux[_a_z]
+        #if xvert < 0.0001 && t > 0.001
+        #    source_boundary_evaporation!(S,Q,aux,t)
+        #end
     end
 end
 
@@ -605,7 +606,7 @@ end
             dτ13dn = dτ31dn = -ρ * Cd * windspeed_FN * u_FN / h_first_layer
             dτ23dn = dτ32dn = -ρ * Cd * windspeed_FN * v_FN / h_first_layer
             dτ33dn          =  0 #-ρ * Cd * windspeed_FN * v_FN
-            
+  #=          
             # ------------------------------------
             #Water flux: (eq 29 in CLIMA-doc)
             # ------------------------------------
@@ -623,10 +624,11 @@ end
             # ---------------------------------------
             cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
             SHF      = - ρ * Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - zmin)) / h_first_layer
-            
+         =#   
             S[_U]  += dτ13dn 
             S[_V]  += dτ23dn
-            S[_E]  += SHF + LHF
+            S[_E]  += (15 + 115)/h_first_layer
+            #S[_E]  += SHF + LHF
             S[_QT] += Evap_flux
         end
         nothing
