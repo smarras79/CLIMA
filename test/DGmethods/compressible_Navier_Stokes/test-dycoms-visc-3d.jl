@@ -118,6 +118,7 @@ Nex = ceil(Int64, Lx / (Δx * Npoly))
 Ney = ceil(Int64, Ly / (Δy * Npoly))
 Nez = ceil(Int64, Lz / (Δz * Npoly))
 
+const numelem = (Nex, Ney, Nez)
 
 DoF = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate)
 DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstate + CLIMA.Mesh.Grids._nvgeo) +
@@ -254,12 +255,13 @@ end
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
         F[1, _E] += u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * μ_e
         F[2, _E] += u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * μ_e
+        F[3, _E] += u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * μ_e
         
         T = aux[_a_T]
         I_vap = cv_v * (T - T_0) + e_int_v0
         I_liq = cv_l * (T - T_0)
         I_ice = cv_i * (T - T_0) - e_int_i0
-        e_kin = 0.5 * (u^2 +v^2)
+        e_kin = 0.5 * (u^2 +v^2 + w^2)
         e_pot = grav * xvert
         e_tot_vap = e_kin + e_pot + I_vap
         e_tot_liq = e_kin + e_pot + I_liq
@@ -274,9 +276,9 @@ end
 
         F[numdims, _E] += F_rad
         
-        F[1, _E] += ql_fx + qv_fx 
-        F[2, _E] += ql_fy + qv_fy 
-        F[3, _E] += ql_fz + qv_fz 
+        #F[1, _E] += ql_fx + qv_fx 
+        #F[2, _E] += ql_fy + qv_fy 
+        #F[3, _E] += ql_fz + qv_fz 
 
         # Viscous contributions to mass flux terms
         F[1, _ρ]  -=  vqx * D_e
@@ -868,9 +870,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
         
-        npoststates = 8
-        _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ, _o_beta = 1:npoststates
-        postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA", "SPONGE")
+        npoststates = 13
+        _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ, _o_beta, _o_ρ_FN, _o_U_FN, _o_V_FN, _o_W_FN, _o_E_FN = 1:npoststates
+        postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA", "SPONGE", "RHO_FN", "U_FN", "V_FN", "W_FN", "E_FN")
         postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
         cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -894,6 +896,12 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                     R[_o_T]     = aux[_a_T]
                     R[_o_θ]     = aux[_a_θ]
                     R[_o_beta]  = aux[_a_sponge]
+                    
+                    R[_o_ρ_FN]  = aux[_a_ρ_FN]
+                    R[_o_U_FN]  = aux[_a_U_FN]
+                    R[_o_V_FN]  = aux[_a_V_FN]
+                    R[_o_W_FN]  = aux[_a_W_FN]
+                    R[_o_E_FN]  = aux[_a_E_FN]
                 end
             end
             
@@ -940,8 +948,7 @@ let
     # User defined timestep estimate
     # User defined simulation end time
     # User defined polynomial order 
-    numelemaux = (Nex, Ney, Nez)
-    numelem[1:numdims] = numeelemax[1:numdims]
+    #numelem = (Nex, Ney, Nez)
     dt = 0.00075
     timeend = 14400
     polynomialorder = Npoly
