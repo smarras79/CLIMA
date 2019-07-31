@@ -433,8 +433,8 @@ end
         cs_front_back = zero(DFloat)
         ct            = DFloat(0.75)
         
-        domain_bott  = ymin
-        domain_top   = ymax
+        domain_bott  = zmin
+        domain_top   = zmax
         #END User modification on domain parameters.
 
         
