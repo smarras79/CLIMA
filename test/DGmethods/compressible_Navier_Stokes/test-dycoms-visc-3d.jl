@@ -464,7 +464,7 @@ end
                     abstaud = alpha_coe*(1.0 - cos(zid*pi))
 
                 else
-                    abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
+                    abstaud = alpha_coe*( 1.0 + ((zid - 0.5)*pi) )
                     
                 end
                 ctop = ct*abstaud
