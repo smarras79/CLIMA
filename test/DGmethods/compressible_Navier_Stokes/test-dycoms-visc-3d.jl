@@ -93,7 +93,7 @@ const Npoly = 4
 
 # Define grid size 
 const Δx    = 35
-const Δy    = 10
+const Δy    = 20
 const Δz    = 5
 
 const h_first_layer = Δz
@@ -104,7 +104,7 @@ const stretch_coe = 2.25
 # Physical domain extents 
 const (xmin, xmax) = (0, 1000)
 const (ymin, ymax) = (0, 1000)
-const (zmin, zmax) = (0, 1500)
+const (zmin, zmax) = (0, 10000)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -438,7 +438,6 @@ end
         
         #Vertical sponge:
         sponge_type = 2
-
         if sponge_type == 1
             
             top_sponge  = DFloat(0.85) * domain_top          
@@ -448,14 +447,14 @@ end
             
         elseif sponge_type == 2
             
-            bc_zscale = 300.0
+            bc_zscale = 7000.0
             zd        = domain_top - bc_zscale           
             #
             # top damping
             # first layer: damp lee waves
             #
             alpha_coe = 0.5
-            ct        = 0.90
+            ct        = 1
             ctop      = 0.0
             if xvert >= zd
                 zid = (xvert - zd)/(domain_top - zd) # normalized coordinate
@@ -463,7 +462,7 @@ end
                     abstaud = alpha_coe*(1.0 - cos(zid*pi))
 
                 else
-                    abstaud = alpha_coe*( 1.0 + ((zid - 0.5)*pi) )
+                    abstaud = alpha_coe*( 1.0 + cos((zid - 0.5)*pi) )
                     
                 end
                 ctop = ct*abstaud
@@ -486,7 +485,7 @@ end
         end
         
         beta  = 1 - (1 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
-        beta  = min(beta, 1)
+        #beta  = min(beta, 1)
         aux[_a_sponge] = beta
     end
 end
@@ -596,6 +595,7 @@ end
             q_vap       = q_tot - PhasePartition(TS).liq
             T           = air_temperature(TS)
             cpm         = cp_m(TS)   #PhasePartition(q_tot, q_liq, 0.0))
+            
             # ------------------------------------
             #Momentum
             # ------------------------------------
@@ -621,11 +621,13 @@ end
             #Sensible heat flux: (eq 31 in CLIMA-doc)
             # ---------------------------------------
             cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
-            SHF      = - Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - ymin)) / h_first_layer
+            SHF      = - Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - zmin)) / h_first_layer
+
+            @show(Evap_flux, n_D_sfc, SHF, dτ13dn)
             
-            S[_U] += dτ13dn 
-            S[_V] += dτ23dn
-            S[_E] += SHF + n_D_sfc
+            S[_U]  += dτ13dn 
+            S[_V]  += dτ23dn
+            S[_E]  += SHF + n_D_sfc
             S[_QT] += Evap_flux
         end
         nothing
@@ -988,40 +990,3 @@ end
 isinteractive() || MPI.Finalize()
 
 Nothing
-
-#=
-# -------------------------------------------------------------------------
-# generic bc for 2d , 3d
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
-@inbounds begin
-
-DFloat = eltype(QP)
-x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
-xvert = z
-ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
-# No flux boundary conditions
-# No shear on walls (free-slip condition)
-UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-QP[_U] = UM - 2 * nM[1] * UnM
-QP[_V] = VM - 2 * nM[2] * UnM
-QP[_W] = WM - 2 * nM[3] * UnM
-QP[_ρ] = ρM
-QP[_QT] = QTM        
-QP[_E] = EM
-
-if xvert < h_first_layer && t < 0.0025
-
-SST    = 292.5
-q_tot  = QP[_QT]/QP[_ρ]
-q_liq  = auxM[_a_q_liq]
-e_int  = internal_energy(SST, PhasePartition(q_tot, q_liq, 0.0))
-e_kin  = 0.5*(QP[_U]^2/ρM^2 + QP[_V]^2/ρM^2 + QP[_W]^2/ρM^2)
-e_pot  = grav*xvert
-E      = ρM * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
-QP[_E] = E       
-end
-nothing
-end
-end
-
-=#
