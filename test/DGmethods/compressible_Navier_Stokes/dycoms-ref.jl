@@ -517,9 +517,9 @@ end
         
         # Surface evaporation effects:
         xvert = aux[_a_z]
-        #if xvert < 0.0001 && t > 0.005
-        #    source_boundary_evaporation!(S,Q,aux,t)
-        #end
+        if xvert < 0.0001 && t > 0.0005
+            source_boundary_evaporation!(S,Q,aux,t)
+        end
         
     end
 end
@@ -948,7 +948,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.005
+    dt = 0.0005
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
