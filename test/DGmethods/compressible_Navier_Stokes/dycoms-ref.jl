@@ -517,9 +517,9 @@ end
         
         # Surface evaporation effects:
         xvert = aux[_a_z]
-        if xvert < 0.0001 && t > 0.005
-            source_boundary_evaporation!(S,Q,aux,t)
-        end
+        #if xvert < 0.0001 && t > 0.005
+        #    source_boundary_evaporation!(S,Q,aux,t)
+        #end
         
     end
 end
@@ -545,11 +545,12 @@ Geostrophic wind forcing
 """
 @inline function source_geostrophic!(S,Q,aux,t)
     @inbounds begin
-      W = Q[_W]
-      U = Q[_U]
-      V = Q[_V]
-      S[_U] -= f_coriolis * (U - U_geostrophic)
-      S[_V] -= f_coriolis * (V - V_geostrophic)
+        ρ = Q[_ρ]
+        W = Q[_W]
+        U = Q[_U]
+        V = Q[_V]
+        S[_U] -= f_coriolis * (U/ρ - U_geostrophic)
+        S[_V] -= f_coriolis * (V/ρ - V_geostrophic)
     end
 end
 
@@ -632,9 +633,9 @@ end
         S[_U]  += dτ13dn 
         S[_V]  += dτ23dn
         
-        S[_E]  += (15 + 115)/(ρ * h_first_layer)            
+        #S[_E]  += (15 + 115)/(ρ * h_first_layer)            
         #S[_E]  += SHF + LHF
-        S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
+        #S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
         
         nothing
     end
@@ -669,7 +670,7 @@ function preodefun!(disc, Q, t)
   DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
     @inbounds let
       ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-      xvert = aux[_a_y]
+      xvert = aux[_a_z]
       e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * xvert) / ρ
       q_tot = QT / ρ
       TS = PhaseEquil(e_int, q_tot, ρ)
@@ -735,12 +736,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
 
     q_liq = 0.0
     q_ice = 0.0
-    q_liq_peak = 0.00045
-    zcloud_bot = 600.0
-    zcloud_top = zi
-    dzcloud = zcloud_top - zcloud_bot
-    if xvert >= zcloud_bot && xvert <= zcloud_top
-        q_liq = (xvert - zcloud_bot)*q_liq_peak/dzcloud
+    if xvert >= 600.0 && xvert <= 840.0
+        q_liq = (xvert - 600)*0.00045/240.0
     end
     
     θ_liq = datat
@@ -872,7 +869,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(2000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w     = preflux(Q, aux)
