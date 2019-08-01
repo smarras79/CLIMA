@@ -144,6 +144,8 @@ const fq         = 115.0
 const Cd         = 0.0011        #Drag coefficient
 const first_node_level   = 0.0001
 
+const D_subsidence = 3.75e-6
+
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
 # DG RHS (but not explicitly solved for as a prognostic variable)
@@ -227,6 +229,11 @@ end
     @inbounds begin
         (P, u, v, w, ρinv, q_liq,T,θ) = preflux(Q,aux)
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        
+        xvert = aux[_a_z]
+        w -= D_subsidence * xvert
+        W = w*ρ
+        
         # Inviscid contributions
         F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
         F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
@@ -317,13 +324,18 @@ end
 # Compute the velocity from the state
 # Gradient state labels
 const _ngradstates = 9
-@inline function gradient_vars!(vel, Q, aux, t)
+@inline function gradient_vars!(gradient_list, Q, aux, t)
   @inbounds begin
       (P, u, v, w, ρinv, q_liq,T,θ) = preflux(Q,aux)
       ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-      vel[1], vel[2], vel[3] = u, v, w
-      vel[4], vel[5], vel[6] = E, QT, T
-      vel[7] = θ
+
+      q_tot = QT/ρ
+      q_liq = aux[_a_q_liq]
+      q_vap = q_tot - q_liq
+      
+      gradient_list[1], gradient_list[2], gradient_list[3] = u, v, w
+      gradient_list[4], gradient_list[5], gradient_list[6] = E, QT, T
+      gradient_list[7] = θ
       gradient_list[8], gradient_list[9] = q_vap, q_liq
   end
 end
@@ -339,7 +351,6 @@ end
   F_1 = 22
   α_z = 1
   ρ_i = 1.22
-  D_subsidence = 3.75e-6
   term1 = F_0 * exp(-z_to_inf) 
   term2 = F_1 * exp(-zero_to_z)
   term3 = ρ_i * cp_d * D_subsidence * α_z * (0.25 * (cbrt(Δz_i))^4 + z_i * cbrt(Δz_i))
@@ -354,15 +365,15 @@ end
 #md # populate the viscous flux array VF. SijSij is calculated in addition
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
 #md # (pending)
-@inline function compute_stresses!(VF, grad_vel, _...)
+@inline function compute_stresses!(VF, grad_mat, _...)
   @inbounds begin
-    dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
-    dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
-    dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
+    dudx, dudy, dudz = grad_mat[1, 1], grad_mat[2, 1], grad_mat[3, 1]
+    dvdx, dvdy, dvdz = grad_mat[1, 2], grad_mat[2, 2], grad_mat[3, 2]
+    dwdx, dwdy, dwdz = grad_mat[1, 3], grad_mat[2, 3], grad_mat[3, 3]
     # compute gradients of moist vars and temperature
-    dqdx, dqdy, dqdz = grad_vel[1, 5], grad_vel[2, 5], grad_vel[3, 5]
-    dTdx, dTdy, dTdz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
-    dθdx, dθdy, dθdz = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
+    dqdx, dqdy, dqdz = grad_mat[1, 5], grad_mat[2, 5], grad_mat[3, 5]
+    dTdx, dTdy, dTdz = grad_mat[1, 6], grad_mat[2, 6], grad_mat[3, 6]
+    dθdx, dθdy, dθdz = grad_mat[1, 7], grad_mat[2, 7], grad_mat[3, 7]
     dqvdx, dqvdy, dqvdz = grad_mat[1, 8], grad_mat[2, 8], grad_mat[3, 8]
     dqldx, dqldy, dqldz = grad_mat[1, 9], grad_mat[2, 9], grad_mat[3, 9]
     # virtual potential temperature gradient: for richardson calculation
