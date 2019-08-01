@@ -80,6 +80,9 @@ const Npoly = 4
 Δx    = 35
 Δy    = 35
 Δz    = 10
+
+const h_first_layer = Δz
+
 #
 # OR:
 #
@@ -129,6 +132,17 @@ const C_smag = 0.18
 # Equivalent grid-scale
 Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
+
+
+# Surface values to calculate surface fluxes:
+const SST        = 292.5
+const psfc       = 1017.8e2      # Pa
+const qtot_sfc   = 13.84e-3      # qs(sst) using Teten's formula
+const ρsfc       = 1.22          #kg/m^3
+const ft         =  15.0
+const fq         = 115.0
+const Cd         = 0.0011        #Drag coefficient
+const first_node_level   = 0.0001
 
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
@@ -447,15 +461,28 @@ end
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
+        
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
-        UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-        QP[_U] = UM - 2 * nM[1] * UnM
-        QP[_V] = VM - 2 * nM[2] * UnM
-        QP[_W] = WM - 2 * nM[3] * UnM
-        #QP[_ρ] = ρM
-        #QP[_QT] = QTM
-        VFP .= 0 
+
+        thermal_flux_flg = 1  #CHANGE THIS value BASED ON WHAT YOU DO IN THE SOURCE/FLUXES
+        if thermal_flux_flg == 0
+            UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
+            QP[_U] = UM - 2 * nM[1] * UnM
+            QP[_V] = VM - 2 * nM[2] * UnM
+            QP[_W] = WM - 2 * nM[3] * UnM
+            #QP[_ρ] = ρM
+            #QP[_QT] = QTM
+            VFP .= 0   #without thjermal flux imposed in the sources
+            
+        elseif thermal_flux_flg == 1
+            UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
+            QP[_W] = WM - 2 * nM[3] * UnM
+            QP[_U] = QM[_U]
+            QP[_V] = QM[_V]
+            VFP .= VFM
+        end
+        
         nothing
     end
 end
@@ -486,6 +513,14 @@ end
         source_sponge!(S, Q, aux, t)
         source_coriolis!(S, Q, aux, t)
         source_geostrophic!(S, Q, aux, t)
+
+        
+        # Surface evaporation effects:
+        xvert = aux[_a_z]
+        if xvert < 0.0001 && t > 0.005
+            source_boundary_evaporation!(S,Q,aux,t)
+        end
+        
     end
 end
 
@@ -529,6 +564,82 @@ end
     end
 end
 #---END SPONGE
+
+
+@inline function source_boundary_evaporation!(S,Q,aux,t)
+    @inbounds begin
+        x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
+        xvert = z
+        
+        # ------------------------------
+        # First node quantities (first-model level here represents the first node)
+        # ------------------------------
+        xvert_FN         = aux[_a_z_FN]
+        ρ_FN             = aux[_a_ρ_FN]
+        U_FN             = aux[_a_U_FN]
+        V_FN             = aux[_a_V_FN]
+        W_FN             = aux[_a_W_FN]
+        E_FN             = aux[_a_E_FN]
+        u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
+        windspeed_FN     = sqrt(u_FN^2 + v_FN^2)
+        q_tot_FN         = aux[_a_QT_FN] / ρ_FN
+        e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*xvert_FN
+        TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN)           #themordynamic state at first node
+        T_FN             = air_temperature(TS_FN)
+        q_liq_FN         = PhasePartition(TS_FN).liq
+        cpm_FN           = cp_m(TS_FN)
+        
+        # -----------------------------------
+        # Bottom boundary quantities 
+        # -----------------------------------
+        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        u, v, w     = U/ρ, V/ρ, W/ρ
+        q_tot       = Q[_QT]/Q[_ρ]
+        q_liq       = aux[_a_q_liq]
+        windspeed   = sqrt(u^2)
+        e_int       = E/ρ - 0.5*windspeed^2 - grav*xvert
+        TS          = PhaseEquil(e_int, q_tot, ρ)           #thermodynamic state at first node        
+        q_vap       = q_tot - PhasePartition(TS).liq
+        T           = air_temperature(TS)
+        cpm         = cp_m(TS)
+        
+        # ------------------------------------
+        #Momentum
+        # ------------------------------------
+        #2D
+        dτ13dn = dτ31dn = -ρ * Cd * windspeed_FN * u_FN / h_first_layer
+        dτ23dn = dτ32dn = -ρ * Cd * windspeed_FN * v_FN / h_first_layer
+        dτ33dn          =  0 #-ρ * Cd * windspeed_FN * v_FN
+        
+        # ------------------------------------
+        #Water flux: (eq 29 in CLIMA-doc)
+        # ------------------------------------
+        q_vap_FN   = q_tot_FN - PhasePartition(TS_FN).liq
+        q_vap_star = q_vap_saturation(SST, ρ, PhasePartition(q_tot, q_liq, 0.0))
+        Evap_flux  = - Cd * windspeed_FN * (q_vap_FN - q_vap_star) / h_first_layer
+
+        # --------------------------------------
+        #Energy flux associate with evaporation: (eq 30 in CLIMA-doc)
+        # --------------------------------------
+        LHF  =   (cp_v*(T - T_0) + LH_v0 + grav * xvert) * Evap_flux
+        
+        # ---------------------------------------
+        #Sensible heat flux: (eq 31 in CLIMA-doc)
+        # ---------------------------------------
+        cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
+        SHF      = - Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - zmin)) / h_first_layer
+        
+        S[_U]  += dτ13dn 
+        S[_V]  += dτ23dn
+        
+        S[_E]  += (15 + 115)/(ρ * h_first_layer)            
+        #S[_E]  += SHF + LHF
+        S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
+        
+        nothing
+    end
+end
+
 
 @inline function source_geopot!(S,Q,aux,t)
     @inbounds begin
