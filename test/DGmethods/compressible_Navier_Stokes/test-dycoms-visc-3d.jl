@@ -557,7 +557,7 @@ end
     @inbounds begin
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
-        source_geostrophic!(S, Q, aux, t)
+        #source_geostrophic!(S, Q, aux, t)
 
         # Surface evaporation effects:
         #xvert = aux[_a_z]
@@ -608,8 +608,8 @@ end
             #Momentum
             # ------------------------------------
             #2D
-            dτ13dn = dτ31dn = -ρ * Cd * windspeed_FN * u_FN / h_first_layer
-            dτ23dn = dτ32dn = -ρ * Cd * windspeed_FN * v_FN / h_first_layer
+            dτ13dn = dτ31dn = -Cd * windspeed_FN * u_FN / h_first_layer
+            dτ23dn = dτ32dn = -Cd * windspeed_FN * v_FN / h_first_layer
             dτ33dn          =  0 #-ρ * Cd * windspeed_FN * v_FN
            
             # ------------------------------------
