@@ -776,8 +776,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-ref-314535456d5f175d0d2c9aaf1fd6b1c31a112736/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-314535456d5f175d0d2c9aaf1fd6b1c31a112736/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-ref-395f52e960e3cae9b4c3e5ed8d45cebe56baa6a1/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-395f52e960e3cae9b4c3e5ed8d45cebe56baa6a1/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
