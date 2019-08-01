@@ -738,11 +738,12 @@ function firstnode_info(disc,Q,t) #SM
                                                         (_a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN), (_ρ, _U, _V, _W, _E, _QT))
 end#END SM
 function integral_computation(disc, Q, t)
-  DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q,
-                                                         (_a_02z))
-  DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
-                                                                 _a_z2inf,
-                                                                 _a_02z)
+    DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q,
+                                                           (_a_02z))
+    DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
+                                                                   _a_z2inf,
+                                                                   _a_02z)
+    
 end
 
 # ------------------------------------------------------------------
@@ -901,24 +902,20 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
 
-    npoststates = 8
-    _o_LWP, _o_u, _o_v, _o_w, _o_q_liq, _o_T, _o_θ, _o_beta = 1:npoststates
-    postnames = ("LWP", "u", "v", "w", "_q_liq", "T", "THETA", "SPONGE")
+    npoststates = 4
+    _o_RAD, _o_q_liq, _o_T, _o_θ = 1:npoststates
+    postnames = ("RAD", "_q_liq", "T", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(2000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
-          u, v, w     = preflux(Q, aux)
-          R[_o_LWP]   = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
-          R[_o_u]     = u
-          R[_o_v]     = v
-          R[_o_w]     = w
-          R[_o_q_liq] = aux[_a_q_liq]
-          R[_o_T]     = aux[_a_T]
-          R[_o_θ]     = aux[_a_θ]
-          R[_o_beta]  = aux[_a_sponge]
+            R[_o_RAD]   = aux[_a_02z] + aux[_a_z2inf]
+            R[_o_q_liq] = aux[_a_q_liq]
+            R[_o_T]     = aux[_a_T]
+            R[_o_θ]     = aux[_a_θ]
+            #R[_o_beta]  = aux[_a_sponge]
         end
       end
         
