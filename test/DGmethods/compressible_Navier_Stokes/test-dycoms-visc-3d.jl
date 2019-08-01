@@ -506,13 +506,13 @@ end
         QP[_V]  = VM - 2 * nM[2] * UnM
         QP[_W]  = WM - 2 * nM[3] * UnM
         
-        QP[_ρ] = ρM
-        QP[_QT] = QTM        
-        QP[_E] = EM
+        #QP[_ρ] = ρM
+        #QP[_QT] = QTM        
+        #QP[_E] = EM
         
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
-        if xvert < h_first_layer #&& t < 0.0025
+       #= if xvert < h_first_layer #&& t < 0.0025
             ρ      = ρsfc
             q_tot  = qtot_sfc #QP[_QT]/QP[_ρ]
             q_liq  = auxM[_a_q_liq]
@@ -527,7 +527,7 @@ end
             Esfc   = ρ * total_energy(e_kin, e_pot, SST, PhasePartition(q_tot, q_liq, 0.0))
             QP[_E] = Esfc
             QP[_QT]= q_tot*ρ
-        end
+        end=#
         
         nothing
     end
@@ -617,7 +617,7 @@ end
             # ------------------------------------
             q_vap_FN   = q_tot_FN - PhasePartition(TS_FN).liq
             q_vap_star = q_vap_saturation(SST, ρ, PhasePartition(q_tot, q_liq, 0.0))
-            Evap_flux  = - ρ * Cd * windspeed_FN * (q_vap_FN - q_vap_star) / h_first_layer
+            Evap_flux  = - Cd * windspeed_FN * (q_vap_FN - q_vap_star) / h_first_layer
 
             # --------------------------------------
             #Energy flux associate with evaporation: (eq 30 in CLIMA-doc)
@@ -628,13 +628,13 @@ end
             #Sensible heat flux: (eq 31 in CLIMA-doc)
             # ---------------------------------------
             cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
-            SHF      = - ρ * Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - zmin)) / h_first_layer
+            SHF      = - Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - zmin)) / h_first_layer
             
             S[_U]  += dτ13dn 
             S[_V]  += dτ23dn
-            S[_E]  += -(15 + 115)/h_first_layer
+            S[_E]  += (15 + 115)/(ρ * h_first_layer)
             #S[_E]  += SHF + LHF
-            S[_QT] += Evap_flux
+            S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
         end
         nothing
     end
