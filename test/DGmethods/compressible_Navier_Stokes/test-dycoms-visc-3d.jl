@@ -102,9 +102,9 @@ const h_first_layer = Δz
 const stretch_coe = 2.25
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 500)
-const (ymin, ymax) = (0, 250)
-const (zmin, zmax) = (0, 2000)
+const (xmin, xmax) = (0, 825)
+const (ymin, ymax) = (0, 820)
+const (zmin, zmax) = (0, 1500)
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -439,12 +439,14 @@ end
 
         
         #Vertical sponge:
-        sponge_type = 2
+        sponge_type = 1
         if sponge_type == 1
-            
-            top_sponge  = DFloat(0.85) * domain_top          
-            if xvert >= top_sponge
-                ctop = ct * (sinpi((z - top_sponge)/2/(domain_top - top_sponge)))^4
+
+            ct = 0.9
+            bc_zscale  = 600.0
+            zd = domain_top - bc_zscale       
+            if xvert >= zd
+                ctop = ct * (sinpi(0.5*(xvert - zd)/(domain_top - zd)))^4
             end
             
         elseif sponge_type == 2
@@ -505,7 +507,8 @@ end
         QP[_U]  = UM - 2 * nM[1] * UnM
         QP[_V]  = VM - 2 * nM[2] * UnM
         QP[_W]  = WM - 2 * nM[3] * UnM
-        
+
+        VFP .= 0
         #QP[_ρ] = ρM
         #QP[_QT] = QTM        
         #QP[_E] = EM
@@ -561,9 +564,9 @@ end
 
         # Surface evaporation effects:
         #xvert = aux[_a_z]
-        #if xvert < 0.0001 && t > 0.001
-        #    source_boundary_evaporation!(S,Q,aux,t)
-        #end
+        if xvert < 0.0001 && t > 0.001
+            source_boundary_evaporation!(S,Q,aux,t)
+        end
     end
 end
 
@@ -571,72 +574,72 @@ end
     @inbounds begin
         x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
         xvert = z
-        if xvert < 0.0001
-            # ------------------------------
-            # First node quantities (first-model level here represents the first node)
-            # ------------------------------
-            xvert_FN         = aux[_a_z_FN]
-            ρ_FN             = aux[_a_ρ_FN]
-            U_FN             = aux[_a_U_FN]
-            V_FN             = aux[_a_V_FN]
-            W_FN             = aux[_a_W_FN]
-            E_FN             = aux[_a_E_FN]
-            u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
-            windspeed_FN     = sqrt(u_FN^2 + v_FN^2)
-            q_tot_FN         = aux[_a_QT_FN] / ρ_FN
-            e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*xvert_FN
-            TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN)           #themordynamic state at first node
-            T_FN             = air_temperature(TS_FN)
-            q_liq_FN         = PhasePartition(TS_FN).liq
-            cpm_FN           = cp_m(TS_FN)
-            
-            # -----------------------------------
-            # Bottom boundary quantities 
-            # -----------------------------------
-            ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-            u, v, w     = U/ρ, V/ρ, W/ρ
-            q_tot       = Q[_QT]/Q[_ρ]
-            q_liq       = aux[_a_q_liq]
-            windspeed   = sqrt(u^2)
-            e_int       = E/ρ - 0.5*windspeed^2 - grav*xvert
-            TS          = PhaseEquil(e_int, q_tot, ρ)           #thermodynamic state at first node        
-            q_vap       = q_tot - PhasePartition(TS).liq
-            T           = air_temperature(TS)
-            cpm         = cp_m(TS)
-            
-            # ------------------------------------
-            #Momentum
-            # ------------------------------------
-            #2D
-            dτ13dn = dτ31dn = -Cd * windspeed_FN * u_FN / h_first_layer
-            dτ23dn = dτ32dn = -Cd * windspeed_FN * v_FN / h_first_layer
-            dτ33dn          =  0 #-ρ * Cd * windspeed_FN * v_FN
-           
-            # ------------------------------------
-            #Water flux: (eq 29 in CLIMA-doc)
-            # ------------------------------------
-            q_vap_FN   = q_tot_FN - PhasePartition(TS_FN).liq
-            q_vap_star = q_vap_saturation(SST, ρ, PhasePartition(q_tot, q_liq, 0.0))
-            Evap_flux  = - Cd * windspeed_FN * (q_vap_FN - q_vap_star) / h_first_layer
+        
+        # ------------------------------
+        # First node quantities (first-model level here represents the first node)
+        # ------------------------------
+        xvert_FN         = aux[_a_z_FN]
+        ρ_FN             = aux[_a_ρ_FN]
+        U_FN             = aux[_a_U_FN]
+        V_FN             = aux[_a_V_FN]
+        W_FN             = aux[_a_W_FN]
+        E_FN             = aux[_a_E_FN]
+        u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
+        windspeed_FN     = sqrt(u_FN^2 + v_FN^2)
+        q_tot_FN         = aux[_a_QT_FN] / ρ_FN
+        e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*xvert_FN
+        TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN)           #themordynamic state at first node
+        T_FN             = air_temperature(TS_FN)
+        q_liq_FN         = PhasePartition(TS_FN).liq
+        cpm_FN           = cp_m(TS_FN)
+        
+        # -----------------------------------
+        # Bottom boundary quantities 
+        # -----------------------------------
+        ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+        u, v, w     = U/ρ, V/ρ, W/ρ
+        q_tot       = Q[_QT]/Q[_ρ]
+        q_liq       = aux[_a_q_liq]
+        windspeed   = sqrt(u^2)
+        e_int       = E/ρ - 0.5*windspeed^2 - grav*xvert
+        TS          = PhaseEquil(e_int, q_tot, ρ)           #thermodynamic state at first node        
+        q_vap       = q_tot - PhasePartition(TS).liq
+        T           = air_temperature(TS)
+        cpm         = cp_m(TS)
+        
+        # ------------------------------------
+        #Momentum
+        # ------------------------------------
+        #2D
+        dτ13dn = dτ31dn = -ρ * Cd * windspeed_FN * u_FN / h_first_layer
+        dτ23dn = dτ32dn = -ρ * Cd * windspeed_FN * v_FN / h_first_layer
+        dτ33dn          =  0 #-ρ * Cd * windspeed_FN * v_FN
+        
+        # ------------------------------------
+        #Water flux: (eq 29 in CLIMA-doc)
+        # ------------------------------------
+        q_vap_FN   = q_tot_FN - PhasePartition(TS_FN).liq
+        q_vap_star = q_vap_saturation(SST, ρ, PhasePartition(q_tot, q_liq, 0.0))
+        Evap_flux  = - Cd * windspeed_FN * (q_vap_FN - q_vap_star) / h_first_layer
 
-            # --------------------------------------
-            #Energy flux associate with evaporation: (eq 30 in CLIMA-doc)
-            # --------------------------------------
-            LHF  =   (cp_v*(T - T_0) + LH_v0 + grav * xvert) * Evap_flux
-            
-            # ---------------------------------------
-            #Sensible heat flux: (eq 31 in CLIMA-doc)
-            # ---------------------------------------
-            cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
-            SHF      = - Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - zmin)) / h_first_layer
-            
-            S[_U]  += dτ13dn 
-            S[_V]  += dτ23dn
-            
-            S[_E]  += (15 + 115)/(ρ * h_first_layer)            
-            #S[_E]  += SHF + LHF
-            S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
-        end
+        # --------------------------------------
+        #Energy flux associate with evaporation: (eq 30 in CLIMA-doc)
+        # --------------------------------------
+        LHF  =   (cp_v*(T - T_0) + LH_v0 + grav * xvert) * Evap_flux
+        
+        # ---------------------------------------
+        #Sensible heat flux: (eq 31 in CLIMA-doc)
+        # ---------------------------------------
+        cpm      =   cp_m(PhasePartition(q_tot, q_liq, 0.0))
+        SHF      = - Cd * windspeed_FN * (cpm_FN*T_FN - cpm*SST + grav * (xvert_FN - zmin)) / h_first_layer
+        
+        S[_U]  += dτ13dn 
+        S[_V]  += dτ23dn
+        
+        S[_E]  += (15 + 115)/(ρ * h_first_layer)            
+        #S[_E]  += SHF + LHF
+        S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
+        
         nothing
     end
 end
