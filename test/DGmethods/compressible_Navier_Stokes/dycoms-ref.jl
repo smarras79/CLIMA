@@ -529,7 +529,7 @@ end
         
         # Surface evaporation effects:
         xvert = aux[_a_z]
-        if xvert < 0.0001 && t > 0.0005
+        if xvert < 0.0001 && t > 0.002
             source_boundary_evaporation!(S,Q,aux,t)
         end
         
@@ -647,7 +647,7 @@ end
         
         #S[_E]  += (15 + 115)/(ρ * h_first_layer)            
         #S[_E]  += SHF + LHF
-        #S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
+        S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
         
         nothing
     end
