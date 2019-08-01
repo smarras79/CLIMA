@@ -460,27 +460,39 @@ end
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
+        xvert = z
+        
         ρM, UM, VM, WM, EM, QTM = QM[_ρ], QM[_U], QM[_V], QM[_W], QM[_E], QM[_QT]
+        u, v, w = UM/ρM, VM/ρM, WM/ρM
+        q_tot = QM[_QT]/ρM
+        q_liq = auxM[_a_q_liq]
         
         # No flux boundary conditions
         # No shear on walls (free-slip condition)
-
-        thermal_flux_flg = 1  #CHANGE THIS value BASED ON WHAT YOU DO IN THE SOURCE/FLUXES
-        if thermal_flux_flg == 0
-            UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-            QP[_U] = UM - 2 * nM[1] * UnM
-            QP[_V] = VM - 2 * nM[2] * UnM
-            QP[_W] = WM - 2 * nM[3] * UnM
-            #QP[_ρ] = ρM
-            #QP[_QT] = QTM
-            VFP .= 0   #without thjermal flux imposed in the sources
-            
-        elseif thermal_flux_flg == 1
+        
+        UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
+        QP[_U] = UM - 2 * nM[1] * UnM
+        QP[_V] = VM - 2 * nM[2] * UnM
+        QP[_W] = WM - 2 * nM[3] * UnM
+        #QP[_ρ] = ρM
+        #QP[_QT] = QTM
+        VFP .= 0
+        
+        if xvert < 0.0001
             UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
             QP[_W] = WM - 2 * nM[3] * UnM
             QP[_U] = QM[_U]
             QP[_V] = QM[_V]
-            VFP .= VFM
+            
+            #VFP .= VFM
+            VFP[_Tz] = VFM[_Tz]
+
+            #Dirichlet on T: SST
+            T = SST
+            e_kin = 0.5 * (u^2 + v^2 + w^2)
+            e_pot = grav * xvert
+            e_int = internal_energy(T, PhasePartition(q_tot, q_liq, 0.0))
+            E     = ρM * total_energy(e_kin, e_pot, T, PhasePartition(q_tot, q_liq, 0.0))
         end
         
         nothing
@@ -761,10 +773,6 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     e_int       = internal_energy(T, PhasePartition(q_tot, q_liq, q_ice))
     E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot, q_liq, q_ice))
     
-    #Get q_liq and q_ice
-    TS           = PhaseEquil(e_int, q_tot, ρ)
-    q_phase_part = PhasePartition(TS)
-    
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
     
 end
@@ -869,7 +877,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(2000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w     = preflux(Q, aux)
@@ -948,7 +956,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.0005
+    dt = 0.002
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
