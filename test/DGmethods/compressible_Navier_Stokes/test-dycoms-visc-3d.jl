@@ -555,7 +555,7 @@ end
 @inline function source!(S,Q,aux,t)
     # Initialise the final block source term 
     S .= 0
-
+    
     # Typically these sources are imported from modules
     @inbounds begin
         source_geopot!(S, Q, aux, t)
@@ -563,7 +563,7 @@ end
         #source_geostrophic!(S, Q, aux, t)
 
         # Surface evaporation effects:
-        #xvert = aux[_a_z]
+        xvert = aux[_a_z]
         if xvert < 0.0001 && t > 0.001
             source_boundary_evaporation!(S,Q,aux,t)
         end
