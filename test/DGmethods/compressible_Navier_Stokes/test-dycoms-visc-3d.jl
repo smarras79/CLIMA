@@ -637,7 +637,7 @@ end
         S[_V]  += dτ23dn
         
         S[_E]  += (15 + 115)/(ρ * h_first_layer)            
-        #S[_E]  += SHF + LHF
+        S[_E]  += SHF + LHF
         S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
         
         nothing
