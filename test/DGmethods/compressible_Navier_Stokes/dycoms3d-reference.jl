@@ -1,5 +1,3 @@
-
-# Load Modules 
 using MPI
 using CLIMA
 using CLIMA.Topologies
