@@ -205,7 +205,6 @@ end
 function read_sounding()
     #read in the original squal sounding
     fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
-    #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_from_PyCles.dat"))
     sounding = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sounding)
@@ -660,7 +659,6 @@ end
     @inbounds begin
         x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
         xvert = z
-        
         # ------------------------------
         # First node quantities (first-model level here represents the first node)
         # ------------------------------
@@ -760,7 +758,7 @@ function preodefun!(disc, Q, t)
     @inbounds let
       ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
       xvert = aux[_a_z]
-      e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * xvert) / ρ
+      e_int = (E - 0.5*(U^2 + V^2+ W^2)/ρ - ρ * grav * xvert) / ρ
       q_tot = QT / ρ
       TS = PhaseEquil(e_int, q_tot, ρ)
       T = air_temperature(TS)
@@ -775,7 +773,7 @@ function preodefun!(disc, Q, t)
     end
   end
 
-    firstnode_info(disc,Q,t) #SM
+  firstnode_info(disc,Q,t) #SM
   integral_computation(disc, Q, t)
 end
 
@@ -952,11 +950,11 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     npoststates = 4
     _o_RAD, _o_q_liq, _o_T, _o_θ = 1:npoststates
-    postnames = ("RAD", "_q_liq", "T", "THETA")
+    postnames = ("RAD", "q_liq", "T", "THETA")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(2000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
             R[_o_RAD]   = aux[_a_02z] + aux[_a_z2inf]
