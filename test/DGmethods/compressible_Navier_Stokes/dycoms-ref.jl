@@ -43,9 +43,6 @@ const statenames = ("RHO", "U", "V", "W", "E", "QT")
 const _nviscstates = 16
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij = 1:_nviscstates
 
-# Gradient state labels
-const _ngradstates = 6
-
 const _nauxstate = 22
 const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN = 1:_nauxstate
 
@@ -272,6 +269,8 @@ end
 #md # in some cases. 
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
+# Gradient state labels
+const _ngradstates = 7
 @inline function gradient_vars!(vel, Q, aux, t)
   @inbounds begin
     (P, u, v, w, ρinv, q_liq,T,θ) = preflux(Q,aux)
@@ -467,7 +466,7 @@ end
 
 @inline function stresses_penalty!(VF, nM, velM, QM, aM, velP, QP, aP, t)
     @inbounds begin
-        n_Δvel = similar(VF, Size(3, 3))
+        n_Δvel = similar(VF, Size(3, _ngradstates))
         for j = 1:_ngradstates, i = 1:3
             n_Δvel[i, j] = nM[i] * (velP[j] - velM[j]) / 2
         end
