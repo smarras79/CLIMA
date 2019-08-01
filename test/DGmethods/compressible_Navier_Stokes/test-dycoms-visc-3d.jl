@@ -560,13 +560,13 @@ end
     @inbounds begin
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
-        #source_geostrophic!(S, Q, aux, t)
+        source_geostrophic!(S, Q, aux, t)
 
         # Surface evaporation effects:
-        xvert = aux[_a_z]
+        #=xvert = aux[_a_z]
         if xvert < 0.0001 && t > 0.001
             source_boundary_evaporation!(S,Q,aux,t)
-        end
+        end=#
     end
 end
 
@@ -901,7 +901,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
         
         step = [0]
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(2000) do (init=false)
             DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
                 @inbounds let
                     u, v, w     = preflux(Q, aux)
