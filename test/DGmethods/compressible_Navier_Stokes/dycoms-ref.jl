@@ -31,7 +31,7 @@ end
 # and consider the dry equation set to be the same as the moist equations but
 # with total specific humidity = 0. 
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters: R_d, cp_d, grav, cv_d, MSLP, T_0, Omega
+using CLIMA.PlanetParameters
 
 # State labels 
 const _nstate = 6
@@ -93,6 +93,8 @@ const Npoly = 4
 const (xmin, xmax) = (0, 840)
 const (ymin, ymax) = (0, 840)
 const (zmin, zmax) = (0, 1500)
+
+const zi = 840
 
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
@@ -572,8 +574,16 @@ function preodefun!(disc, Q, t)
     end
   end
 
+    firstnode_info(disc,Q,t) #SM
   integral_computation(disc, Q, t)
 end
+
+function firstnode_info(disc,Q,t) #SM
+    DGBalanceLawDiscretizations.aux_firstnode_values!(disc, Q,
+                                                      (_a_z_FN), (_a_z))
+    DGBalanceLawDiscretizations.state_firstnode_values!(disc, Q,
+                                                        (_a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN), (_ρ, _U, _V, _W, _E, _QT))
+end#END SM
 function integral_computation(disc, Q, t)
   DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q,
                                                          (_a_02z))
@@ -598,36 +608,10 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     DFloat         = eltype(Q)
     p0::DFloat      = MSLP
 
-    #=
-    # ----------------------------------------------------
-    # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
-    # This driver accepts data in 6 column format
-    # ----------------------------------------------------
-    (sounding, _, ncols) = read_sounding()
-    
-    # WARNING: Not all sounding data is formatted/scaled 
-    # the same. Care required in assigning array values
-    # height theta qv    u     v     pressure
-    zinit, tinit, qinit, uinit, vinit, pinit  = sounding[:, 1],
-    sounding[:, 2],
-    sounding[:, 3],
-    sounding[:, 4],
-    sounding[:, 5],
-    sounding[:, 6]    
-    #------------------------------------------------------
-    # GET SPLINE FUNCTION
-    #------------------------------------------------------
-    spl_tinit    = Spline1D(zinit, tinit; k=1)
-    spl_qinit    = Spline1D(zinit, qinit; k=1)
-    spl_uinit    = Spline1D(zinit, uinit; k=1)
-    spl_vinit    = Spline1D(zinit, vinit; k=1)
-    spl_pinit    = Spline1D(zinit, pinit; k=1)
-    =#
     # --------------------------------------------------
     # INITIALISE ARRAYS FOR INTERPOLATED VALUES
     # --------------------------------------------------
     xvert          = z
-    
     datat          = spl_tinit(xvert)
     dataq          = spl_qinit(xvert)
     datau          = spl_uinit(xvert)
@@ -637,11 +621,26 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     
     randnum1   = rand(1)[1] / 100
     randnum2   = rand(1)[1] / 100
+
+    q_liq = 0.0
+    q_ice = 0.0
+    q_liq_peak = 0.00045
+    zcloud_bot = 600.0
+    zcloud_top = zi
+    dzcloud = zcloud_top - zcloud_bot
+    if xvert >= zcloud_bot && xvert <= zcloud_top
+        q_liq = (xvert - zcloud_bot)*q_liq_peak/dzcloud
+    end
     
-    θ_liq = datat + randnum1 * datat
-    q_tot = dataq + randnum2 * dataq
+    θ_liq = datat
+    q_tot = dataq
+    if xvert <= 200.0
+        θ_liq += randnum1 * datat
+        q_tot += randnum2 * dataq
+    end
+    
     P     = datap    
-    T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot))
+    T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot, q_liq, q_ice))
     ρ     = air_density(T, P)
     
     # energy definitions
@@ -649,10 +648,10 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     U           = ρ * u
     V           = ρ * v
     W           = ρ * w
-    e_kin       = (u^2 + v^2 + w^2) / 2  
+    e_kin       = 0.5 * (u^2 + v^2 + w^2)
     e_pot       = grav * xvert
-    e_int       = internal_energy(T, PhasePartition(q_tot))
-    E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot))
+    e_int       = internal_energy(T, PhasePartition(q_tot, q_liq, q_ice))
+    E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot, q_liq, q_ice))
     
     #Get q_liq and q_ice
     TS           = PhaseEquil(e_int, q_tot, ρ)
