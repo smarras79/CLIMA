@@ -964,9 +964,8 @@ let
     # User defined number of elements
     # User defined timestep estimate
     # User defined simulation end time
-    # User defined polynomial order 
-    #numelem = (Nex, Ney, Nez)
-    dt = 0.0005
+    # User defined polynomial order
+    dt = 0.0010
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
