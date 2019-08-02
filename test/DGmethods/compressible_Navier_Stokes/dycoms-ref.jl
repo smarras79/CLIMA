@@ -1004,8 +1004,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-ref-today/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-today/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-ref-57aeb4c8/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-57aeb4c8/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -1042,7 +1042,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.002
+    dt = 0.004
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
