@@ -380,102 +380,71 @@ end
 # -------------------------------------------------------------------------
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
-        DFloat = eltype(aux)
-        xvert = z
-        aux[_a_z] = xvert
-
-        #Sponge 
-        ctop    = zero(DFloat)
-
-        cs_left_right = zero(DFloat)
-        cs_front_back = zero(DFloat)
-        ct            = DFloat(0.75)
+        aux[_a_x] = x
+        aux[_a_y] = y
+        aux[_a_z] = z
         
-        domain_bott  = zmin
-        domain_top   = zmax
-        #END User modification on domain parameters.
-
+        #Sponge
+        csleft  = 0.0
+        csright = 0.0
+        csfront = 0.0
+        csback  = 0.0
+        ctop    = 0.0
         
-        #Vertical sponge:
-        sponge_type = 1
-        if sponge_type == 1
+        cs_left_right = 0.0
+        cs_front_back = 0.0
+        ct            = 0.75
 
-            ct = 0.9
-            bc_zscale  = 600.0
-            zd = domain_top - bc_zscale       
-            if xvert >= zd
-                ctop = ct * (sinpi(0.5*(xvert - zd)/(domain_top - zd)))^4
-            end
+        #BEGIN  User modification on domain parameters.
+        #Only change the first index of brickrange if your axis are
+        #oriented differently:    
+        #x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
+        #TODO z is the vertical coordinate
+        #
+        domain_left  = xmin 
+        domain_right = xmax
+        
+        domain_front = ymin 
+        domain_back  = ymax 
+        
+        domain_bott  = zmin 
+        domain_top   = zmax 
 
-        ####
-        else
-            
-            aux[_a_x] = x
-            aux[_a_y] = y
-            aux[_a_z] = z
-            
-            #Sponge
-            csleft  = 0.0
-            csright = 0.0
-            csfront = 0.0
-            csback  = 0.0
-            ctop    = 0.0
-            
-            cs_left_right = 0.0
-            cs_front_back = 0.0
-            ct            = 0.75
-
-            #BEGIN  User modification on domain parameters.
-            #Only change the first index of brickrange if your axis are
-            #oriented differently:    
-            #x, y, z = aux[_a_x], aux[_a_y], aux[_a_z]
-            #TODO z is the vertical coordinate
-            #
-            domain_left  = xmin 
-            domain_right = xmax
-            
-            domain_front = ymin 
-            domain_back  = ymax 
-            
-            domain_bott  = zmin 
-            domain_top   = zmax 
-
-            #END User modification on domain parameters.
-            
-            # Define Sponge Boundaries      
-            xc       = 0.5 * (domain_right + domain_left)
-            yc       = 0.5 * (domain_back  + domain_front)
-            zc       = 0.5 * (domain_top   + domain_bott)
-            
-            top_sponge  = 0.85 * domain_top
-            xsponger    = domain_right - 0.15 * (domain_right - xc)
-            xspongel    = domain_left  + 0.15 * (xc - domain_left)
-            ysponger    = domain_back  - 0.15 * (domain_back - yc)
-            yspongel    = domain_front + 0.15 * (yc - domain_front)
-            
-            #x left and right
-            #xsl
-            if x <= xspongel
-                csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
-            end
-            #xsr
-            if x >= xsponger
-                csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
-            end        
-            #y left and right
-            #ysl
-            if y <= yspongel
-                csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
-            end
-            #ysr
-            if y >= ysponger
-                csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
-            end
-            
-            #Vertical sponge:         
-            if z >= top_sponge
-                ctop = ct * (sinpi(0.5 * (z - top_sponge)/(domain_top - top_sponge)))^4
-            end
+         #END User modification on domain parameters.
+        
+        # Define Sponge Boundaries      
+        xc       = 0.5 * (domain_right + domain_left)
+        yc       = 0.5 * (domain_back  + domain_front)
+        zc       = 0.5 * (domain_top   + domain_bott)
+        
+        top_sponge  = 0.85 * domain_top
+        xsponger    = domain_right - 0.15 * (domain_right - xc)
+        xspongel    = domain_left  + 0.15 * (xc - domain_left)
+        ysponger    = domain_back  - 0.15 * (domain_back - yc)
+        yspongel    = domain_front + 0.15 * (yc - domain_front)
+       
+        #x left and right
+        #xsl
+        if x <= xspongel
+            csleft = cs_left_right * (sinpi(1/2 * (x - xspongel)/(domain_left - xspongel)))^4
+        end
+        #xsr
+        if x >= xsponger
+            csright = cs_left_right * (sinpi(1/2 * (x - xsponger)/(domain_right - xsponger)))^4
+        end        
+        #y left and right
+        #ysl
+        if y <= yspongel
+            csfront = cs_front_back * (sinpi(1/2 * (y - yspongel)/(domain_front - yspongel)))^4
+        end
+        #ysr
+        if y >= ysponger
+            csback = cs_front_back * (sinpi(1/2 * (y - ysponger)/(domain_back - ysponger)))^4
+        end
+                
+        #Vertical sponge:         
+        if z >= top_sponge
+            ctop = ct * (sinpi(0.5 * (z - top_sponge)/(domain_top - top_sponge)))^4
         end
         
         beta  = 1.0 - (1.0 - ctop) #*(1.0 - csleft)*(1.0 - csright)*(1.0 - csfront)*(1.0 - csback)
@@ -554,7 +523,9 @@ end
     @inbounds begin
         source_geopot!(S, Q, aux, t)
         source_sponge!(S, Q, aux, t)
+        source_coriolis!(S, Q, aux, t)
         source_geostrophic!(S, Q, aux, t)
+
         
         # Surface evaporation effects:
         xvert = aux[_a_z]
@@ -674,7 +645,7 @@ end
         S[_U]  += dτ13dn 
         S[_V]  += dτ23dn
         
-        S[_E]  += (15 + 115)/(ρ * h_first_layer)            
+        #S[_E]  += (15 + 115)/(ρ * h_first_layer)            
         #S[_E]  += SHF + LHF
         S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
         
@@ -788,9 +759,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
         q_tot += randnum2 * dataq
     end
     
-    P     = datap
-    T     = air_temperature(P, PhasePartition(q_tot, q_liq, q_ice))
-    #T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot, q_liq, q_ice))
+    P     = datap    
+    T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot, q_liq, q_ice))
     ρ     = air_density(T, P)
     
     # energy definitions
@@ -987,7 +957,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.002
-    timeend = 2*dt #14400
+    timeend = 4*dt #14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
