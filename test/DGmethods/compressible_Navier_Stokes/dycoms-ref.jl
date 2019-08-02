@@ -289,7 +289,7 @@ end
         aux[_a_rad] = F_rad
        
         SijSij = VF[_SijSij]
-        f_R = buoyancy_correction_smag(SijSij, θ, vθz)
+        f_R = buoyancy_correction(SijSij, θ, vθz)
 
         #Dynamic eddy viscosity from Smagorinsky:
         μ_e = ρ * sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
