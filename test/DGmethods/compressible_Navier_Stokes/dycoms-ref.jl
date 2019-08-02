@@ -1047,7 +1047,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     =#
     # Set up the information callback
     starttime = Ref(now())
-    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
+    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
         if s
             starttime[] = now()
         else
