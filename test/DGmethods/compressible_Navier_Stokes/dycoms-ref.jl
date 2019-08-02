@@ -40,8 +40,8 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 16
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij = 1:_nviscstates
+const _nviscstates = 23
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz = 1:_nviscstates
 
 const _nauxstate = 22
 const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN = 1:_nauxstate
@@ -144,6 +144,7 @@ const fq         = 115.0
 const Cd         = 0.0011        #Drag coefficient
 const first_node_level   = 0.0001
 
+const D_subsidence = 3.75e-6
 
 # Random number seed
 const seed = MersenneTwister(0)
@@ -249,6 +250,11 @@ end
     @inbounds begin
         (P, u, v, w, ρinv, q_liq,T,θ) = preflux(Q,aux)
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+
+        xvert = aux[_a_z]
+        w -= D_subsidence * xvert
+        W  = w*ρ
+        
         # Inviscid contributions
         F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
         F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
@@ -258,8 +264,10 @@ end
         F[1, _QT], F[2, _QT], F[3, _QT] = u * QT  , v * QT     , w * QT 
 
         #Derivative of T and Q:
-        vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
-        vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
+        vqx, vqy, vqz    = VF[_qx],  VF[_qy],  VF[_qz]
+        vqvx, vqvy, vqvz = VF[_qvx], VF[_qvy], VF[_qvz]
+        vqlx, vqly, vqlz = VF[_qlx], VF[_qly], VF[_qlz]    
+        vTx, vTy, vTz    = VF[_Tx], VF[_Ty], VF[_Tz]
         vθy = VF[_θy]
       
         # Radiation contribution 
@@ -270,14 +278,14 @@ end
         f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
 
         #Dynamic eddy viscosity from Smagorinsky:
-        ν_e = sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
-        D_e = ν_e / Prandtl_t
+        μ_e = ρ * sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+        D_e = μ_e / Prandtl_t
         
         # Multiply stress tensor by viscosity coefficient:
-        τ11, τ22, τ33 = VF[_τ11] * ν_e, VF[_τ22]* ν_e, VF[_τ33] * ν_e
-        τ12 = τ21 = VF[_τ12] * ν_e 
-        τ13 = τ31 = VF[_τ13] * ν_e               
-        τ23 = τ32 = VF[_τ23] * ν_e
+        τ11, τ22, τ33 = VF[_τ11] * μ_e, VF[_τ22]* μ_e, VF[_τ33] * μ_e
+        τ12 = τ21 = VF[_τ12] * μ_e 
+        τ13 = τ31 = VF[_τ13] * μ_e               
+        τ23 = τ32 = VF[_τ23] * μ_e
         
         # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
         F[1, _U] -= τ11 * f_R ; F[2, _U] -= τ12 * f_R ; F[3, _U] -= τ13 * f_R
@@ -285,17 +293,44 @@ end
         F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
         
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * ν_e
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * ν_e
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * ν_e
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * μ_e
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * μ_e
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * μ_e
         
-        F[1, _E] -= 0
-        F[2, _E] -= 0
-        F[3, _E] -= F_rad
+        F[3, _E] += F_rad
+        
         # Viscous contributions to mass flux terms
+        F[1, _ρ]  -=  vqx * D_e
+        F[2, _ρ]  -=  vqy * D_e
+        F[3, _ρ]  -=  vqz * D_e
         F[1, _QT] -=  vqx * D_e
         F[2, _QT] -=  vqy * D_e
         F[3, _QT] -=  vqz * D_e
+
+        
+        #Terms for Eq. (36) in CLIMA-doc
+        u, v, w = U/ρ, V/ρ, W/ρ        
+        T = aux[_a_T]
+        I_vap = cv_v * (T - T_0) + e_int_v0
+        I_liq = cv_l * (T - T_0)
+        I_ice = cv_i * (T - T_0) - e_int_i0
+        e_kin = 0.5 * (u^2 +v^2 + w^2)
+        e_pot = grav * xvert
+        e_tot_vap = e_kin + e_pot + I_vap
+        e_tot_liq = e_kin + e_pot + I_liq
+        e_tot_ice = e_kin + e_pot + I_ice
+
+        ql_fx = -D_e * vqlx * e_tot_liq
+        ql_fy = -D_e * vqly * e_tot_liq
+        ql_fz = -D_e * vqlz * e_tot_liq
+        qv_fx = -D_e * vqvx * (e_tot_vap + R_v * T)
+        qv_fy = -D_e * vqvy * (e_tot_vap + R_v * T)
+        qv_fz = -D_e * vqvz * (e_tot_vap + R_v * T)
+       
+        F[1, _E] += ql_fx + qv_fx 
+        F[2, _E] += ql_fy + qv_fy 
+        F[3, _E] += ql_fz + qv_fz  
+        
     end
 end
 
@@ -307,14 +342,20 @@ end
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 # Gradient state labels
-const _ngradstates = 7
+const _ngradstates = 9
 @inline function gradient_vars!(vel, Q, aux, t)
   @inbounds begin
-    (P, u, v, w, ρinv, q_liq,T,θ) = preflux(Q,aux)
-    ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-    vel[1], vel[2], vel[3] = u, v, w
-    vel[4], vel[5], vel[6] = E, QT, T
-    vel[7] = θ
+      (P, u, v, w, ρinv, q_liq,T,θ) = preflux(Q,aux)
+      ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
+
+      q_tot = QT/ρ
+      q_liq = aux[_a_q_liq]
+      q_vap = q_tot - q_liq
+      
+      vel[1], vel[2], vel[3] = u, v, w
+      vel[4], vel[5], vel[6] = E, QT, T
+      vel[7] = θ     
+      vel[8], vel[9] = q_vap, q_liq      
   end
 end
 
@@ -345,51 +386,59 @@ end
 #md # to facilitate implementation of the constant coefficient Smagorinsky model
 #md # (pending)
 @inline function compute_stresses!(VF, grad_vel, _...)
-  @inbounds begin
-    dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
-    dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
-    dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
-    # compute gradients of moist vars and temperature
-    dqdx, dqdy, dqdz = grad_vel[1, 5], grad_vel[2, 5], grad_vel[3, 5]
-    dTdx, dTdy, dTdz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
-    dθdx, dθdy, dθdz = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
-    # virtual potential temperature gradient: for richardson calculation
-    # strains
-    # --------------------------------------------
-    # SMAGORINSKY COEFFICIENT COMPONENTS
-    # --------------------------------------------
-    S11 = dudx
-    S22 = dvdy
-    S33 = dwdz
-    S12 = (dudy + dvdx) / 2
-    S13 = (dudz + dwdx) / 2
-    S23 = (dvdz + dwdy) / 2
-    # --------------------------------------------
-    # SMAGORINSKY COEFFICIENT COMPONENTS
-    # --------------------------------------------
-    # FIXME: Grab functions from module SubgridScaleTurbulence 
-    SijSij = (S11^2 + S22^2 + S33^2
-              + 2.0 * S12^2
-              + 2.0 * S13^2 
-              + 2.0 * S23^2) 
-    modSij = sqrt(2.0 * SijSij)
-    
-    #--------------------------------------------
-    # deviatoric stresses
-    # Fix up index magic numbers
-    VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
-    VF[_τ22] = 2 * (S22 - (S11 + S22 + S33) / 3)
-    VF[_τ33] = 2 * (S33 - (S11 + S22 + S33) / 3)
-    VF[_τ12] = 2 * S12
-    VF[_τ13] = 2 * S13
-    VF[_τ23] = 2 * S23
-    
-    # TODO: Viscous stresse come from SubgridScaleTurbulence module
-    VF[_qx], VF[_qy], VF[_qz] = dqdx, dqdy, dqdz
-    VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
-    VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
-    VF[_SijSij] = SijSij
-  end
+    @inbounds begin
+        dudx, dudy, dudz = grad_vel[1, 1], grad_vel[2, 1], grad_vel[3, 1]
+        dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
+        dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
+        # compute gradients of moist vars and temperature
+        dqdx, dqdy, dqdz = grad_vel[1, 5], grad_vel[2, 5], grad_vel[3, 5]
+        dTdx, dTdy, dTdz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
+        dθdx, dθdy, dθdz = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
+        
+        dqvdx, dqvdy, dqvdz = grad_vel[1, 8], grad_vel[2, 8], grad_vel[3, 8]
+        dqldx, dqldy, dqldz = grad_vel[1, 9], grad_vel[2, 9], grad_vel[3, 9]
+        
+        # virtual potential temperature gradient: for richardson calculation
+        # strains
+        # --------------------------------------------
+        # SMAGORINSKY COEFFICIENT COMPONENTS
+        # --------------------------------------------
+        S11 = dudx
+        S22 = dvdy
+        S33 = dwdz
+        S12 = (dudy + dvdx) / 2
+        S13 = (dudz + dwdx) / 2
+        S23 = (dvdz + dwdy) / 2
+        # --------------------------------------------
+        # SMAGORINSKY COEFFICIENT COMPONENTS
+        # --------------------------------------------
+        # FIXME: Grab functions from module SubgridScaleTurbulence 
+        SijSij = (S11^2 + S22^2 + S33^2
+                  + 2.0 * S12^2
+                  + 2.0 * S13^2 
+                  + 2.0 * S23^2) 
+        modSij = sqrt(2.0 * SijSij)
+        
+        #--------------------------------------------
+        # deviatoric stresses
+        # Fix up index magic numbers
+        VF[_τ11] = 2 * (S11 - (S11 + S22 + S33) / 3)
+        VF[_τ22] = 2 * (S22 - (S11 + S22 + S33) / 3)
+        VF[_τ33] = 2 * (S33 - (S11 + S22 + S33) / 3)
+        VF[_τ12] = 2 * S12
+        VF[_τ13] = 2 * S13
+        VF[_τ23] = 2 * S23
+        
+        # TODO: Viscous stresse come from SubgridScaleTurbulence module
+        VF[_qx], VF[_qy], VF[_qz]    = dqdx,  dqdy,  dqdz
+        VF[_qvx], VF[_qvy], VF[_qvz] = dqvdx, dqvdy, dqvdz
+        VF[_qlx], VF[_qly], VF[_qlz] = dqldx, dqldy, dqldz
+        
+        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
+        VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
+        VF[_SijSij] = SijSij
+        
+    end
 end
 # -------------------------------------------------------------------------
 # -------------------------------------------------------------------------
@@ -509,7 +558,7 @@ end
 
 # -------------------------------------------------------------------------
 # generic bc for 2d , 3d
-
+#
 @inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
     @inbounds begin
         x, y, z = auxM[_a_x], auxM[_a_y], auxM[_a_z]
@@ -580,7 +629,7 @@ end
         
         # Surface evaporation effects:
         xvert = aux[_a_z]
-        if xvert < 0.0001 && t > 0.002
+        if xvert < 0.0001 && t > 0.004
             source_boundary_evaporation!(S,Q,aux,t)
         end
         
@@ -844,6 +893,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     datav          = spl_vinit(xvert)
     datap          = spl_pinit(xvert)
     dataq          = dataq * 1.0e-3
+    P              = datap
     
     randnum1   = rand(1)[1] / 100
     randnum2   = rand(1)[1] / 100
@@ -861,12 +911,18 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     if xvert > 600.0 && xvert <= 840.0
         q_liq = (xvert - 600)*0.00045/240.0
     end
-        
-    P      = datap
+    
+    
     PhPart = PhasePartition(q_tot, q_liq, q_ice)
     T      = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhPart)
     ρ      = air_density(T, P, PhPart)
-    
+
+    #=
+    #using charlie non-equilibrium function
+    TS     = LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq, PhPart, P)
+    T      = air_temperature(TS)
+    ρ      = air_density(TS)
+    =#
     
     # energy definitions
     u, v, w     = datau, datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
@@ -876,6 +932,11 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     e_kin       = 0.5 * (u^2 + v^2 + w^2)
     e_pot       = grav * xvert
     E           = ρ * total_energy(e_kin, e_pot, T, PhPart)
+
+    #=
+    #With charli version
+    E           = ρ * total_energy(e_kin, e_pot, TS)
+    =#
     
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
     
@@ -972,7 +1033,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     =#
     # Set up the information callback
     starttime = Ref(now())
-    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
+    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
         if s
             starttime[] = now()
         else
@@ -1004,8 +1065,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-ref-57aeb4c8/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-57aeb4c8/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-ref-57aeb4c8ch/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-57aeb4c8ch/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
