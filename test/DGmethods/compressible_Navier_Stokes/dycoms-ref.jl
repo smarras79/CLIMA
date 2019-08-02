@@ -224,8 +224,8 @@ end
 # -------------------------------------------------------------------------
 function read_sounding()
     #read in the original squal sounding
-    #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
-    fsounding  = open(joinpath(@__DIR__, "../soundings/SOUNDING_PYCLES_Z_T_P.dat"))
+    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
+    #fsounding  = open(joinpath(@__DIR__, "../soundings/SOUNDING_PYCLES_Z_T_P.dat"))
     sounding = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sounding)
@@ -696,9 +696,9 @@ end
         S[_U]  += dτ13dn 
         S[_V]  += dτ23dn
         
-        #S[_E]  += (15 + 115)/(ρ * h_first_layer)            
+        S[_E]  += (15 + 115)/(ρ * h_first_layer)            
         #S[_E]  += SHF + LHF
-        #S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
+        S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
         
         nothing
     end
@@ -776,6 +776,7 @@ end
     This function specifies the initial conditions
     for the dycoms driver. 
     """
+#=
 function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y, z, _...)
     
     DFloat     = eltype(Q)
@@ -826,8 +827,8 @@ function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y
     
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
     #try the filter
-end
-function dycomsxx!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
+end=#
+function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
                  spl_pinit, x, y, z, _...)
     
     DFloat         = eltype(Q)
@@ -857,15 +858,13 @@ function dycomsxx!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     
     q_liq = 0.0
     q_ice = 0.0
-    if xvert >= 600.0 && xvert <= 840.0
-        #q_liq = (xvert - 600)*0.00045/240.0
-        q_liq = (xvert - 600)*0.00050/240.0
+    if xvert > 600.0 && xvert <= 840.0
+        q_liq = (xvert - 600)*0.00045/240.0
     end
-    
-    
+        
     P      = datap
     PhPart = PhasePartition(q_tot, q_liq, q_ice)
-      T      = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhPart)
+    T      = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhPart)
     ρ      = air_density(T, P, PhPart)
     
     
@@ -933,33 +932,32 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     # WARNING: Not all sounding data is formatted/scaled
     # the same. Care required in assigning array values
     # height theta qv    u     v     pressure
-    #zinit, tinit, qinit, uinit, vinit, pinit  =
-    #    sounding[:, 1], sounding[:, 2], sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
-
-    zinit, tinit, pinit = sounding[:, 1], sounding[:, 2], sounding[:, 3]
-    thetainit, qinit = sounding[:, 4], sounding[:, 5]
+    zinit, tinit, qinit, uinit, vinit, pinit  =
+        sounding[:, 1], sounding[:, 2], sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
+    
+    #zinit, tinit, pinit = sounding[:, 1], sounding[:, 2], sounding[:, 3]
+    #thetainit, qinit = sounding[:, 4], sounding[:, 5]
     
     #------------------------------------------------------
     # GET SPLINE FUNCTION
     #------------------------------------------------------
-    #spl_tinit    = Spline1D(zinit, tinit; k=1)
-    #spl_qinit    = Spline1D(zinit, qinit; k=1)
-    #spl_uinit    = Spline1D(zinit, uinit; k=1)
-    #spl_vinit    = Spline1D(zinit, vinit; k=1)
-    #spl_pinit    = Spline1D(zinit, pinit; k=1)
+    spl_tinit    = Spline1D(zinit, tinit; k=1)
+    spl_qinit    = Spline1D(zinit, qinit; k=1)
+    spl_uinit    = Spline1D(zinit, uinit; k=1)
+    spl_vinit    = Spline1D(zinit, vinit; k=1)
+    spl_pinit    = Spline1D(zinit, pinit; k=1)
 
-    spl_tinit    = Spline1D(zinit, tinit; k=1) #sensible T (K)
-    spl_pinit    = Spline1D(zinit, pinit; k=1) #pressure P (Pa)
+    #spl_tinit    = Spline1D(zinit, tinit; k=1) #sensible T (K)
+    #spl_pinit    = Spline1D(zinit, pinit; k=1) #pressure P (Pa)
+    #spl_thetainit= Spline1D(zinit, thetainit; k=1) #sensible T (K)
+    #spl_qinit    = Spline1D(zinit, qinit; k=1) #sensible T (K)
     
-    spl_thetainit= Spline1D(zinit, thetainit; k=1) #sensible T (K)
-    spl_qinit    = Spline1D(zinit, qinit; k=1) #sensible T (K)
-    
 
-    #initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit,
-    #                                    spl_qinit, spl_uinit, spl_vinit,
-    #                                    spl_pinit, x...)
+    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit,
+                                        spl_qinit, spl_uinit, spl_vinit,
+                                        spl_pinit, x...)
 
-    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x...)
+    #initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x...)
     
     Q = MPIStateArray(spacedisc, initialcondition)     
     # This is a actual state/function that lives on the grid
@@ -996,7 +994,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w     = preflux(Q, aux)
@@ -1050,7 +1048,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.002
-    timeend = 4*dt #14400
+    timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
