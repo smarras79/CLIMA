@@ -144,6 +144,28 @@ const fq         = 115.0
 const Cd         = 0.0011        #Drag coefficient
 const first_node_level   = 0.0001
 
+
+# Random number seed
+const seed = MersenneTwister(0)
+
+
+function global_max(A::MPIStateArray, states=1:size(A, 2))
+    host_array = Array ∈ typeof(A).parameters
+    h_A = host_array ? A : Array(A)
+    locmax = maximum(view(h_A, :, states, A.realelems)) 
+    MPI.Allreduce([locmax], MPI.MAX, A.mpicomm)[1]
+end
+
+function global_mean(A::MPIStateArray, states=1:size(A,2))
+    host_array = Array ∈ typeof(A).parameters
+    h_A = host_array ? A : Array(A) 
+    (Np, nstate, nelem) = size(A) 
+    numpts = (nelem * Np) + 1
+    localsum = sum(view(h_A, :, states, A.realelems)) 
+    MPI.Allreduce([localsum], MPI.SUM, A.mpicomm)[1] / numpts 
+end
+
+
 # -------------------------------------------------------------------------
 # Preflux calculation: This function computes parameters required for the 
 # DG RHS (but not explicitly solved for as a prognostic variable)
@@ -202,8 +224,8 @@ end
 # -------------------------------------------------------------------------
 function read_sounding()
     #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
-    #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_from_PyCles.dat"))
+    #fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
+    fsounding  = open(joinpath(@__DIR__, "../soundings/SOUNDING_PYCLES_Z_T_P.dat"))
     sounding = readdlm(fsounding)
     close(fsounding)
     (nzmax, ncols) = size(sounding)
@@ -674,9 +696,9 @@ end
         S[_U]  += dτ13dn 
         S[_V]  += dτ23dn
         
-        S[_E]  += (15 + 115)/(ρ * h_first_layer)            
+        #S[_E]  += (15 + 115)/(ρ * h_first_layer)            
         #S[_E]  += SHF + LHF
-        S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
+        #S[_QT] += 115/(ρ * LH_v0 * h_first_layer) #Evap_flux
         
         nothing
     end
@@ -754,8 +776,58 @@ end
     This function specifies the initial conditions
     for the dycoms driver. 
     """
-#function dycoms!(dim, Q, t, x, y, z, _...)
-function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
+function dycoms!(dim, Q, t, spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x, y, z, _...)
+    
+    DFloat     = eltype(Q)
+    p0::DFloat = MSLP
+    
+    #randnum1   = rand(seed, DFloat) / 100
+    #randnum2   = rand(seed, DFloat) / 100
+    randnum1   = rand(1)[1] / 100
+    randnum2   = rand(1)[1] / 100
+    
+    xvert  = z
+    P      = spl_pinit(xvert)     #P
+    θ_l    = spl_thetainit(xvert) #θ_l
+    q_tot  = spl_qinit(xvert)     #qtot
+    T      = spl_tinit(xvert)    #T
+
+    zi = 840.0
+    #if ( xvert <= zi)
+    #    θ_lx   = 289.0;
+    #    q_totx = 9.0e-3; #specific humidity
+    #else
+    #    θ_lx   = 297.5 + (xvert - zi)^(1/3);
+    #    q_totx = 1.5e-3; #kg/kg  specific humidity --> approx. to mixing ratio is ok
+    #end  
+    
+    q_liq = 0.0
+    if xvert >= 600.0 && xvert <= 840.0
+        q_liq = (xvert - 600)*0.00045/240.0
+    end
+    if xvert <= 200.0
+        θ_l   += randnum1 * θ_l
+        q_tot += randnum2 * q_tot
+    end
+    
+    q_partition = PhasePartition(q_tot, q_liq, 0.0)
+    e_int  = internal_energy(T, q_partition)
+    
+    ρ  = air_density(T, P, q_partition)
+
+    #u, v, w = 7.0, 0.0, 0.0 #geostrophic
+    u, v, w = 5.0, 0.0, 0.0
+    
+    e_kin = (u^2 + v^2 + w^2) / 2
+    e_pot = grav * xvert
+    E     = ρ * (e_int + e_kin + e_pot)
+
+    U, V, W = ρ * u, ρ * v, ρ * w
+    
+    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
+    #try the filter
+end
+function dycomsxx!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
                  spl_pinit, x, y, z, _...)
     
     DFloat         = eltype(Q)
@@ -775,23 +847,27 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     randnum1   = rand(1)[1] / 100
     randnum2   = rand(1)[1] / 100
 
-    q_liq = 0.0
-    q_ice = 0.0
-    if xvert >= 600.0 && xvert <= 840.0
-        q_liq = (xvert - 600)*0.00045/240.0
-    end
-    
     θ_liq = datat
     q_tot = dataq
     if xvert <= 200.0
         θ_liq += randnum1 * datat
         q_tot += randnum2 * dataq
     end
+
     
-    P     = datap
-    T     = air_temperature(P, PhasePartition(q_tot, q_liq, q_ice))
-    #T     = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhasePartition(q_tot, q_liq, q_ice))
-    ρ     = air_density(T, P)
+    q_liq = 0.0
+    q_ice = 0.0
+    if xvert >= 600.0 && xvert <= 840.0
+        #q_liq = (xvert - 600)*0.00045/240.0
+        q_liq = (xvert - 600)*0.00050/240.0
+    end
+    
+    
+    P      = datap
+    PhPart = PhasePartition(q_tot, q_liq, q_ice)
+      T      = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhPart)
+    ρ      = air_density(T, P, PhPart)
+    
     
     # energy definitions
     u, v, w     = datau, datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
@@ -800,8 +876,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     W           = ρ * w
     e_kin       = 0.5 * (u^2 + v^2 + w^2)
     e_pot       = grav * xvert
-    e_int       = internal_energy(T, PhasePartition(q_tot, q_liq, q_ice))
-    E           = ρ * total_energy(e_kin, e_pot, T, PhasePartition(q_tot, q_liq, q_ice))
+    E           = ρ * total_energy(e_kin, e_pot, T, PhPart)
     
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
     
@@ -858,20 +933,34 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     # WARNING: Not all sounding data is formatted/scaled
     # the same. Care required in assigning array values
     # height theta qv    u     v     pressure
-    zinit, tinit, qinit, uinit, vinit, pinit  =
-        sounding[:, 1], sounding[:, 2], sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
+    #zinit, tinit, qinit, uinit, vinit, pinit  =
+    #    sounding[:, 1], sounding[:, 2], sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
+
+    zinit, tinit, pinit = sounding[:, 1], sounding[:, 2], sounding[:, 3]
+    thetainit, qinit = sounding[:, 4], sounding[:, 5]
+    
     #------------------------------------------------------
     # GET SPLINE FUNCTION
     #------------------------------------------------------
-    spl_tinit    = Spline1D(zinit, tinit; k=1)
-    spl_qinit    = Spline1D(zinit, qinit; k=1)
-    spl_uinit    = Spline1D(zinit, uinit; k=1)
-    spl_vinit    = Spline1D(zinit, vinit; k=1)
-    spl_pinit    = Spline1D(zinit, pinit; k=1)
+    #spl_tinit    = Spline1D(zinit, tinit; k=1)
+    #spl_qinit    = Spline1D(zinit, qinit; k=1)
+    #spl_uinit    = Spline1D(zinit, uinit; k=1)
+    #spl_vinit    = Spline1D(zinit, vinit; k=1)
+    #spl_pinit    = Spline1D(zinit, pinit; k=1)
 
-    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit,
-                                        spl_qinit, spl_uinit, spl_vinit,
-                                        spl_pinit, x...)
+    spl_tinit    = Spline1D(zinit, tinit; k=1) #sensible T (K)
+    spl_pinit    = Spline1D(zinit, pinit; k=1) #pressure P (Pa)
+    
+    spl_thetainit= Spline1D(zinit, thetainit; k=1) #sensible T (K)
+    spl_qinit    = Spline1D(zinit, qinit; k=1) #sensible T (K)
+    
+
+    #initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit,
+    #                                    spl_qinit, spl_uinit, spl_vinit,
+    #                                    spl_pinit, x...)
+
+    initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit, spl_pinit, spl_thetainit, spl_qinit, x...)
+    
     Q = MPIStateArray(spacedisc, initialcondition)     
     # This is a actual state/function that lives on the grid
     #initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), x...)
@@ -889,15 +978,15 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         if s
             starttime[] = now()
         else
-            #energy = norm(Q)
-            #globmean = global_mean(Q, _ρ)
+            ql_max = global_max(spacedisc.auxstate, _a_q_liq)
             @info @sprintf("""Update
                          simtime = %.16e
-                         runtime = %s""",
+                         runtime = %s
+                         max(ql) = %.16e""",
                            ODESolvers.gettime(lsrk),
                            Dates.format(convert(Dates.DateTime,
                                                 Dates.now()-starttime[]),
-                                        Dates.dateformat"HH:MM:SS")) #, energy )#, globmean)
+                                        Dates.dateformat"HH:MM:SS"), ql_max)
         end
     end
 
@@ -907,7 +996,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w     = preflux(Q, aux)
@@ -922,8 +1011,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-ref-tmp/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-tmp/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-ref-today/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-today/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
