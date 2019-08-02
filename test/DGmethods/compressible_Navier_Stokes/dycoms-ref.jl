@@ -44,7 +44,7 @@ const _nviscstates = 23
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz = 1:_nviscstates
 
 const _nauxstate = 22
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN = 1:_nauxstate
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -245,13 +245,27 @@ end
 #md # and $\boldsymbol{S}$ contains source terms.
 #md # Note that the preflux calculation is splatted at the end of the function call
 #md # to cns_flux!
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+function buoyancy_correction(normSij, θv, dθvdz)
+    # Brunt-Vaisala frequency
+    N2 = grav / θv * dθvdz
+    
+    # Richardson number
+    Richardson = N2 / (2 * normSij + eps(normSij))
+    
+    # Buoyancy correction factor
+    buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_t))
+    
+    return buoyancy_factor
+end
+
 @inline function cns_flux!(F, Q, VF, aux, t)
     @inbounds begin
         (P, u, v, w, ρinv, q_liq,T,θ) = preflux(Q,aux)
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
 
         xvert = aux[_a_z]
+        θ     = aux[_a_θ]
         w -= D_subsidence * xvert
         W  = w*ρ
         
@@ -268,14 +282,14 @@ end
         vqvx, vqvy, vqvz = VF[_qvx], VF[_qvy], VF[_qvz]
         vqlx, vqly, vqlz = VF[_qlx], VF[_qly], VF[_qlz]    
         vTx, vTy, vTz    = VF[_Tx], VF[_Ty], VF[_Tz]
-        vθy = VF[_θy]
+        vθz = VF[_θz]
       
         # Radiation contribution 
         F_rad = ρ * radiation(aux)  
         aux[_a_rad] = F_rad
        
         SijSij = VF[_SijSij]
-        f_R = 1.0# buoyancy_correction_smag(SijSij, θ, dθdy)
+        f_R = buoyancy_correction_smag(SijSij, θ, vθz)
 
         #Dynamic eddy viscosity from Smagorinsky:
         μ_e = ρ * sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
@@ -1065,8 +1079,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-ref-57aeb4c8ch/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-57aeb4c8ch/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-ref-31d99214-ALL-TERMS-CLIMA-DOC/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-31d99214-ALL-TERMS-CLIMA-DOC/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -1103,7 +1117,7 @@ let
     # User defined simulation end time
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
-    dt = 0.004
+    dt = 0.005
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
