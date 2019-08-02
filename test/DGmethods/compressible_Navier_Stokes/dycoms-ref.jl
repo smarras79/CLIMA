@@ -40,8 +40,8 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 16
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij = 1:_nviscstates
+const _nviscstates = 23
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz= 1:_nviscstates
 
 const _nauxstate = 22
 const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq,_a_θ, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN = 1:_nauxstate
@@ -239,6 +239,9 @@ end
         vqx, vqy, vqz = VF[_qx], VF[_qy], VF[_qz]        
         vTx, vTy, vTz = VF[_Tx], VF[_Ty], VF[_Tz]
         vθy = VF[_θy]
+        
+        vqvx, vqvy, vqvz = VF[_qvx], VF[_qvy], VF[_qvz]
+        vqlx, vqly, vqlz = VF[_qlx], VF[_qly], VF[_qlz]
       
         # Radiation contribution 
         F_rad = ρ * radiation(aux)  
@@ -907,7 +910,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(2000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
       DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
         @inbounds let
           u, v, w     = preflux(Q, aux)
@@ -922,8 +925,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-ref-1-c3994cd6/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-1-c3994cd6/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-ref-1-c3994cd6-tmp/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-1-c3994cd6-tmp/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
@@ -987,7 +990,7 @@ let
     # User defined polynomial order 
     numelem = (Nex,Ney,Nez)
     dt = 0.002
-    timeend = 14400
+    timeend = 2*dt #14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
