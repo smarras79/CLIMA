@@ -1049,8 +1049,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
       end
         
-      mkpath("./CLIMA-output-scratch/dycoms-ref-31d99214-ALL-TERMS-CLIMA-DOC/")
-      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-31d99214-ALL-TERMS-CLIMA-DOC/dy_%dD_mpirank%04d_step%04d", dim,
+      mkpath("./CLIMA-output-scratch/dycoms-ref-31d99214-ALL-TERMS-CLIMA-DOC-LATEST/")
+      outprefix = @sprintf("./CLIMA-output-scratch/dycoms-ref-31d99214-ALL-TERMS-CLIMA-DOC-LATEST/dy_%dD_mpirank%04d_step%04d", dim,
                            MPI.Comm_rank(mpicomm), step[1])
       @debug "doing VTK output" outprefix
       writevtk(outprefix, Q, spacedisc, statenames,
