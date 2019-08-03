@@ -41,7 +41,7 @@ const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
 const _nviscstates = 23
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _Tx, _Ty, _Tz, _θx, _θy, _θz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz = 1:_nviscstates
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _JplusDx, _JplusDy, _JplusDz, _θx, _θy, _θz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz = 1:_nviscstates
 
 const _nauxstate = 22
 const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN = 1:_nauxstate
@@ -189,10 +189,13 @@ end
     # Establish the current thermodynamic state using the prognostic variables
     TS = PhaseEquil(e_int, q_tot, ρ)
     T = air_temperature(TS)
+    Rm = gas_constant_air(TS)
+
+    
     P = air_pressure(TS) # Test with dry atmosphere
     q_liq = PhasePartition(TS).liq
     θ = virtual_pottemp(TS)
-    (P, u, v, w, ρinv, q_liq,T,θ)
+    (P, u, v, w, ρinv, q_liq,T, θ, Rm)
 end
 
 #-------------------------------------------------------------------------
@@ -281,7 +284,7 @@ end
         vqx, vqy, vqz    = VF[_qx],  VF[_qy],  VF[_qz]
         vqvx, vqvy, vqvz = VF[_qvx], VF[_qvy], VF[_qvz]
         vqlx, vqly, vqlz = VF[_qlx], VF[_qly], VF[_qlz]    
-        vTx, vTy, vTz    = VF[_Tx], VF[_Ty], VF[_Tz]
+        vJplusDx, vJplusDy, vJplusDz    = VF[_JplusDx], VF[_JplusDy], VF[_JplusDz]
         vθz = VF[_θz]
       
         # Radiation contribution 
@@ -307,9 +310,9 @@ end
         F[1, _W] -= τ31 * f_R ; F[2, _W] -= τ32 * f_R ; F[3, _W] -= τ33 * f_R
         
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
-        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + cp_over_prandtl * vTx * μ_e
-        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + cp_over_prandtl * vTy * μ_e
-        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + cp_over_prandtl * vTz * μ_e
+        F[1, _E] -= u * τ11 + v * τ12 + w * τ13 + vJplusDx * D_e  #dTd should not be diffused.
+        F[2, _E] -= u * τ21 + v * τ22 + w * τ23 + vJplusDy * D_e
+        F[3, _E] -= u * τ31 + v * τ32 + w * τ33 + vJplusDz * D_e
         
         F[3, _E] += F_rad
         
@@ -320,30 +323,8 @@ end
         F[1, _QT] -=  vqx * D_e
         F[2, _QT] -=  vqy * D_e
         F[3, _QT] -=  vqz * D_e
-
-        
-        #Terms for Eq. (36) in CLIMA-doc
-        u, v, w = U/ρ, V/ρ, W/ρ        
-        T = aux[_a_T]
-        I_vap = cv_v * (T - T_0) + e_int_v0
-        I_liq = cv_l * (T - T_0)
-        I_ice = cv_i * (T - T_0) - e_int_i0
-        e_kin = 0.5 * (u^2 +v^2 + w^2)
-        e_pot = grav * xvert
-        e_tot_vap = e_kin + e_pot + I_vap
-        e_tot_liq = e_kin + e_pot + I_liq
-        e_tot_ice = e_kin + e_pot + I_ice
-
-        ql_fx = -D_e * vqlx * e_tot_liq
-        ql_fy = -D_e * vqly * e_tot_liq
-        ql_fz = -D_e * vqlz * e_tot_liq
-        qv_fx = -D_e * vqvx * (e_tot_vap + R_v * T)
-        qv_fy = -D_e * vqvy * (e_tot_vap + R_v * T)
-        qv_fz = -D_e * vqvz * (e_tot_vap + R_v * T)
-       
-        F[1, _E] += ql_fx + qv_fx 
-        F[2, _E] += ql_fy + qv_fy 
-        F[3, _E] += ql_fz + qv_fz  
+   
+        #END NOMORE
         
     end
 end
@@ -356,20 +337,15 @@ end
 # -------------------------------------------------------------------------
 # Compute the velocity from the state
 # Gradient state labels
-const _ngradstates = 9
+const _ngradstates = 7
 @inline function gradient_vars!(vel, Q, aux, t)
   @inbounds begin
-      (P, u, v, w, ρinv, q_liq,T,θ) = preflux(Q,aux)
+      (P, u, v, w, ρinv, q_liq,T,θ,Rm) = preflux(Q,aux)
       ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-
-      q_tot = QT/ρ
-      q_liq = aux[_a_q_liq]
-      q_vap = q_tot - q_liq
-      
+     
       vel[1], vel[2], vel[3] = u, v, w
-      vel[4], vel[5], vel[6] = E, QT, T
-      vel[7] = θ     
-      vel[8], vel[9] = q_vap, q_liq      
+      vel[4], vel[5], vel[6] = E, QT/ρ, E/ρ + Rm*T
+      vel[7] = θ
   end
 end
 
@@ -405,12 +381,9 @@ end
         dvdx, dvdy, dvdz = grad_vel[1, 2], grad_vel[2, 2], grad_vel[3, 2]
         dwdx, dwdy, dwdz = grad_vel[1, 3], grad_vel[2, 3], grad_vel[3, 3]
         # compute gradients of moist vars and temperature
-        dqdx, dqdy, dqdz = grad_vel[1, 5], grad_vel[2, 5], grad_vel[3, 5]
-        dTdx, dTdy, dTdz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
-        dθdx, dθdy, dθdz = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
-        
-        dqvdx, dqvdy, dqvdz = grad_vel[1, 8], grad_vel[2, 8], grad_vel[3, 8]
-        dqldx, dqldy, dqldz = grad_vel[1, 9], grad_vel[2, 9], grad_vel[3, 9]
+        dqdx, dqdy, dqdz                = grad_vel[1, 5], grad_vel[2, 5], grad_vel[3, 5]
+        dJplusDdx, dJplusDdy, dJplusDdz = grad_vel[1, 6], grad_vel[2, 6], grad_vel[3, 6]
+        dθdx, dθdy, dθdz                = grad_vel[1, 7], grad_vel[2, 7], grad_vel[3, 7]
         
         # virtual potential temperature gradient: for richardson calculation
         # strains
@@ -444,11 +417,8 @@ end
         VF[_τ23] = 2 * S23
         
         # TODO: Viscous stresse come from SubgridScaleTurbulence module
-        VF[_qx], VF[_qy], VF[_qz]    = dqdx,  dqdy,  dqdz
-        VF[_qvx], VF[_qvy], VF[_qvz] = dqvdx, dqvdy, dqvdz
-        VF[_qlx], VF[_qly], VF[_qlz] = dqldx, dqldy, dqldz
-        
-        VF[_Tx], VF[_Ty], VF[_Tz] = dTdx, dTdy, dTdz
+        VF[_qx], VF[_qy], VF[_qz]    = dqdx,  dqdy,  dqdz        
+        VF[_JplusDx], VF[_JplusDy], VF[_JplusDz] = dJplusDdx, dJplusDdy, dJplusDdz
         VF[_θx], VF[_θy], VF[_θz] = dθdx, dθdy, dθdz
         VF[_SijSij] = SijSij
         
@@ -594,7 +564,7 @@ end
         #QP[_QT] = QTM
         VFP .= 0
         
-        if xvert < 0.0001
+       #= if xvert < 0.0001
             UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
             QP[_W] = WM - 2 * nM[3] * UnM
             QP[_U] = QM[_U]
@@ -610,7 +580,7 @@ end
             e_int = internal_energy(T, PhasePartition(q_tot, q_liq, 0.0))
             E     = ρM * total_energy(e_kin, e_pot, T, PhasePartition(q_tot, q_liq, 0.0))
         end
-        
+        =#
         nothing
     end
 end
