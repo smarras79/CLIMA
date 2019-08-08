@@ -40,8 +40,8 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 23
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _JplusDx, _JplusDy, _JplusDz, _θx, _θy, _θz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz = 1:_nviscstates
+const _nviscstates = 24
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qx, _qy, _qz, _JplusDx, _JplusDy, _JplusDz, _θx, _θy, _θz, _Tz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz = 1:_nviscstates
 
 const _nauxstate = 22
 const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN = 1:_nauxstate
@@ -134,8 +134,9 @@ const C_smag = 0.18
 const Δsqr = Δ * Δ
 
 #B.C.
-const fix_T   = 1
-const no_slip = 1 
+const bc_fix_T   = 1
+const bc_no_slip = 1
+const bc_fix_bott_flux = 1
 
 # Surface values to calculate surface fluxes:
 const SST        = 292.5
@@ -567,13 +568,13 @@ end
         #QP[_QT] = QTM
         VFP .= 0
         
-        if xvert < 0.0001 && fix_T == 1
+        if xvert < 0.0001 && bc_fix_T == 1
             UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
             QP[_W] = WM - 2 * nM[3] * UnM
             QP[_U] = QM[_U]
             QP[_V] = QM[_V]
 
-            if no_slip == 1
+            if bc_no_slip == 1
                 QP[_U], QP[_V], QP[_W] = 0.0, 0.0, 0.0
                 u, v, w = QP[_U]/ρM, QP[_V]ρM, QP[_W]/ρM
             end

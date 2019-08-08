@@ -65,6 +65,11 @@ const Npoly = 4
 
 const h_first_layer = Δz
 
+#B.C.
+const bc_fix_T   = 1
+const bc_no_slip = 1
+const bc_fix_bott_flux = 0
+
 # OR:
 # Set Δx < 0 and define  Nex, Ney, Nez:
 (Nex, Ney, Nez) = (10, 10, 1)
@@ -476,51 +481,82 @@ end
         q_totM = QTM/ρM
         q_liqM = auxM[_a_q_liq]
         UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
-        QP[_U] = 0#UM - 2 * nM[1] * UnM
-        QP[_V] = 0#VM - 2 * nM[2] * UnM
-        QP[_W] = 0#WM - 2 * nM[3] * UnM
+        QP[_U] = UM - 2 * nM[1] * UnM
+        QP[_V] = VM - 2 * nM[2] * UnM
+        QP[_W] = WM - 2 * nM[3] * UnM
         QP[_ρ] = ρM
         QP[_QT] = QTM
-        VFP .= 0 
-        if auxM[_a_z] < 0.001  # TODO specify boundary keyword and get correct bctype for general topography
-            # ------------------------------------------------------------------------
-            # First node quantities (first-model level here represents the first node)
-            # ------------------------------------------------------------------------
-            z_FN             = auxM[_a_z_FN]
-            ρ_FN             = auxM[_a_ρ_FN]
-            U_FN             = auxM[_a_U_FN]
-            V_FN             = auxM[_a_V_FN]
-            W_FN             = auxM[_a_W_FN]
-            E_FN             = auxM[_a_E_FN]
-            u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
-            windspeed_FN     = sqrt(u_FN^2 + v_FN^2 + w_FN^2)
-            q_tot_FN         = auxM[_a_QT_FN] / ρ_FN
-            e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*z_FN
-            TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN) 
-            T_FN             = air_temperature(TS_FN)
-            q_liq_FN         = PhasePartition(TS_FN).liq
-            q_vap_FN         = q_tot_FN - PhasePartition(TS_FN).liq
-            # -----------------------------------
-            # Bottom boundary quantities 
-            # -----------------------------------
-            zM          = auxM[_a_z]
-            q_totM      = QTM/ρM
-            q_liqM      = auxM[_a_q_liq]
-            windspeed   = sqrt(uM^2 + vM^2 + wM^2)
-            e_intM      = EM/ρM - 0.5*windspeed^2 - grav*zM
-            TSM         = PhaseEquil(e_intM, q_totM, ρM) 
-            q_vapM      = q_totM - PhasePartition(TSM).liq
-            TM          = air_temperature(TSM)
-            # ----------------------------------------------
-            # Assigning calculated values to boundary states
-            # ----------------------------------------------
-            VFP[_τ33] = 0  
-            # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
-            # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is replaced by the appropriate flux terms
-            VFP[_τ13] = -ρM * Cd * windspeed_FN * u_FN 
-            VFP[_τ23] = -ρM * Cd * windspeed_FN * v_FN 
-            VFP[_qtz]  = +115 /(ρM * LH_v0)
-            VFP[_JplusDz] = +130 / ρM 
+        VFP .= 0
+        xvert = auxM[_a_z]
+        if xvert < 0.00001
+            if bc_fix_bott_flux == 1
+                # TODO specify boundary keyword and get correct bctype for general topography
+                # ------------------------------------------------------------------------
+                # First node quantities (first-model level here represents the first node)
+                # ------------------------------------------------------------------------
+                z_FN             = auxM[_a_z_FN]
+                ρ_FN             = auxM[_a_ρ_FN]
+                U_FN             = auxM[_a_U_FN]
+                V_FN             = auxM[_a_V_FN]
+                W_FN             = auxM[_a_W_FN]
+                E_FN             = auxM[_a_E_FN]
+                u_FN, v_FN, w_FN = U_FN/ρ_FN, V_FN/ρ_FN, W_FN/ρ_FN
+                windspeed_FN     = sqrt(u_FN^2 + v_FN^2 + w_FN^2)
+                q_tot_FN         = auxM[_a_QT_FN] / ρ_FN
+                e_int_FN         = E_FN/ρ_FN - 0.5*windspeed_FN^2 - grav*z_FN
+                TS_FN            = PhaseEquil(e_int_FN, q_tot_FN, ρ_FN) 
+                T_FN             = air_temperature(TS_FN)
+                q_liq_FN         = PhasePartition(TS_FN).liq
+                q_vap_FN         = q_tot_FN - PhasePartition(TS_FN).liq
+                # -----------------------------------
+                # Bottom boundary quantities 
+                # -----------------------------------
+                zM          = xvert
+                q_totM      = QTM/ρM
+                q_liqM      = auxM[_a_q_liq]
+                windspeed   = sqrt(uM^2 + vM^2 + wM^2)
+                e_intM      = EM/ρM - 0.5*windspeed^2 - grav*zM
+                TSM         = PhaseEquil(e_intM, q_totM, ρM) 
+                q_vapM      = q_totM - PhasePartition(TSM).liq
+                TM          = air_temperature(TSM)
+                # ----------------------------------------------
+                # Assigning calculated values to boundary states
+                # ----------------------------------------------
+                VFP[_τ33] = 0  
+                # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
+                # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is replaced by the appropriate flux terms
+                VFP[_τ13]     = -ρM * Cd * windspeed_FN * u_FN 
+                VFP[_τ23]     = -ρM * Cd * windspeed_FN * v_FN 
+                VFP[_qtz]     = +115 /(ρM * LH_v0)
+                VFP[_JplusDz] = +130 / ρM
+                
+            end #bc_fix_bott_flux
+
+            if bc_fix_T == 1
+                UnM = nM[1] * UM + nM[2] * VM + nM[3] * WM
+                QP[_W] = WM - 2 * nM[3] * UnM
+                QP[_U] = QM[_U]
+                QP[_V] = QM[_V]
+                u, v, w = QP[_U]/ρM, QP[_V]ρM, QP[_W]/ρM
+                
+                if bc_no_slip == 1
+                    QP[_U], QP[_V], QP[_W] = 0.0, 0.0, 0.0
+                    u, v, w = QP[_U]/ρM, QP[_V]ρM, QP[_W]/ρM
+                end
+                #VFP .= VFM
+                #VFP[_Tz] = VFM[_Tz]
+
+                #Dirichlet on T: SST
+                T     = SST
+                ρP    = ρM
+                e_kin = 0.5 * (u^2 + v^2 + w^2)
+                e_pot = grav * xvert
+                e_int = internal_energy(T, PhasePartition(q_totM, q_liqM, 0.0))
+                E     = ρM * total_energy(e_kin, e_pot, T, PhasePartition(q_totM, q_liqM, 0.0))
+                QP[_E]  = E
+                QP[_QT] = qtot_sfc
+            end
+            
         end
         nothing
     end
