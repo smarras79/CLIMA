@@ -53,7 +53,7 @@ const μ_sgs           = 100.0
 const Prandtl         = 71 // 100
 const Prandtl_t       = 1 // 3
 const cp_over_prandtl = cp_d / Prandtl_t
-const seed = MersenneTwister(0)
+#const seed = MersenneTwister(0)
 # User Input
 const numdims = 3
 const Npoly = 4
@@ -114,7 +114,7 @@ const first_node_level   = 0.0001
 const D_subsidence = 3.75e-6
 
 # Random number seed
-const seed = MersenneTwister(0)
+#const seed = MersenneTwister(0)
 
 
 function global_max(A::MPIStateArray, states=1:size(A, 2))
@@ -689,10 +689,10 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     datav          = spl_vinit(xvert)
     datap          = spl_pinit(xvert)
     dataq          = dataq * 1.0e-3
-    
     P              = datap
-    randnum1   = rand(seed, DFloat) / 100
-    randnum2   = rand(seed, DFloat) / 100
+    
+    randnum1   = rand(1)[1] / 100
+    randnum2   = rand(1)[1] / 100
 
     θ_liq = datat
     q_tot = dataq
@@ -701,6 +701,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
         q_tot += randnum2 * dataq
     end
 
+    
     q_liq = 0.0
     q_ice = 0.0
     if xvert > 600.0 && xvert <= 840.0
@@ -711,7 +712,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     PhPart = PhasePartition(q_tot, q_liq, q_ice)
     T      = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhPart)
     ρ      = air_density(T, P, PhPart)
-    
+
     # energy definitions
     u, v, w     = datau, datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     U           = ρ * u
