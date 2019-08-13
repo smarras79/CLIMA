@@ -711,7 +711,7 @@ end
         for the dycoms driver. 
     """
 
-function  theta_liq_to_T!(T, r_liq, z)
+function  theta_liq_to_T(T, r_liq, z)
     #
     # This non-linear funciton of T is used by find_zero called by dycoms!
     
