@@ -774,12 +774,13 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     end
 
     #Find T by solving the non-linear equation
-    T, converged = find_zero(T -> theta_liq_to_T(T, q_liq, xvert) - theta_liq, 300.0, SecantMethod(), DFloat(1e-3), 25)
+    T, converged = find_zero(T -> theta_liq_to_T(T, q_liq, xvert) - theta_liq, 289.0, 292.5, SecantMethod(), DFloat(1e-3), 25)
     if !converged
         error(" Initial T did not converge")
     end
-    
 
+    p = 
+   
     #######
     PhPart = PhasePartition(q_tot, q_liq, q_ice)
     ρ      = air_density(T, P, PhPart)
