@@ -779,11 +779,11 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
         error(" Initial T did not converge")
     end
 
-    p = 
-   
-    #######
-    PhPart = PhasePartition(q_tot, q_liq, q_ice)
-    ρ      = air_density(T, P, PhPart)
+    theta                  = T + grav * xvert/cp_d;    
+    PhPart                 = PhasePartition(q_tot, q_liq, q_ice)
+    (R_m, cp_m, cv_m, γ_m) = moist_gas_constants(PhPart)
+    P                      = p0 * (T / theta)^(cp_m/R_m)   
+    ρ                      = air_density(T, P, PhPart)
     
     # energy definitions
     u, v, w     = 7, -5.5, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
