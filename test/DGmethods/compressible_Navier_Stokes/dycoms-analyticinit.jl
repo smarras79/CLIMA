@@ -16,6 +16,7 @@ using CLIMA.Vtk
 using DelimitedFiles
 using Dierckx
 using Random
+using CLIMA.RootSolvers
 
 if haspkg("CuArrays")
     using CUDAdrv
@@ -709,48 +710,82 @@ end
         This function specifies the initial conditions
         for the dycoms driver. 
     """
+
+function  theta_liq_to_T!(T, r_liq, z)
+    #
+    # This non-linear funciton of T is used by find_zero called by dycoms!
+    
+    # T is the unknown which is returned from the zero finder that calls 
+    # this function.
+    #
+    p0   = 101780.0;
+    R_d  =    287.0;
+    cp_d =   1015.0;
+    Lv   =      2.47e6;
+    g    =      9.81;
+    
+    return (T + g*z/cp_d) + r_liq*(Lv * (T + g*z/cp_d) /(cp_d*T));
+    
+end
+
 function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
                  spl_pinit, x, y, z, _...)
     
     DFloat         = eltype(Q)
-    p0::DFloat      = MSLP
+    xvert::DFloat  = z
 
+    #These constants are those used by Stevens et al. (2005)
+    R_d::DFloat     = 287.0
+    cp_d::DFloat    = 1015.0
+    cp_v::DFloat    = 1859.0
+    cp_l::DFloat    = 4181.0
+    Lv::DFloat      = 2.47e6
+    epsdv::DFloat   = 1.61
+    g::DFloat       = grav
+    p0::DFloat      = 1.0178e5
+    ρ0::DFloat      = 1.22
+    
+    
     # --------------------------------------------------
     # INITIALISE ARRAYS FOR INTERPOLATED VALUES
     # --------------------------------------------------
-    xvert          = z
-    datat          = spl_tinit(xvert)
-    dataq          = spl_qinit(xvert)
-    datau          = spl_uinit(xvert)
-    datav          = spl_vinit(xvert)
-    datap          = spl_pinit(xvert)
-    dataq          = dataq * 1.0e-3
-    P              = datap
-    
     randnum1   = rand(1)[1] / 100
     randnum2   = rand(1)[1] / 100
 
-    θ_liq = datat
-    q_tot = dataq
-    if xvert <= 200.0
-        θ_liq += randnum1 * datat
-        q_tot += randnum2 * dataq
+    
+    q_liq      = 0.0
+    q_ice      = 0.0
+    zb         = 600.0    #initial cloud bottom
+    zi         = 840.0    #initial cloud top
+    dz_cloud   = zi - zb
+    q_liq_peak = 0.00045 #cloud mixing ratio at z_i    
+    if xvert > zb && xvert <= zi	
+	q_liq = (xvert - zb)*q_liq_peak/dz_cloud
     end
 
-    
-    q_liq = 0.0
-    q_ice = 0.0
-    if xvert > 600.0 && xvert <= 840.0
-        q_liq = (xvert - 600)*0.00045/240.0
+    if ( xvert <= zi)
+	theta_liq  = 289.0
+	r_tot      = 9.0e-3                  #kg/kg  specific humidity --> approx. to mixing ratio is ok
+	q_tot      = r_tot/(1.0 - r_tot)     #total water mixing ratio
+    else
+	theta_liq = 297.5 + (xvert - zi)^(1/3)
+	r_tot     = 1.5e-3                    #kg/kg  specific humidity --> approx. to mixing ratio is ok
+	q_tot     = r_tot/(1.0 - r_tot)      #total water mixing ratio
+    end
+
+    #Find T by solving the non-linear equation
+    T, converged = find_zero(T -> theta_liq_to_T(T, q_liq, xvert) - theta_liq, 300.0, SecantMethod(), DFloat(1e-3), 25)
+    if !converged
+        error(" Initial T did not converge")
     end
     
-    
+
+    #######
     PhPart = PhasePartition(q_tot, q_liq, q_ice)
-    T      = air_temperature_from_liquid_ice_pottemp(θ_liq, P, PhPart)
     ρ      = air_density(T, P, PhPart)
-
+    
     # energy definitions
-    u, v, w     = datau, datav, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    u, v, w     = 7, -5.5, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     U           = ρ * u
     V           = ρ * v
     W           = ρ * w

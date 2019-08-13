@@ -51,16 +51,13 @@ end
 
 %Calcuate theta from theta_l using the approximation formula:
 %
-%                    Lv
-% thetal = theta - ------- rl
-%                   cp_d
+%                    Lv theta
+% thetal = theta - ----------- rl
+%                     cp_d T
 %
-% From http://glossary.ametsoc.org/wiki/Liquid_water_potential_temperature
+% From Stull's book
 %
-%      Betts, A. K., 1973: Non-precipitating cumulus convection and its parameterization. Quart. J. Roy. Met. Soc., 99, 178?196
-%      Emanuel, K. A., 1994: Atmospheric Convection. Oxford Univ. Press, 580 pp.
-%
-theta = thetal; %+ ql.*Lv/cp_d;
+theta = thetal + ql.*Lv/cp_d;
 
 
 % calculate the hydrostatically balanced exner potential and pressure
