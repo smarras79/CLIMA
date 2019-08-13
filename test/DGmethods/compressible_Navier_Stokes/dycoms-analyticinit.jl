@@ -766,11 +766,11 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     if ( xvert <= zi)
 	theta_liq  = 289.0
 	r_tot      = 9.0e-3                  #kg/kg  specific humidity --> approx. to mixing ratio is ok
-	q_tot      = r_tot/(1.0 - r_tot)     #total water mixing ratio
+	q_tot      = r_tot #/(1.0 - r_tot)     #total water mixing ratio
     else
 	theta_liq = 297.5 + (xvert - zi)^(1/3)
 	r_tot     = 1.5e-3                    #kg/kg  specific humidity --> approx. to mixing ratio is ok
-	q_tot     = r_tot/(1.0 - r_tot)      #total water mixing ratio
+	q_tot     = r_tot #/(1.0 - r_tot)      #total water mixing ratio
     end
 
     #Find T by solving the non-linear equation
@@ -894,7 +894,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1500) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
             @inbounds let
                 R[_o_RAD]   = aux[_a_z2inf] + aux[_a_02z]
@@ -937,8 +937,8 @@ let
     end
 
     numelem = (Nex,Ney,Nez)
-    dt = 0.005
-    timeend = 14400
+    dt = 0.005e-6
+    timeend = dt #14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
