@@ -780,11 +780,16 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     end
 
     theta                  = T + grav * xvert/cp_d;    
-    PhPart                 = PhasePartition(q_tot, q_liq, q_ice)
-    (R_m, cp_m, cv_m, γ_m) = moist_gas_constants(PhPart)
-    P                      = p0 * (T / theta)^(cp_m/R_m)   
-    ρ                      = air_density(T, P, PhPart)
+    R_m                    = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
+    cp_m                   = cp_d + (cp_v - cp_d)*q_tot + (cp_l - cp_v)*q_liq;
+    P                      = p0 * (T / theta)^(cp_m/R_m);
+    ρ                      = P/(R_m * T);
     
+    #PhPart                 = PhasePartition(q_tot, q_liq, q_ice)    
+    #(R_m, cp_m, cv_m, γ_m) = moist_gas_constants(PhPart)
+    #P                      = p0 * (T / theta)^(cp_m/R_m)   
+    #ρ                      = air_density(T, P, PhPart)
+
     # energy definitions
     u, v, w     = 7, -5.5, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     U           = ρ * u
