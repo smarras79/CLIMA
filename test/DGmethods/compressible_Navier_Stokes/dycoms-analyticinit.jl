@@ -785,7 +785,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     P                      = p0 * (T / theta)^(cp_m/R_m);
     ρ                      = P/(R_m * T);
     
-    #PhPart                 = PhasePartition(q_tot, q_liq, q_ice)    
+    PhPart                 = PhasePartition(q_tot, q_liq, q_ice)    
     #(R_m, cp_m, cv_m, γ_m) = moist_gas_constants(PhPart)
     #P                      = p0 * (T / theta)^(cp_m/R_m)   
     #ρ                      = air_density(T, P, PhPart)
