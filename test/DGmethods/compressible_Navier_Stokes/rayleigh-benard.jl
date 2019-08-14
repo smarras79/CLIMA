@@ -172,7 +172,7 @@ end
     # Weak Boundary Condition Imposition
     # In the limit of Δ → 0, the exact boundary values are recovered at the "M" or minus side. 
     # The weak enforcement of plus side states ensures that the boundary fluxes are consistently calculated.
-    if auxM[_a_z] < 0.0001
+    if auxM[_a_z] < 0.001
       E_intP = ρP * cv_d * (T_bot - T_0)
     else
       E_intP = ρP * cv_d * (T_top - T_0) 

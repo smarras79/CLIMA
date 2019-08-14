@@ -800,6 +800,7 @@ function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
     E           = ρ * total_energy(e_kin, e_pot, T, PhPart)
 
     @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
+    #@inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]=  ρ, U, V, W, P, ρ * q_liq   #for initial state plottin only:
     
 end
 
