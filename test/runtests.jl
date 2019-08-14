@@ -3,9 +3,9 @@ using Test, Pkg
 ENV["JULIA_LOG_LEVEL"] = "WARN"
 
 for submodule in ["Utilities/ParametersType",
-                  "Utilities/PlanetParameters",
+                  "Common/PlanetParameters",
                   "Utilities/RootSolvers",
-                  "Utilities/MoistThermodynamics",
+                  "Common/MoistThermodynamics",
                   "Atmos/Parameterizations/SurfaceFluxes",
                   "Atmos/Parameterizations/TurbulenceConvection",
                   "Atmos/Parameterizations/Microphysics",
