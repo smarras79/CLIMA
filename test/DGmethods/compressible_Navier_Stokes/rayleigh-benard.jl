@@ -382,9 +382,9 @@ let
   # User defined timestep estimate
   # User defined simulation end time
   # User defined polynomial order 
-  numelem = (10,2,10)
+  numelem = (50,20,50)
   polynomialorder = 4
-  dt = 0.005
+  dt = 0.0025
   timeend = 14400
   for DFloat in (Float64,) 
     for dim = 3:3
