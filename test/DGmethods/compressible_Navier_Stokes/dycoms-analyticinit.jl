@@ -745,7 +745,11 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     g::DFloat       = grav
     p0::DFloat      = 1.0178e5
     ρ0::DFloat      = 1.22
-    
+
+    Rm_sfc::DFloat  = R_d * (1 + (epsdv - 1)*289.0);
+    T_0::DFloat   = 285.0  #Average b.l. temperature
+    ρ_sfc::DFLoat   = 1.22
+    P_sfc::DFloat   = ρ_sfc*Rm_sfc*T_sfc;
     
     # --------------------------------------------------
     # INITIALISE ARRAYS FOR INTERPOLATED VALUES
@@ -774,17 +778,42 @@ function dycoms!(dim, Q, t, x, y, z, _...)
 	q_tot     = r_tot #/(1.0 - r_tot)      #total water mixing ratio
     end
 
+   
+    Rm       = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
+    cp_m     = cp_d + (cp_v - cp_d)*q_tot + (cp_l - cp_v)*q_liq;
+
+    %Pressure
+    H = Rm_sfc * T_sfc / g;
+    p = p_sfc * exp(-zh/H);
+    
+    #Exner
+    exner = (p/p_sfc)^(R_d/cp_d);
+    
+    #T, Tv 
+    T     = exner*theta_liq + Lv*q_liq/(cpm*exner);
+    Tv    = T*(1 + (epsdv - 1)*q_tot - epsdv*q_liq);
+    
+    #Density
+    rho   = p/(Rm*T);
+    
+    #Theta, Thetav
+    theta  = T/exner;
+    thetav = theta*(1 + (epsdv - 1)*q_tot - epsdv*q_liq);
+    
+    
     #Find T by solving the non-linear equation
-    T, converged = find_zero(T -> theta_liq_to_T(T, q_liq, xvert) - theta_liq, 289.0, 292.5, SecantMethod(), DFloat(1e-3), 25)
+    #=T, converged = find_zero(T -> theta_liq_to_T(T, q_liq, xvert) - theta_liq, 289.0, 292.5, SecantMethod(), DFloat(1e-3), 25)
     if !converged
         error(" Initial T did not converge")
     end
-
+        
     theta                  = T + grav * xvert/cp_d;    
     R_m                    = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
     cp_m                   = cp_d + (cp_v - cp_d)*q_tot + (cp_l - cp_v)*q_liq;
     P                      = p0 * (T / theta)^(cp_m/R_m);
     ρ                      = P/(R_m * T);
+    =#
+    
     
     PhPart                 = PhasePartition(q_tot, q_liq, q_ice)    
     #(R_m, cp_m, cv_m, γ_m) = moist_gas_constants(PhPart)
@@ -800,8 +829,8 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     e_pot       = grav * xvert
     E           = ρ * total_energy(e_kin, e_pot, T, PhPart)
 
-    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
-    #@inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]=  ρ, U, V, W, P, ρ * q_liq   #for initial state plottin only:
+    #@inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]= ρ, U, V, W, E, ρ * q_tot
+    @inbounds Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]=  ρ, U, V, W, P, ρ * q_liq   #for initial state plottin only:
     
 end
 

@@ -384,7 +384,7 @@ let
   # User defined polynomial order 
   numelem = (50,20,50)
   polynomialorder = 4
-  dt = 0.0025
+  dt = 0.001
   timeend = 14400
   for DFloat in (Float64,) 
     for dim = 3:3
