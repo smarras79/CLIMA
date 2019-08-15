@@ -62,7 +62,7 @@ const Npoly = 4
 # Define grid size 
 Δx    = 35
 Δy    = 35
-Δz    = 10
+Δz    =  5
 
 const h_first_layer = Δz
 
@@ -952,8 +952,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
         
-        mkpath("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED/")
-        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED/dy_%dD_mpirank%04d_step%04d", dim,
+        mkpath("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dt0dot005/")
+        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dt0dot005/dy_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -985,7 +985,7 @@ let
     end
 
     numelem = (Nex,Ney,Nez)
-    dt = 0.01
+    dt = 0.005
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
