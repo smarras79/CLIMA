@@ -410,7 +410,7 @@ end
         sponge_type = 1
         if sponge_type == 1
             ct = 0.9
-            bc_zscale  = 600.0
+            bc_zscale  = 550.0
             zd = domain_top - bc_zscale       
             if xvert >= zd
                 ctop = ct * (sinpi(0.5*(xvert - zd)/(domain_top - zd)))^4
@@ -729,8 +729,6 @@ function  theta_liq_to_T(T, r_liq, z)
 end
 
 function dycoms!(dim, Q, t, x, y, z, _...)
-#function dycoms!(dim, Q, t, spl_tinit, spl_qinit, spl_uinit, spl_vinit,
-#                 spl_pinit, x, y, z, _...)
     
     DFloat         = eltype(Q)
     xvert::DFloat  = z
@@ -769,16 +767,21 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     end
 
     if ( xvert <= zi)
-	theta_liq  = 289.0
+	θ_liq  = 289.0
 	r_tot      = 9.0e-3                  #kg/kg  specific humidity --> approx. to mixing ratio is ok
 	q_tot      = r_tot #/(1.0 - r_tot)     #total water mixing ratio
     else
-	theta_liq = 297.5 + (xvert - zi)^(1/3)
+	θ_liq = 297.5 + (xvert - zi)^(1/3)
 	r_tot     = 1.5e-3                    #kg/kg  specific humidity --> approx. to mixing ratio is ok
 	q_tot     = r_tot #/(1.0 - r_tot)      #total water mixing ratio
     end
 
-   
+    if xvert <= 200.0
+        θ_liq += randnum1 * θ_liq 
+        q_tot += randnum2 * q_tot
+    end
+
+    
     Rm       = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
     cpm     = cp_d + (cp_v - cp_d)*q_tot + (cp_l - cp_v)*q_liq;
 
@@ -790,34 +793,34 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     exner = (P/P_sfc)^(R_d/cp_d);
     
     #T, Tv 
-    T     = exner*theta_liq + Lv*q_liq/(cpm*exner);
+    T     = exner*θ_liq + Lv*q_liq/(cpm*exner);
     Tv    = T*(1 + (epsdv - 1)*q_tot - epsdv*q_liq);
     
     #Density
     ρ  = P/(Rm*T);
     
-    #Theta, Thetav
-    theta  = T/exner;
-    thetav = theta*(1 + (epsdv - 1)*q_tot - epsdv*q_liq);
-    
+    #\Theta, \Thetav
+    θ  = T/exner;
+    θv = θ*(1 + (epsdv - 1)*q_tot - epsdv*q_liq);
+
     
     #Find T by solving the non-linear equation
-    #=T, converged = find_zero(T -> theta_liq_to_T(T, q_liq, xvert) - theta_liq, 289.0, 292.5, SecantMethod(), DFloat(1e-3), 25)
+    #=T, converged = find_zero(T -> theta_liq_to_T(T, q_liq, xvert) - θ_liq, 289.0, 292.5, SecantMethod(), DFloat(1e-3), 25)
     if !converged
         error(" Initial T did not converge")
     end
         
-    theta                  = T + grav * xvert/cp_d;    
-    R_m                    = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
-    cpm                   = cp_d + (cp_v - cp_d)*q_tot + (cp_l - cp_v)*q_liq;
-    P                      = p0 * (T / theta)^(cpm/R_m);
-    ρ                      = P/(R_m * T);
+    θ                  = T + grav * xvert/cp_d;    
+    R_m                = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
+    cpm                = cp_d + (cp_v - cp_d)*q_tot + (cp_l - cp_v)*q_liq;
+    P                  = p0 * (T / θ)^(cpm/R_m);
+    ρ                  = P/(R_m * T);
     =#
     
     
     PhPart                 = PhasePartition(q_tot, q_liq, q_ice)    
     #(R_m, cpm, cv_m, γ_m) = moist_gas_constants(PhPart)
-    #P                      = p0 * (T / theta)^(cpm/R_m)   
+    #P                      = p0 * (T / θ)^(cpm/R_m)   
     #ρ                      = air_density(T, P, PhPart)
 
     # energy definitions
@@ -875,34 +878,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                              source! = source!,
                              preodefun! = preodefun!)
     
-    # This is a actual state/function that lives on the grid
-    # ----------------------------------------------------
-    # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
-    # This driver accepts data in 6 column format
-    # ----------------------------------------------------
-    #(sounding, _, ncols) = read_sounding()
-
-    # WARNING: Not all sounding data is formatted/scaled
-    # the same. Care required in assigning array values
-    # height theta qv    u     v     pressure
-    #zinit, tinit, qinit, uinit, vinit, pinit  =
-    #    sounding[:, 1], sounding[:, 2], sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
-    
-    #------------------------------------------------------
-    # GET SPLINE FUNCTION
-    #------------------------------------------------------
-    #spl_tinit    = Spline1D(zinit, tinit; k=1)
-    #spl_qinit    = Spline1D(zinit, qinit; k=1)
-    #spl_uinit    = Spline1D(zinit, uinit; k=1)
-    #spl_vinit    = Spline1D(zinit, vinit; k=1)
-    #spl_pinit    = Spline1D(zinit, pinit; k=1)
-
-
+ 
     initialcondition(Q, x...) = dycoms!(Val(dim), Q, 0, x...)
-
-    #initialcondition(Q, x...) = dycoms!(Val(dim), Q, DFloat(0), spl_tinit,
-    #                                    spl_qinit, spl_uinit, spl_vinit,
-    #                                    spl_pinit, x...)
 
     Q = MPIStateArray(spacedisc, initialcondition)     
     
