@@ -952,7 +952,7 @@ let
     end
 
     numelem = (Nex,Ney,Nez)
-    dt = 0.005
+    dt = 0.009
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
