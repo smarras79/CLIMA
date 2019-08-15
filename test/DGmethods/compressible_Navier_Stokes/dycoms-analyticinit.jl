@@ -119,10 +119,6 @@ const first_node_level   = 0.0001
 
 const D_subsidence = 3.75e-6
 
-# Random number seed
-#const seed = MersenneTwister(0)
-
-
 function global_max(A::MPIStateArray, states=1:size(A, 2))
     host_array = Array ∈ typeof(A).parameters
     h_A = host_array ? A : Array(A)
