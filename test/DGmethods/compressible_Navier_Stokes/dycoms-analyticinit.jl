@@ -41,8 +41,8 @@ const statenames = ("RHO", "U", "V", "W", "E", "QT")
 const _nviscstates = 24
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qtx, _qty, _qtz, _JplusDx, _JplusDy, _JplusDz, _θx, _θy, _θz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz, _ν_vreman = 1:_nviscstates
 
-const _nauxstate = 23
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_Rm = 1:_nauxstate
+const _nauxstate = 24
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_θ_l, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_Rm = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -158,7 +158,7 @@ end
     P = air_pressure(TS) # Test with dry atmosphere
     q_liq = PhasePartition(TS).liq
     θ = virtual_pottemp(TS)
-    (u, v, w, T, θ, Rm)
+    (u, v, w, T, θ, Rm, P)
 end
 
 #-------------------------------------------------------------------------
@@ -169,7 +169,7 @@ end
         P = aux[_a_P]
         T = aux[_a_T]
         θ = aux[_a_θ]
-        (u, v, w) = preflux(Q,aux)
+        (u, v, w, _, _, _, _) = preflux(Q,aux)
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         ρinv = 1 / ρ
         x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
@@ -671,17 +671,35 @@ function preodefun!(disc, Q, t)
             ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
             xvert = aux[_a_z]
             e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * xvert) / ρ
-            q_tot = QT / ρ
-            TS = PhaseEquil(e_int, q_tot, ρ)
-            T = air_temperature(TS)
-            P = air_pressure(TS) # Test with dry atmosphere
-            q_liq = PhasePartition(TS).liq
-            R[_a_T] = T
-            R[_a_P] = P
-            R[_a_q_liq] = q_liq
+            q_tot                = QT / ρ
+            TS                   = PhaseEquil(e_int, q_tot, ρ)
+            T                    = air_temperature(TS)
+            P                    = air_pressure(TS) # Test with dry atmosphere
+            q_liq                = PhasePartition(TS).liq
+            PhPart               = PhasePartition(TS)
+            R[_a_T]              = T
+            R[_a_P]              = P
+            R[_a_q_liq]          = q_liq
             R[_a_soundspeed_air] = soundspeed_air(TS)
-            R[_a_θ] = virtual_pottemp(TS)
-            R[_a_Rm] = gas_constant_air(TS)
+            R[_a_θ]              = virtual_pottemp(TS)
+            R[_a_θ_l]            = liquid_ice_pottemp(TS)
+            R[_a_Rm]             = gas_constant_air(TS)
+
+            #= 
+            if( abs(xvert - 600) <= 1.2)
+                Rm = R[_a_Rm]
+            
+                #Density
+                T_clbase = T #231.1
+                ρ_clbase = P/(Rm * T_clbase)
+                        
+                sat_SH = q_vap_saturation(T_clbase, ρ_clbase, PhPart)
+                
+               @show(xvert, T, ρ_clbase, sat_SH, PhPart)
+                error("stop")
+            end
+            =#
+            
         end
     end
     firstnode_info(disc,Q,t)
@@ -743,11 +761,12 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     g::DFloat       = grav
     p0::DFloat      = 1.0178e5
     ρ0::DFloat      = 1.22
-    r_tot_sfc::DFloat=9.0e-3
+    r_tot_sfc::DFloat=8.1e-3
     Rm_sfc          = R_d * (1.0 + (epsdv - 1.0)*r_tot_sfc)
-    T_0::DFloat     = 285.0
     ρ_sfc::DFloat   = 1.22
-    P_sfc           = ρ_sfc*Rm_sfc*T_0
+    P_sfc           = 1.0178e5
+    T_0::DFloat     = 285.0
+    T_sfc           = P_sfc/(ρ_sfc * Rm_sfc);
     
     # --------------------------------------------------
     # INITIALISE ARRAYS FOR INTERPOLATED VALUES
@@ -768,7 +787,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
 
     if ( xvert <= zi)
 	θ_liq  = 289.0
-	r_tot      = 9.0e-3                  #kg/kg  specific humidity --> approx. to mixing ratio is ok
+	r_tot      = 8.1e-3                  #kg/kg  specific humidity --> approx. to mixing ratio is ok
 	q_tot      = r_tot #/(1.0 - r_tot)     #total water mixing ratio
     else
 	θ_liq = 297.5 + (xvert - zi)^(1/3)
@@ -776,10 +795,10 @@ function dycoms!(dim, Q, t, x, y, z, _...)
 	q_tot     = r_tot #/(1.0 - r_tot)      #total water mixing ratio
     end
 
-    if xvert <= 200.0
-        θ_liq += randnum1 * θ_liq 
-        q_tot += randnum2 * q_tot
-    end
+   # if xvert <= 200.0
+   #     θ_liq += randnum1 * θ_liq 
+   #     q_tot += randnum2 * q_tot
+   # end
 
     
     Rm       = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
@@ -818,7 +837,19 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     =#
     
     
-    PhPart                 = PhasePartition(q_tot, q_liq, q_ice)    
+    PhPart                 = PhasePartition(q_tot, q_liq, q_ice)
+
+    #=if( abs(xvert - 600) <= 1.2)
+        #Density
+        T_clbase = T #231.1
+        ρ_clbase = P/(Rm*T_clbase)
+
+        
+        sat_SH = q_vap_saturation(T_clbase, ρ_clbase, PhPart)
+                 
+        @show(xvert, T, ρ_clbase, sat_SH, PhPart) 
+    end=#
+                                            
     #(R_m, cpm, cv_m, γ_m) = moist_gas_constants(PhPart)
     #P                      = p0 * (T / θ)^(cpm/R_m)   
     #ρ                      = air_density(T, P, PhPart)
@@ -903,24 +934,26 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
 
-    npoststates = 4
-    _o_RAD, _o_q_liq, _o_T, _o_θ = 1:npoststates
-    postnames = ("RAD", "_q_liq", "T", "THETA")
+    npoststates = 6
+    _o_RAD, _o_q_liq, _o_T, _o_θ, _o_θ_l, _o_P = 1:npoststates
+    postnames = ("RAD", "q_liq", "T", "THETA", "THETA_L", "P")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1500) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
             @inbounds let
                 R[_o_RAD]   = aux[_a_z2inf] + aux[_a_02z]
                 R[_o_q_liq] = aux[_a_q_liq]
                 R[_o_T]     = aux[_a_T]
                 R[_o_θ]     = aux[_a_θ]
+                R[_o_θ_l]   = aux[_a_θ_l]
+                R[_o_P]     = aux[_a_P]
             end
         end
         
-        mkpath("./CLIMA-output-scratch/dycoms-bc-vreman-analytic/")
-        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-vreman-analytic/dy_%dD_mpirank%04d_step%04d", dim,
+        mkpath("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED/")
+        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED/dy_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -952,7 +985,7 @@ let
     end
 
     numelem = (Nex,Ney,Nez)
-    dt = 0.009
+    dt = 0.01
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
