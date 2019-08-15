@@ -795,11 +795,10 @@ function dycoms!(dim, Q, t, x, y, z, _...)
 	q_tot     = r_tot #/(1.0 - r_tot)      #total water mixing ratio
     end
 
-   # if xvert <= 200.0
-   #     θ_liq += randnum1 * θ_liq 
-   #     q_tot += randnum2 * q_tot
-   # end
-
+    if xvert <= 200.0
+        θ_liq += randnum1 * θ_liq 
+        q_tot += randnum2 * q_tot
+    end
     
     Rm       = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
     cpm     = cp_d + (cp_v - cp_d)*q_tot + (cp_l - cp_v)*q_liq;
@@ -818,26 +817,10 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     #Density
     ρ  = P/(Rm*T);
     
-    #\Theta, \Thetav
-    θ  = T/exner;
-    θv = θ*(1 + (epsdv - 1)*q_tot - epsdv*q_liq);
-
-    
-    #Find T by solving the non-linear equation
-    #=T, converged = find_zero(T -> theta_liq_to_T(T, q_liq, xvert) - θ_liq, 289.0, 292.5, SecantMethod(), DFloat(1e-3), 25)
-    if !converged
-        error(" Initial T did not converge")
-    end
-        
-    θ                  = T + grav * xvert/cp_d;    
-    R_m                = R_d * (1 + (epsdv - 1)*q_tot - epsdv*q_liq);
-    cpm                = cp_d + (cp_v - cp_d)*q_tot + (cp_l - cp_v)*q_liq;
-    P                  = p0 * (T / θ)^(cpm/R_m);
-    ρ                  = P/(R_m * T);
-    =#
-    
-    
-    PhPart                 = PhasePartition(q_tot, q_liq, q_ice)
+    #θ, θv
+    θ      = T/exner;
+    θv     = θ*(1 + (epsdv - 1)*q_tot - epsdv*q_liq);
+    PhPart = PhasePartition(q_tot, q_liq, q_ice)
 
     #=if( abs(xvert - 600) <= 1.2)
         #Density
@@ -849,11 +832,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
                  
         @show(xvert, T, ρ_clbase, sat_SH, PhPart) 
     end=#
-                                            
-    #(R_m, cpm, cv_m, γ_m) = moist_gas_constants(PhPart)
-    #P                      = p0 * (T / θ)^(cpm/R_m)   
-    #ρ                      = air_density(T, P, PhPart)
-
+    
     # energy definitions
     u, v, w     = 7, -5.5, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     U           = ρ * u
