@@ -62,7 +62,7 @@ const Npoly = 4
 # Define grid size 
 Δx    = 35
 Δy    = 35
-Δz    =  5
+Δz    = 10
 
 const h_first_layer = Δz
 
@@ -722,30 +722,6 @@ function integral_computation(disc, Q, t)
                                                                    _a_02z)
 end
 
-# ------------------------------------------------------------------
-# initial condition
-"""
-        This function specifies the initial conditions
-        for the dycoms driver. 
-    """
-
-function  theta_liq_to_T(T, r_liq, z)
-    #
-    # This non-linear funciton of T is used by find_zero called by dycoms!
-    
-    # T is the unknown which is returned from the zero finder that calls 
-    # this function.
-    #
-    p0   = 101780.0;
-    R_d  =    287.0;
-    cp_d =   1015.0;
-    Lv   =      2.47e6;
-    g    =      9.81;
-    
-    return (T + g*z/cp_d) + r_liq*(Lv * (T + g*z/cp_d) /(cp_d*T));
-    
-end
-
 function dycoms!(dim, Q, t, x, y, z, _...)
     
     DFloat         = eltype(Q)
@@ -931,8 +907,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
         
-        mkpath("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dz5m/")
-        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dz5m/dy_%dD_mpirank%04d_step%04d", dim,
+        mkpath("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dz10m/")
+        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dz10m/dy_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -964,7 +940,7 @@ let
     end
 
     numelem = (Nex,Ney,Nez)
-    dt = 0.005
+    dt = 0.01
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
