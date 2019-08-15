@@ -975,8 +975,8 @@ let
     end
 
     numelem = (Nex,Ney,Nez)
-    dt = 0.005e-6
-    timeend = dt #14400
+    dt = 0.005
+    timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
