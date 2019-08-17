@@ -60,9 +60,9 @@ const numdims = 3
 const Npoly = 4
 
 # Define grid size 
-Δx    = 35
-Δy    = 35
-Δz    = 10
+Δx    = 20
+Δy    = 20
+Δz    = 5
 
 const h_first_layer = Δz
 
@@ -73,11 +73,11 @@ const bc_fix_bott_flux = 0
 
 # OR:
 # Set Δx < 0 and define  Nex, Ney, Nez:
-(Nex, Ney, Nez) = (10, 10, 1)
+(Nex, Ney, Nez) = (2, 1, 1)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 2000)
-const (ymin, ymax) = (0, 2000)
+const (xmin, xmax) = (0, 800)
+const (ymin, ymax) = (0, 800)
 const (zmin, zmax) = (0, 1500)
 const zi = 840
 #Get Nex, Ney from resolution
@@ -521,6 +521,7 @@ end
                 # ----------------------------------------------
                 VFP[_τ33] = 0  
                 # Case specific for flat bottom topography, normal vector is n⃗ = k⃗ = [0, 0, 1]ᵀ
+                
                 # A more general implementation requires (n⃗ ⋅ ∇A) to be defined where A is replaced by the appropriate flux terms
                 VFP[_τ13]     = -ρM * Cd * windspeed_FN * u_FN 
                 VFP[_τ23]     = -ρM * Cd * windspeed_FN * v_FN 
@@ -542,7 +543,7 @@ end
                 end
                 #VFP .= VFM
                 #VFP[_Tz] = VFM[_Tz]
-
+                
                 #Dirichlet on T: SST
                 T     = SST
                 ρP    = ρM
@@ -551,7 +552,8 @@ end
                 e_int = internal_energy(T, PhasePartition(q_totM, q_liqM, 0.0))
                 E     = ρM * total_energy(e_kin, e_pot, T, PhasePartition(q_totM, q_liqM, 0.0))
                 QP[_E]  = E
-                QP[_QT] = qtot_sfc
+                #QP[_QT] = qtot_sfc
+                QP[_QT] = QM[_QT]
             end
             
         end
@@ -652,9 +654,10 @@ end
         e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
         q_tot = QT / ρ
         # Establish the current thermodynamic state using the prognostic variables
-        TS = PhaseEquil(e_int, q_tot, ρ)
-        q_liq = PhasePartition(TS).liq
+        TS     = PhaseEquil(e_int, q_tot, ρ)
+        q_liq  = PhasePartition(TS).liq
         val[1] = ρ * κ * q_liq 
+        val[2] = ρ * q_liq       # LWP Integrand
     end
 end
 
@@ -712,10 +715,15 @@ end
 function integral_computation(disc, Q, t)
     # Kernel to compute vertical integrals
     DGBalanceLawDiscretizations.indefinite_stack_integral!(disc, integral_knl, Q,
-                                                           (_a_02z))
+                                                           (_a_02z, _a_LWP_02z))
+    
     DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
                                                                    _a_z2inf,
                                                                    _a_02z)
+    
+    DGBalanceLawDiscretizations.reverse_indefinite_stack_integral!(disc,
+                                                                   _a_LWP_z2inf,
+                                                                   _a_LWP_02z)
 end
 
 function dycoms!(dim, Q, t, x, y, z, _...)
@@ -885,26 +893,26 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
 
-    npoststates = 6
-    _o_RAD, _o_q_liq, _o_T, _o_θ, _o_θ_l, _o_P = 1:npoststates
-    postnames = ("RAD", "q_liq", "T", "THETA", "THETA_L", "P")
+    npoststates = 4
+    _o_LWP, _o_q_liq, _o_θ_l, _o_P = 1:npoststates
+    postnames = ("LWP", "q_liq", "THETA_L", "P")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1500) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
             @inbounds let
-                R[_o_RAD]   = aux[_a_z2inf] + aux[_a_02z]
+                R[_o_LWP]   = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
                 R[_o_q_liq] = aux[_a_q_liq]
-                R[_o_T]     = aux[_a_T]
-                R[_o_θ]     = aux[_a_θ]
+                #R[_o_T]     = aux[_a_T]
+                #R[_o_θ]     = aux[_a_θ]
                 R[_o_θ_l]   = aux[_a_θ_l]
                 R[_o_P]     = aux[_a_P]
             end
         end
         
-        mkpath("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dz10m/")
-        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dz10m/dy_%dD_mpirank%04d_step%04d", dim,
+        mkpath("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dx20m-dy20m-dz5m/")
+        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dx20m-dy20m-dz5m/dy_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -936,8 +944,8 @@ let
     end
 
     numelem = (Nex,Ney,Nez)
-    dt = 0.01
-    timeend = 14400
+    dt = 0.005e-9
+    timeend = dt #14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
@@ -953,6 +961,9 @@ let
         @info @sprintf """ ------------------------------------------------------"""
         @info @sprintf """ Dycoms                                                """
         @info @sprintf """   Resolution:                                         """ 
+        @info @sprintf """     (xmin, xmax)   = (%.2e, %.2e)                     """ xmin xmax
+        @info @sprintf """     (ymin, ymax)   = (%.2e, %.2e)                     """ ymin ymax
+        @info @sprintf """     (zmin, zmax)   = (%.2e, %.2e)                     """ zmin zmax
         @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
         @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                    """ Nex Ney Nez
         @info @sprintf """     DoF = %d                                          """ DoF
