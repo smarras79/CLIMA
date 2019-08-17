@@ -57,11 +57,11 @@ const cp_over_prandtl = cp_d / Prandtl_t
 #const seed = MersenneTwister(0)
 # User Input
 const numdims = 3
-const Npoly = 4
+const Npoly = 5
 
 # Define grid size 
-Δx    = 20
-Δy    = 20
+Δx    = 15
+Δy    = 15
 Δz    = 5
 
 const h_first_layer = Δz
@@ -944,8 +944,8 @@ let
     end
 
     numelem = (Nex,Ney,Nez)
-    dt = 0.005e-9
-    timeend = dt #14400
+    dt = 0.0045
+    timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
     dim = numdims
