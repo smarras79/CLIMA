@@ -41,8 +41,8 @@ const statenames = ("RHO", "U", "V", "W", "E", "QT")
 const _nviscstates = 24
 const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qtx, _qty, _qtz, _JplusDx, _JplusDy, _JplusDz, _θx, _θy, _θz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz, _ν_vreman = 1:_nviscstates
 
-const _nauxstate = 24
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_ν_e, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_θ_l, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_Rm = 1:_nauxstate
+const _nauxstate = 25
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_θ_l, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_Rm, _a_μ_f_R, _a_μ = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -57,12 +57,12 @@ const cp_over_prandtl = cp_d / Prandtl_t
 #const seed = MersenneTwister(0)
 # User Input
 const numdims = 3
-const Npoly = 5
+const Npoly = 4
 
 # Define grid size 
-Δx    = 15
-Δy    = 15
-Δz    = 5
+Δx    = 35
+Δy    = 35
+Δz    = 10
 
 const h_first_layer = Δz
 
@@ -76,8 +76,8 @@ const bc_fix_bott_flux = 0
 (Nex, Ney, Nez) = (2, 1, 1)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 800)
-const (ymin, ymax) = (0, 800)
+const (xmin, xmax) = (0, 3820)
+const (ymin, ymax) = (0, 3820)
 const (zmin, zmax) = (0, 1500)
 const zi = 840
 #Get Nex, Ney from resolution
@@ -179,30 +179,6 @@ end
 
 
 # -------------------------------------------------------------------------
-# ### read sounding
-#md # 
-#md # The sounding file contains the following quantities along a 1D column.
-#md # It needs to have the following structure:
-#md #
-#md # z[m]   theta[K]  q[g/kg]   u[m/s]   v[m/s]   p[Pa]
-#md # ...      ...       ...      ...      ...      ...
-#md #
-#md #
-# -------------------------------------------------------------------------
-function read_sounding()
-    #read in the original squal sounding
-    fsounding  = open(joinpath(@__DIR__, "../soundings/sounding_DYCOMS_TEST1.dat"))
-    #fsounding  = open(joinpath(@__DIR__, "../soundings/SOUNDING_PYCLES_Z_T_P.dat"))
-    sounding = readdlm(fsounding)
-    close(fsounding)
-    (nzmax, ncols) = size(sounding)
-    if nzmax == 0
-        error("SOUNDING ERROR: The Sounding file is empty!")
-    end
-    return (sounding, nzmax, ncols)
-end
-
-# -------------------------------------------------------------------------
 # ### Physical Flux (Required)
 #md # Here, we define the physical flux function, i.e. the conservative form
 #md # of the equations of motion for the prognostic variables ρ, U, V, W, E, QT
@@ -253,21 +229,27 @@ end
         SijSij                    = VF[_SijSij]
         f_R                       = buoyancy_correction(SijSij, θ, vθz)
         #Dynamic eddy viscosity from Smagorinsky:
-        #μ_e                       = ρ * sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
-        #D_e                       = μ_e / Prandtl_t
+        μ_e                       = ρ * sqrt(2.0 * SijSij) * C_smag^2 * Δsqr * f_R
+        D_e                       = μ_e / Prandtl_t
+
+        aux[_a_μ_f_R] = μ_e
+        aux[_a_μ]     = μ_e/f_R
+
+        
         #Dynamic eddy viscosity from Vreman: 
-        ν_vreman                  = VF[_ν_vreman]
-        μ_e                       = ν_vreman * ρ
-        D_e                       = 3ν_vreman
+        #ν_vreman                  = VF[_ν_vreman]
+        #μ_e                       = ν_vreman * ρ * f_R
+        #D_e                       = 3ν_vreman
+        
         # Multiply stress tensor by viscosity coefficient:
         τ11, τ22, τ33 = VF[_τ11] * μ_e, VF[_τ22]* μ_e, VF[_τ33] * μ_e
         τ12 = τ21 = VF[_τ12] * μ_e 
         τ13 = τ31 = VF[_τ13] * μ_e               
         τ23 = τ32 = VF[_τ23] * μ_e
         # Viscous velocity flux (i.e. F^visc_u in Giraldo Restelli 2008)
-        F[1, _U] += τ11 * f_R ; F[2, _U] += τ12 * f_R ; F[3, _U] += τ13 * f_R
-        F[1, _V] += τ21 * f_R ; F[2, _V] += τ22 * f_R ; F[3, _V] += τ23 * f_R
-        F[1, _W] += τ31 * f_R ; F[2, _W] += τ32 * f_R ; F[3, _W] += τ33 * f_R
+        F[1, _U] += τ11; F[2, _U] += τ12; F[3, _U] += τ13
+        F[1, _V] += τ21; F[2, _V] += τ22; F[3, _V] += τ23
+        F[1, _W] += τ31; F[2, _W] += τ32; F[3, _W] += τ33
         # Viscous Energy flux (i.e. F^visc_e in Giraldo Restelli 2008)
         F[1, _E] += u * τ11 + v * τ12 + w * τ13 + vJplusDx * D_e  #dTd should not be diffused.
         F[2, _E] += u * τ21 + v * τ22 + w * τ23 + vJplusDy * D_e
@@ -893,9 +875,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
         end
     end
 
-    npoststates = 4
-    _o_LWP, _o_q_liq, _o_θ_l, _o_P = 1:npoststates
-    postnames = ("LWP", "q_liq", "THETA_L", "P")
+    npoststates = 6
+    _o_LWP, _o_q_liq, _o_θ_l, _o_P, _o_μ_f_R, _o_μ = 1:npoststates
+    postnames = ("LWP", "q_liq", "THETA_L", "P", "MU.f_R", "MU")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
@@ -908,11 +890,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 #R[_o_θ]     = aux[_a_θ]
                 R[_o_θ_l]   = aux[_a_θ_l]
                 R[_o_P]     = aux[_a_P]
+
+                R[_o_μ_f_R] = aux[_a_μ_f_R]
+                R[_o_μ]     = aux[_a_μ]
             end
         end
         
-        mkpath("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dx15m-dy15m-dz5m/")
-        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-vreman-analytic-TUNED-dx15m-dy15m-dz5m/dy_%dD_mpirank%04d_step%04d", dim,
+        mkpath("./CLIMA-output-scratch/dycoms-bc-SMAGO-analytic-TUNED-dx35m-dy35m-dz10m/")
+        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-SMAGO-analytic-TUNED-dx35m-dy35m-dz10m/dy_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
@@ -944,7 +929,7 @@ let
     end
 
     numelem = (Nex,Ney,Nez)
-    dt = 0.0045
+    dt = 0.001
     timeend = 14400
     polynomialorder = Npoly
     DFloat = Float64
