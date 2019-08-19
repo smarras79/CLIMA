@@ -38,11 +38,11 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 26
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qtx, _qty, _qtz, _JplusDx, _JplusDy, _JplusDz, _θx, _θy, _θz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz, _ν_vreman, _μ_e, _f_R = 1:_nviscstates
+const _nviscstates = 29
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qtx, _qty, _qtz, _JplusDx, _JplusDy, _JplusDz, _θx, _θy, _θz, _uz, _vz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz, _ν_smago, _ν_vreman, _μ_e, _f_R = 1:_nviscstates
 
-const _nauxstate = 25
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_θ_l, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_Rm, _a_f_R, _a_μ_e = 1:_nauxstate
+const _nauxstate = 26
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_θ_l, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_Rm, _a_f_R, _a_ν_smago, _a_ν_vreman = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -76,8 +76,8 @@ const bc_fix_bott_flux = 0
 (Nex, Ney, Nez) = (2, 1, 1)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 300) #820)
-const (ymin, ymax) = (0, 300) #820)
+const (xmin, xmax) = (0, 2000) #820)
+const (ymin, ymax) = (0, 2000) #820)
 const (zmin, zmax) = (0, 1500)
 const zi = 840
 #Get Nex, Ney from resolution
@@ -201,13 +201,34 @@ end
 #md # Note that the preflux calculation is splatted at the end of the function call
 #md # to cns_flux!
 # ------------------------------------------------------------------------
-function buoyancy_correction(normSij, θv, dθvdz)
+function buoyancy_correction(modSij, θv, dθvdz)
     # Brunt-Vaisala frequency
-    N2 = grav / θv * dθvdz
+    N2 = grav * dθvdz / θv 
     # Richardson number
-    Richardson = N2 / (2 * normSij + eps(normSij))
+    Richardson = N2 / (modSij^2 + 1e-12)
     # Buoyancy correction factor
     buoyancy_factor = N2 <=0 ? 1 : sqrt(max(0.0, 1 - Richardson/Prandtl_t))
+    return buoyancy_factor
+end
+
+function buoyancy_correction_xx(dudz, dvdz, θv, dθvdz)
+
+    Pr_t::Float64 = 1/3
+    
+    # Brunt-Vaisala frequency
+    N2 = grav * dθvdz / θv
+    
+    # Richardson number
+    Richardson = N2 / (dudz^2 + dvdz^2 + 1e-12)
+    
+    # Buoyancy correction factor
+    aux = 1.0 - Richardson/Pr_t
+    if aux >= 1e-16
+        buoyancy_factor = sqrt(aux)
+    else
+        buoyancy_factor = 0.0
+    end
+    
     return buoyancy_factor
 end
 
@@ -236,17 +257,20 @@ end
         vqlx, vqly, vqlz                  = VF[_qlx], VF[_qly], VF[_qlz]    
         vJplusDx, vJplusDy, vJplusDz      = VF[_JplusDx], VF[_JplusDy], VF[_JplusDz]
         vθz                               = VF[_θz]
+        
         # Radiation contribution
         F_rad                     = ρ * radiation(aux)  
-        #aux[_a_rad]               = F_rad
-        SijSij                    = VF[_SijSij]
-        f_R                       = buoyancy_correction(SijSij, θ, vθz)
-        VF[_f_R]                  = f_R
+        aux[_a_rad]               = F_rad
+
+        #Buoyancy correction
+        modSij                    = VF[_SijSij]
+        dudz                      = VF[_uz]
+        dvdz                      = VF[_vz]
+        f_R                      = buoyancy_correction(modSij, θ, vθz)
         
         #Dynamic eddy viscosity from Smagorinsky:
-        μ_e                       = ρ * sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
-        VF[_μ_e]                  = μ_e
-        μ_e                       = μ_e*f_R
+        ν_e                       = VF[_ν_smago]
+        μ_e                       = ρ * ν_e * f_R
         D_e                       = μ_e / Prandtl_t
                 
         #Dynamic eddy viscosity from Vreman: 
@@ -352,6 +376,9 @@ end
                   + 2.0 * S13^2 
                   + 2.0 * S23^2)
         modSij = sqrt(2.0 * SijSij)
+        
+        ν_smago = modSij * C_smag^2 * Δsqr
+        
         # -------------------------------------------
         # VREMAN COEFFICIENT
         # -------------------------------------------
@@ -364,7 +391,7 @@ end
         βij = Δsqr * (Dij' * Dij)
         Bβ = βij[1,1]*βij[2,2] - βij[1,2]^2 + βij[1,1]*βij[3,3] - βij[1,3]^2 + βij[2,2]*βij[3,3] - βij[2,3]^2 
         ν_vreman = max(0,(C_smag^2 * 2.5) * sqrt(abs(Bβ/(DISS+1e-16)))) 
-        VF[_ν_vreman] = ν_vreman
+        
         #--------------------------------------------
         # STRESS COMPONENTS
         #--------------------------------------------
@@ -378,8 +405,13 @@ end
         VF[_qtx], VF[_qty], VF[_qtz]             = -dqtdx,  -dqtdy,  -dqtdz        
         VF[_JplusDx], VF[_JplusDy], VF[_JplusDz] = -dJplusDdx, -dJplusDdy, -dJplusDdz
         VF[_θx], VF[_θy], VF[_θz]                = dθdx, dθdy, dθdz
-        VF[_SijSij]                              = SijSij 
+        VF[_SijSij]                              = modSij
+        VF[_uz]                                  = dudz
+        VF[_vz]                                  = dvdz
+                
         VF[_ν_vreman]                            = ν_vreman
+        VF[_ν_smago]                             = ν_smago
+
     end
 end
 # -------------------------------------------------------------------------
@@ -402,7 +434,7 @@ end
         sponge_type = 1
         if sponge_type == 1
             ct = 0.9
-            bc_zscale  = 550.0
+            bc_zscale  = 450.0
             zd = domain_top - bc_zscale       
             if xvert >= zd
                 ctop = ct * (sinpi(0.5*(xvert - zd)/(domain_top - zd)))^4
@@ -681,8 +713,16 @@ function preodefun!(disc, Q, t)
             R[_a_Rm]             = gas_constant_air(TS)
 
             #Viscosity:
-            R[_a_μ_e]            = QV[_μ_e]
-            R[_a_f_R]            = QV[_f_R]
+            modSij               = QV[_SijSij]
+
+            dudz                 = QV[_uz]
+            dvdz                 = QV[_vz]
+            vθz                  = QV[_θz]           
+            θ                    = R[_a_θ]
+            f_R                  = buoyancy_correction(modSij, θ, vθz)
+            
+            R[_a_ν_smago]        = QV[_ν_smago]*f_R           
+            R[_a_ν_vreman]       = QV[_ν_vreman]
             
         end
     end
@@ -879,23 +919,22 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 
     npoststates = 6
-    _o_LWP, _o_q_liq, _o_θ_l, _o_P, _o_f_R, _o_μ_e = 1:npoststates
-    postnames = ("LWP", "q_liq", "THETA_L", "P", "f_R", "MU")
+    _o_LWP, _o_q_liq, _o_θ_l, _o_P, _o_smago, _o_vreman = 1:npoststates
+    postnames = ("LWP", "q_liq", "THETA_L", "P", "MU_SMAGO", "MU_VREMAN")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(5) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
             @inbounds let
                 R[_o_LWP]   = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
                 R[_o_q_liq] = aux[_a_q_liq]
-                #R[_o_T]     = aux[_a_T]
-                #R[_o_θ]     = aux[_a_θ]
                 R[_o_θ_l]   = aux[_a_θ_l]
                 R[_o_P]     = aux[_a_P]
-
-                R[_o_f_R]   = aux[_a_f_R]
-                R[_o_μ_e]   = aux[_a_μ_e]
+                
+                #R[_o_f_R]   = aux[_a_f_R]
+                R[_o_vreman]= aux[_a_ν_vreman]
+                R[_o_smago] = aux[_a_ν_smago]
                 
             end
         end
