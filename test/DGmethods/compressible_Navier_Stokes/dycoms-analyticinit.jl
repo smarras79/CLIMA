@@ -38,11 +38,11 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 24
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qtx, _qty, _qtz, _JplusDx, _JplusDy, _JplusDz, _θx, _θy, _θz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz, _ν_vreman = 1:_nviscstates
+const _nviscstates = 26
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qtx, _qty, _qtz, _JplusDx, _JplusDy, _JplusDz, _θx, _θy, _θz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz, _ν_vreman, _μ_e, _f_R = 1:_nviscstates
 
 const _nauxstate = 25
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_θ_l, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_Rm, _a_μ_f_R, _a_μ = 1:_nauxstate
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_θ_l, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_Rm, _a_f_R, _a_μ_e = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -76,8 +76,8 @@ const bc_fix_bott_flux = 0
 (Nex, Ney, Nez) = (2, 1, 1)
 
 # Physical domain extents 
-const (xmin, xmax) = (0, 3820)
-const (ymin, ymax) = (0, 3820)
+const (xmin, xmax) = (0, 300) #820)
+const (ymin, ymax) = (0, 300) #820)
 const (zmin, zmax) = (0, 1500)
 const zi = 840
 #Get Nex, Ney from resolution
@@ -134,6 +134,19 @@ function global_mean(A::MPIStateArray, states=1:size(A,2))
     localsum = sum(view(h_A, :, states, A.realelems)) 
     MPI.Allreduce([localsum], MPI.SUM, A.mpicomm)[1] / numpts 
 end
+
+function strainrate_tensor_components(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz)
+    # Assemble components of the strain-rate tensor 
+    S11  = dudx
+    S12  = (dudy + dvdx) / 2
+    S13  = (dudz + dwdx) / 2
+    S22  = dvdy
+    S23  = (dvdz + dwdy) / 2
+    S33  = dwdz
+    normSij = S11^2 + S22^2 + S33^2 + 2 * (S12^2 + S13^2 + S23^2)  
+    return (S11, S22, S33, S12, S13, S23, normSij)
+  end
+
 
 # -------------------------------------------------------------------------
 # Diagnostics: e.g. thermodynamics properties, preflux no longer used in 
@@ -223,19 +236,19 @@ end
         vqlx, vqly, vqlz                  = VF[_qlx], VF[_qly], VF[_qlz]    
         vJplusDx, vJplusDy, vJplusDz      = VF[_JplusDx], VF[_JplusDy], VF[_JplusDz]
         vθz                               = VF[_θz]
-        # Radiation contribution 
+        # Radiation contribution
         F_rad                     = ρ * radiation(aux)  
-        aux[_a_rad]               = F_rad
+        #aux[_a_rad]               = F_rad
         SijSij                    = VF[_SijSij]
         f_R                       = buoyancy_correction(SijSij, θ, vθz)
-        #Dynamic eddy viscosity from Smagorinsky:
-        μ_e                       = ρ * sqrt(2.0 * SijSij) * C_smag^2 * Δsqr * f_R
-        D_e                       = μ_e / Prandtl_t
-
-        aux[_a_μ_f_R] = μ_e
-        aux[_a_μ]     = μ_e/f_R
-
+        VF[_f_R]                  = f_R
         
+        #Dynamic eddy viscosity from Smagorinsky:
+        μ_e                       = ρ * sqrt(2.0 * SijSij) * C_smag^2 * Δsqr
+        VF[_μ_e]                  = μ_e
+        μ_e                       = μ_e*f_R
+        D_e                       = μ_e / Prandtl_t
+                
         #Dynamic eddy viscosity from Vreman: 
         #ν_vreman                  = VF[_ν_vreman]
         #μ_e                       = ν_vreman * ρ * f_R
@@ -321,6 +334,7 @@ end
         dqtdx, dqtdy, dqtdz             = grad_list[1, 5], grad_list[2, 5], grad_list[3, 5]
         dJplusDdx, dJplusDdy, dJplusDdz = grad_list[1, 6], grad_list[2, 6], grad_list[3, 6]
         dθdx, dθdy, dθdz                = grad_list[1, 7], grad_list[2, 7], grad_list[3, 7]
+
         # --------------------------------------------
         # STRAINRATE TENSOR COMPONENTS
         # --------------------------------------------
@@ -336,7 +350,7 @@ end
         SijSij = (S11^2 + S22^2 + S33^2
                   + 2.0 * S12^2
                   + 2.0 * S13^2 
-                  + 2.0 * S23^2) 
+                  + 2.0 * S23^2)
         modSij = sqrt(2.0 * SijSij)
         # -------------------------------------------
         # VREMAN COEFFICIENT
@@ -666,20 +680,9 @@ function preodefun!(disc, Q, t)
             R[_a_θ_l]            = liquid_ice_pottemp(TS)
             R[_a_Rm]             = gas_constant_air(TS)
 
-            #= 
-            if( abs(xvert - 600) <= 1.2)
-                Rm = R[_a_Rm]
-            
-                #Density
-                T_clbase = T #231.1
-                ρ_clbase = P/(Rm * T_clbase)
-                        
-                sat_SH = q_vap_saturation(T_clbase, ρ_clbase, PhPart)
-                
-               @show(xvert, T, ρ_clbase, sat_SH, PhPart)
-                error("stop")
-            end
-            =#
+            #Viscosity:
+            R[_a_μ_e]            = QV[_μ_e]
+            R[_a_f_R]            = QV[_f_R]
             
         end
     end
@@ -876,12 +879,12 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     end
 
     npoststates = 6
-    _o_LWP, _o_q_liq, _o_θ_l, _o_P, _o_μ_f_R, _o_μ = 1:npoststates
-    postnames = ("LWP", "q_liq", "THETA_L", "P", "MU.f_R", "MU")
+    _o_LWP, _o_q_liq, _o_θ_l, _o_P, _o_f_R, _o_μ_e = 1:npoststates
+    postnames = ("LWP", "q_liq", "THETA_L", "P", "f_R", "MU")
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1500) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
             @inbounds let
                 R[_o_LWP]   = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
@@ -891,8 +894,9 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 R[_o_θ_l]   = aux[_a_θ_l]
                 R[_o_P]     = aux[_a_P]
 
-                R[_o_μ_f_R] = aux[_a_μ_f_R]
-                R[_o_μ]     = aux[_a_μ]
+                R[_o_f_R]   = aux[_a_f_R]
+                R[_o_μ_e]   = aux[_a_μ_e]
+                
             end
         end
         
