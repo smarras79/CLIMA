@@ -904,7 +904,7 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
     postprocessarray = MPIStateArray(spacedisc; nstate=npoststates)
 
     step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(5) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1500) do (init=false)
         DGBalanceLawDiscretizations.dof_iteration!(postprocessarray, spacedisc, Q) do R, Q, QV, aux
             @inbounds let
                 R[_o_LWP]   = aux[_a_LWP_02z] + aux[_a_LWP_z2inf]
@@ -919,8 +919,8 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
             end
         end
         
-        mkpath("./CLIMA-output-scratch/dycoms-bc-SMAGO-analytic-TUNED-dx35m-dy35m-dz10m/")
-        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-SMAGO-analytic-TUNED-dx35m-dy35m-dz10m/dy_%dD_mpirank%04d_step%04d", dim,
+        mkpath("./CLIMA-output-scratch/dycoms-bc-SMAGO-FR-analytic-TUNED-dx35m-dy35m-dz10m/")
+        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-SMAGO-FR-analytic-TUNED-dx35m-dy35m-dz10m/dy_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
