@@ -211,26 +211,6 @@ function buoyancy_correction(modSij, θv, dθvdz)
     return buoyancy_factor
 end
 
-function buoyancy_correction_xx(dudz, dvdz, θv, dθvdz)
-
-    Pr_t::Float64 = 1/3
-    
-    # Brunt-Vaisala frequency
-    N2 = grav * dθvdz / θv
-    
-    # Richardson number
-    Richardson = N2 / (dudz^2 + dvdz^2 + 1e-12)
-    
-    # Buoyancy correction factor
-    aux = 1.0 - Richardson/Pr_t
-    if aux >= 1e-16
-        buoyancy_factor = sqrt(aux)
-    else
-        buoyancy_factor = 0.0
-    end
-    
-    return buoyancy_factor
-end
 
 @inline function cns_flux!(F, Q, VF, aux, t)
     @inbounds begin
@@ -718,7 +698,7 @@ function preodefun!(disc, Q, t)
             dudz                 = QV[_uz]
             dvdz                 = QV[_vz]
             vθz                  = QV[_θz]           
-            θ                    = R[_a_θ]
+            θ                    = aux[_a_θ]
             f_R                  = buoyancy_correction(modSij, θ, vθz)
             
             R[_a_ν_smago]        = QV[_ν_smago]*f_R           
