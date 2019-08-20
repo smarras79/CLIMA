@@ -251,11 +251,15 @@ end
         dvdz                      = VF[_vz]
         f_R                      = buoyancy_correction(modSij, θ, vθz)
         
+        if (xvert > 820)
+            f_R = 0.0
+        end
+        
         #Dynamic eddy viscosity from Smagorinsky:
         ν_e                       = VF[_ν_smago]
         μ_e                       = ρ * ν_e * f_R
         D_e                       = μ_e / Prandtl_t
-                
+
         #Dynamic eddy viscosity from Vreman: 
         #ν_vreman                  = VF[_ν_vreman]
         #μ_e                       = ν_vreman * ρ * f_R
