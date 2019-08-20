@@ -750,7 +750,7 @@ end
 function dycoms!(dim, Q, t, x, y, z, _...)
     
     DFloat         = eltype(Q)
-    xvert::DFloat  = z
+    xvert::DFloat  = y
 
     #These constants are those used by Stevens et al. (2005)
     R_d::DFloat     = 287.0
