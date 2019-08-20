@@ -56,15 +56,15 @@ const Prandtl_t       = 1 // 3
 const cp_over_prandtl = cp_d / Prandtl_t
 #const seed = MersenneTwister(0)
 # User Input
-const numdims = 3
+const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-Δx    = 35
-Δy    = 35
-Δz    = 10
+Δx = 35
+Δy = 10
+Δz = 10
 
-const h_first_layer = Δz
+const h_first_layer = Δy
 
 #B.C.
 const bc_fix_T   = 1
@@ -73,17 +73,18 @@ const bc_fix_bott_flux = 0
 
 # OR:
 # Set Δx < 0 and define  Nex, Ney, Nez:
-(Nex, Ney, Nez) = (2, 1, 1)
+(Nex, Ney) = (2, 1)
 
 # Physical domain extents 
 const (xmin, xmax) = (0, 2000) #820)
-const (ymin, ymax) = (0, 2000) #820)
-const (zmin, zmax) = (0, 1500)
+const (ymin, ymax) = (0, 1500) #820)
+const (zmin, zmax) = (0, 1500) #820)
+
 const zi = 840
 #Get Nex, Ney from resolution
 const Lx = xmax - xmin
 const Ly = ymax - ymin
-const Lz = zmax - ymin
+const Lz = zmax - zmin
 if ( Δx > 0)
     # User defines the grid size:
     ratiox = (Lx/Δx - 1)/Npoly
@@ -99,13 +100,13 @@ else
     Δz = Lz / ((Nez * Npoly) + 1)
 end
 
-DoF = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate)
-DoFstorage = (Nex*Ney*Nez)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstate + CLIMA.Mesh.Grids._nvgeo) +
-    (Nex*Ney*Nez)*(Npoly+1)^(numdims-1)*2^numdims*(CLIMA.Mesh.Grids._nsgeo)
+DoF = (Nex*Ney)*(Npoly+1)^numdims*(_nstate)
+DoFstorage = (Nex*Ney)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstate + CLIMA.Mesh.Grids._nvgeo) +
+    (Nex*Ney)*(Npoly+1)^(numdims-1)*2^numdims*(CLIMA.Mesh.Grids._nsgeo)
 
 const C_smag = 0.15
 # Equivalent grid-scale
-Δ = (Δx * Δy * Δz)^(1/3)
+Δ = sqrt(Δx * Δy)
 const Δsqr = Δ * Δ
 
 
@@ -157,8 +158,9 @@ function strainrate_tensor_components(dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, 
     @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
     ρinv = 1 / ρ
     x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+    xvert = aux[_a_y]
     u, v, w = ρinv * U, ρinv * V, ρinv * W
-    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+    e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * xvert) / ρ
     q_tot = QT / ρ
     # Establish the current thermodynamic state using the prognostic variables
     TS = PhaseEquil(e_int, q_tot, ρ)
@@ -182,8 +184,9 @@ end
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         ρinv = 1 / ρ
         x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+        xvert = aux[_a_y]
         u, v, w = ρinv * U, ρinv * V, ρinv * W
-        e_int = E/ρ - (u^2 + v^2+ w^2)/2 - grav * z 
+        e_int = E/ρ - (u^2 + v^2+ w^2)/2 - grav * xvert
         q_tot = QT / ρ
         TS = PhaseEquil(e_int, q_tot, ρ)
         abs(n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(TS)
@@ -220,10 +223,10 @@ end
         q_liq = aux[_a_q_liq]
         ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         u,v,w = U/ρ, V/ρ, W/ρ
-        xvert = aux[_a_z]
+        xvert = aux[_a_y]
         θ     = aux[_a_θ]
         w -= D_subsidence * xvert
-        W  = w*ρ
+        W  = v*ρ
         # Inviscid contributions
         F[1, _ρ], F[2, _ρ], F[3, _ρ] = U          , V          , W
         F[1, _U], F[2, _U], F[3, _U] = u * U  + P , v * U      , w * U
@@ -305,9 +308,9 @@ end
 @inline function radiation(aux)
     zero_to_z = aux[_a_02z]
     z_to_inf = aux[_a_z2inf]
-    z = aux[_a_z]
+    xvert = aux[_a_y]
     z_i = 840  # Start with constant inversion height of 840 meters then build in check based on q_tot
-    (z - z_i) >=0 ? Δz_i = (z - z_i) : Δz_i = 0 
+    (xvert - z_i) >=0 ? Δz_i = (xvert - z_i) : Δz_i = 0 
     # Constants 
     F_0 = 70 
     F_1 = 22
@@ -400,15 +403,15 @@ end
 @inline function auxiliary_state_initialization!(aux, x, y, z)
     @inbounds begin
         DFloat = eltype(aux)
-        xvert = z
-        aux[_a_z] = xvert
+        xvert = y
+        aux[_a_y] = xvert
         #Sponge 
         ctop    = zero(DFloat)
         cs_left_right = zero(DFloat)
         cs_front_back = zero(DFloat)
         ct            = DFloat(0.75)
-        domain_bott  = zmin
-        domain_top   = zmax
+        domain_bott  = ymin
+        domain_top   = ymax
         
         #Vertical sponge:
         sponge_type = 1
@@ -422,7 +425,6 @@ end
         else
             aux[_a_x] = x
             aux[_a_y] = y
-            aux[_a_z] = z
             #Sponge
             csleft  = 0.0
             csright = 0.0
@@ -492,14 +494,14 @@ end
         QP[_ρ] = ρM
         QP[_QT] = QTM
         VFP .= 0
-        xvert = auxM[_a_z]
+        xvert = auxM[_a_y]
         if xvert < 0.00001
             if bc_fix_bott_flux == 1
                 # TODO specify boundary keyword and get correct bctype for general topography
                 # ------------------------------------------------------------------------
                 # First node quantities (first-model level here represents the first node)
                 # ------------------------------------------------------------------------
-                z_FN             = auxM[_a_z_FN]
+                z_FN             = auxM[_a_y_FN]
                 ρ_FN             = auxM[_a_ρ_FN]
                 U_FN             = auxM[_a_U_FN]
                 V_FN             = auxM[_a_V_FN]
@@ -521,7 +523,7 @@ end
                 zM          = xvert
                 q_totM      = QTM/ρM
                 q_liqM      = auxM[_a_q_liq]
-                windspeed   = sqrt(uM^2 + vM^2 + wM^2)
+                windspeed   = sqrt(uM^2 + vM^2)
                 e_intM      = EM/ρM - 0.5*windspeed^2 - grav*zM
                 TSM         = PhaseEquil(e_intM, q_totM, ρM)
                 TM          = air_temperature(TSM)
@@ -569,7 +571,7 @@ end
                 #Dirichlet on T: SST
                 T     = SST
                 ρP    = ρM
-                e_kin = 0.5 * (u^2 + v^2 + w^2)
+                e_kin = 0.5 * (u^2 + v^2)
                 e_pot = grav * xvert
                 e_int = internal_energy(T, PhasePartition(q_totM, q_liqM, 0.0))
                 E     = ρM * total_energy(e_kin, e_pot, T, PhasePartition(q_totM, q_liqM, 0.0))
@@ -645,11 +647,10 @@ end
     """
 @inline function source_sponge!(S,Q,aux,t)
     @inbounds begin
-        U, V, W  = Q[_U], Q[_V], Q[_W]        
-        beta     = aux[_a_sponge]
+        U, V   = Q[_U], Q[_V]       
+        beta   = aux[_a_sponge]
         S[_U] -= beta * U
         S[_V] -= beta * V
-        S[_W] -= beta * W
     end
 end
 
@@ -658,8 +659,8 @@ end
     """
 @inline function source_geopot!(S,Q,aux,t)
     @inbounds begin
-        ρ, U, V, W, E  = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E]
-        S[_W] -= ρ * grav
+        ρ, U, V, E  = Q[_ρ], Q[_U], Q[_V], Q[_E]
+        S[_V] -= ρ * grav
     end
 end
 
@@ -671,9 +672,10 @@ end
     @inbounds begin
         @inbounds ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
         ρinv = 1 / ρ
-        x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]
+        x,y,z = aux[_a_x], aux[_a_y], aux[_a_z]        
+        xvert = aux[_a_y]
         u, v, w = ρinv * U, ρinv * V, ρinv * W
-        e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * z) / ρ
+        e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * xvert) / ρ
         q_tot = QT / ρ
         # Establish the current thermodynamic state using the prognostic variables
         TS     = PhaseEquil(e_int, q_tot, ρ)
@@ -690,7 +692,7 @@ function preodefun!(disc, Q, t)
     DGBalanceLawDiscretizations.dof_iteration!(disc.auxstate, disc, Q) do R, Q, QV, aux
         @inbounds let
             ρ, U, V, W, E, QT = Q[_ρ], Q[_U], Q[_V], Q[_W], Q[_E], Q[_QT]
-            xvert = aux[_a_z]
+            xvert = aux[_a_y]
             e_int = (E - (U^2 + V^2+ W^2)/(2*ρ) - ρ * grav * xvert) / ρ
             q_tot                = QT / ρ
             TS                   = PhaseEquil(e_int, q_tot, ρ)
@@ -837,7 +839,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     U           = ρ * u
     V           = ρ * v
     W           = ρ * w
-    e_kin       = 0.5 * (u^2 + v^2 + w^2)
+    e_kin       = 0.5 * (u^2 + v^2)
     e_pot       = grav * xvert
     E           = ρ * total_energy(e_kin, e_pot, T, PhPart)
 
@@ -853,13 +855,12 @@ end
 function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
 
     brickrange = (range(DFloat(xmin), length=Ne[1]+1, DFloat(xmax)),
-                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)),
-                  range(DFloat(zmin), length=Ne[3]+1, DFloat(zmax)))
+                  range(DFloat(ymin), length=Ne[2]+1, DFloat(ymax)))
     
     
     # User defined periodicity in the topl assignment
     # brickrange defines the domain extents
-    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,false))
+    topl = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,false))
 
     grid = DiscontinuousSpectralElementGrid(topl,
                                             FloatType = DFloat,
@@ -965,7 +966,7 @@ let
         device!(MPI.Comm_rank(mpicomm) % length(devices()))
     end
 
-    numelem = (Nex,Ney,Nez)
+    numelem = (Nex,Ney)
     dt = 0.001
     timeend = 14400
     polynomialorder = Npoly
@@ -983,11 +984,10 @@ let
         @info @sprintf """ ------------------------------------------------------"""
         @info @sprintf """ Dycoms                                                """
         @info @sprintf """   Resolution:                                         """ 
-        @info @sprintf """     (xmin, xmax)   = (%.2e, %.2e)                     """ xmin xmax
-        @info @sprintf """     (ymin, ymax)   = (%.2e, %.2e)                     """ ymin ymax
-        @info @sprintf """     (zmin, zmax)   = (%.2e, %.2e)                     """ zmin zmax
-        @info @sprintf """     (Δx, Δy, Δz)   = (%.2e, %.2e, %.2e)               """ Δx Δy Δz
-        @info @sprintf """     (Nex, Ney, Nez) = (%d, %d, %d)                    """ Nex Ney Nez
+        @info @sprintf """     (xmin, xmax)    = (%.2e, %.2e)                    """ xmin xmax
+        @info @sprintf """     (ymin, ymax)    = (%.2e, %.2e)                    """ ymin ymax
+        @info @sprintf """     (Δx, Δy)        = (%.2e, %.2e)                    """ Δx Δy
+        @info @sprintf """     (Nex, Ney, Nez) = (%d, %d)                        """ Nex Ney
         @info @sprintf """     DoF = %d                                          """ DoF
         @info @sprintf """     Minimum necessary memory to run this test: %g GBs """ (DoFstorage * sizeof(DFloat))/1000^3
         @info @sprintf """     Time step dt: %.2e                                """ dt
