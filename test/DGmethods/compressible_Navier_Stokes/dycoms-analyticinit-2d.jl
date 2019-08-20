@@ -653,7 +653,7 @@ end
     @inbounds begin
         U, V   = Q[_U], Q[_V]       
         beta   = aux[_a_sponge]
-        S[_U] -= beta * U
+        #S[_U] -= beta * U
         S[_V] -= beta * V
     end
 end
