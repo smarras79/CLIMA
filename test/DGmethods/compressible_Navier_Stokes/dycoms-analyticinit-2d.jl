@@ -60,7 +60,7 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-Δx = 20
+Δx = 35
 Δy = 10
 Δz = 10
 
@@ -106,7 +106,7 @@ DoFstorage = (Nex*Ney)*(Npoly+1)^numdims*(_nstate + _nviscstates + _nauxstate + 
 
 const C_smag = 0.15
 # Equivalent grid-scale
-Δ = sqrt(Δx * Δy)
+Δ = (Δx * Δy * Δz)^(1/3)
 const Δsqr = Δ * Δ
 
 
