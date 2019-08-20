@@ -38,11 +38,11 @@ const stateid = (ρid = _ρ, Uid = _U, Vid = _V, Wid = _W, Eid = _E, QTid = _QT)
 const statenames = ("RHO", "U", "V", "W", "E", "QT")
 
 # Viscous state labels
-const _nviscstates = 29
-const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qtx, _qty, _qtz, _JplusDx, _JplusDy, _JplusDz, _θx, _θy, _θz, _uz, _vz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz, _ν_smago, _ν_vreman, _μ_e, _f_R = 1:_nviscstates
+const _nviscstates = 30
+const _τ11, _τ22, _τ33, _τ12, _τ13, _τ23, _qtx, _qty, _qtz, _JplusDx, _JplusDy, _JplusDz, _θx, _θy, _θz, _uz, _vz, _SijSij, _ν_e, _qvx, _qvy, _qvz, _qlx, _qly, _qlz, _ν_smago, _ν_smago_fR, _ν_vreman, _μ_e, _f_R = 1:_nviscstates
 
-const _nauxstate = 26
-const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_θ_l, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_Rm, _a_f_R, _a_ν_smago, _a_ν_vreman = 1:_nauxstate
+const _nauxstate = 27
+const _a_x, _a_y, _a_z, _a_sponge, _a_02z, _a_z2inf, _a_rad, _a_LWP_02z, _a_LWP_z2inf,_a_q_liq, _a_θ, _a_θ_l, _a_P,_a_T, _a_soundspeed_air, _a_z_FN, _a_ρ_FN, _a_U_FN, _a_V_FN, _a_W_FN, _a_E_FN, _a_QT_FN, _a_Rm, _a_f_R, _a_ν_smago, _a_ν_smago_fR, _a_ν_vreman = 1:_nauxstate
 
 if !@isdefined integration_testing
     const integration_testing =
@@ -67,9 +67,9 @@ const Npoly = 4
 const h_first_layer = Δy
 
 #B.C.
-const bc_fix_T   = 1
-const bc_no_slip = 1
-const bc_fix_bott_flux = 0
+const bc_fix_T   = 0
+const bc_no_slip = 0
+const bc_fix_bott_flux = 1
 
 # OR:
 # Set Δx < 0 and define  Nex, Ney, Nez:
@@ -917,14 +917,14 @@ function run(mpicomm, dim, Ne, N, timeend, DFloat, dt)
                 R[_o_P]     = aux[_a_P]
                 
                 #R[_o_f_R]   = aux[_a_f_R]
-                R[_o_vreman]= aux[_a_ν_vreman]
                 R[_o_smago] = aux[_a_ν_smago]
+                R[_o_vreman]= aux[_a_ν_vreman] #This is actually smago*f_R
                 
             end
         end
         
-        mkpath("./CLIMA-output-scratch/dycoms-bc-SMAGO-FR-analytic-TUNED-dx35m-dy35m-dz10m-2D/")
-        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-SMAGO-FR-analytic-TUNED-dx35m-dy35m-dz10m-2D/dy_%dD_mpirank%04d_step%04d", dim,
+        mkpath("./CLIMA-output-scratch/dycoms-bc-SMAGO-FR-analytic-TUNED-dx35m-dy35m-dz10m-2D-FLUXBC/")
+        outprefix = @sprintf("./CLIMA-output-scratch/dycoms-bc-SMAGO-FR-analytic-TUNED-dx35m-dy35m-dz10m-2D-FLUXBC/dy_%dD_mpirank%04d_step%04d", dim,
                              MPI.Comm_rank(mpicomm), step[1])
         @debug "doing VTK output" outprefix
         writevtk(outprefix, Q, spacedisc, statenames,
