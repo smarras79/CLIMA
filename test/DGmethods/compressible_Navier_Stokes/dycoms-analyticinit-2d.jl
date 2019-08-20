@@ -60,7 +60,7 @@ const numdims = 2
 const Npoly = 4
 
 # Define grid size 
-Δx = 35
+Δx = 20
 Δy = 10
 Δz = 10
 
