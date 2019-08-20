@@ -835,7 +835,7 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     end=#
     
     # energy definitions
-    u, v, w     = 7, -5.5, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
+    u, v, w     = 7, 0.0, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     U           = ρ * u
     V           = ρ * v
     W           = ρ * w
