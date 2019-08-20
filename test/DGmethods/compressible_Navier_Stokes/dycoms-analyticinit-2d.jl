@@ -822,19 +822,8 @@ function dycoms!(dim, Q, t, x, y, z, _...)
     θ      = T/exner;
     θv     = θ*(1 + (epsdv - 1)*q_tot - epsdv*q_liq);
     PhPart = PhasePartition(q_tot, q_liq, q_ice)
-
-    #=if( abs(xvert - 600) <= 1.2)
-        #Density
-        T_clbase = T #231.1
-        ρ_clbase = P/(Rm*T_clbase)
-
-        
-        sat_SH = q_vap_saturation(T_clbase, ρ_clbase, PhPart)
-                 
-        @show(xvert, T, ρ_clbase, sat_SH, PhPart) 
-    end=#
     
-    # energy definitions
+    # energy definitions   
     u, v, w     = 7, 0.0, 0.0 #geostrophic. TO BE BUILT PROPERLY if Coriolis is considered
     U           = ρ * u
     V           = ρ * v
