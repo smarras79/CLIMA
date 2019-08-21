@@ -251,7 +251,7 @@ end
         dvdz                      = VF[_vz]
         f_R                      = buoyancy_correction(modSij, θ, vθz)
         
-        if (xvert > 750)
+        if (xvert > 800)
             f_R = 0.0
         end
         
