@@ -1,4 +1,3 @@
-# Load modules used here
 using MPI
 using CLIMA
 using CLIMA.Mesh.Topologies
@@ -18,10 +17,13 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
+
 using CLIMA.Atmos: vars_state, vars_aux
-using DelimitedFiles
+
 using GPUifyLoops
 using Random
+const seed = MersenneTwister(0)
+
 @static if haspkg("CuArrays")
   using CUDAdrv
   using CUDAnative
@@ -36,8 +38,6 @@ if !@isdefined integration_testing
   const integration_testing =
     parse(Bool, lowercase(get(ENV,"JULIA_CLIMA_INTEGRATION_TESTING","false")))
 end
-
-const seed = MersenneTwister(0)
 
 """
   Initial Condition for DYCOMS_RF01 LES
