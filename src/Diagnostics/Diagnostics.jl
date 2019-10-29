@@ -1,42 +1,276 @@
 """
     Diagnostics
 
-Accumulate mean fields and covariance statistics on the computational grid
+Accumulate mean fields and covariance statistics on the computational grid.
 
 """
 
-# TODO: add functional ways to iterate over the mesh for these statistics
-# TODO: add a way to reduce communication: compute averages locally only
+# TODO: reduce MPI communication; record local averages only?
 
 module Diagnostics
 
+using FileIO
 using JLD2
 using MPI
 using StaticArrays
 
+using ..Atmos
+using ..DGmethods: num_state, vars_state, num_aux, vars_aux
 using ..Mesh.Topologies
 using ..Mesh.Grids
+using ..MoistThermodynamics
 using ..MPIStateArrays
-using ..Atmos
-using ..VariableTemplates
 using ..PlanetParameters
+using ..VariableTemplates
 
 export gather_diagnostics
 
-function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, out_dir)
+include("diagnostic_vars.jl")
+
+function extract_state(dg, localQ, ijk, e)
+    bl = dg.balancelaw
+    FT = eltype(localQ)
+    nstate = num_state(bl, FT)
+    l_Q = MArray{Tuple{nstate},FT}(undef)
+    for s in 1:nstate
+        l_Q[s] = localQ[ijk,s,e]
+    end
+    return Vars{vars_state(bl, FT)}(l_Q)
+end
+
+function extract_aux(dg, auxstate, ijk, e)
+    bl = dg.balancelaw
+    FT = eltype(auxstate)
+    nauxstate = num_aux(bl, FT)
+    l_aux = MArray{Tuple{nauxstate},FT}(undef)
+    for s in 1:naux
+        l_aux[s] = auxstate[ijk,s,e]
+    end
+    return Vars{vars_aux(bl, FT)}(l_aux)
+end
+
+# thermodynamic variables of interest
+function vars_thermo(FT)
+  @vars begin
+    q_liq::FT
+    q_ice::FT
+    q_vap::FT
+    T::FT
+    θ_liq_ice::FT
+    θ_dry::FT
+    θ_v::FT
+    e_int::FT
+  end
+end
+num_thermo(FT) = varsize(vars_thermo(FT))
+thermo_vars(array) = Vars{vars_thermo(eltype(array))}(array)
+
+function compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e,
+                         x, y, z, zvals, thermoQ)
+    zvals[k,ev] = z
+
+    u̅ = state.ρu[1] / state.ρ
+    v̅ = state.ρu[2] / state.ρ
+    w̅ = state.ρu[3] / state.ρ
+    e̅_tot = state.ρe / state.ρ
+    q̅_tot = state.moisture.ρq_tot / state.ρ
+
+    e_int = e̅_tot - 1//2 * (u̅^2 + v̅^2 + w̅^2) - grav * z
+
+    ts = PhaseEquil(convert(FT, e_int), q̅_tot, state.ρ)
+    Phpart = PhasePartition(ts)
+
+    th = thermo_vars(thermoQ[ijk,e])
+    th.q_liq     = Phpart.liq
+    th.q_ice     = Phpart.ice
+    th.q_vap     = q̅_tot-Phpart.liq-Phpart.ice
+    th.T         = ts.T
+    th.θ_liq_ice = liquid_ice_pottemp(ts)
+    th.θ_dry     = dry_pottemp(ts)
+    th.θ_v       = virtual_pottemp(ts)
+    th.e_int     = e_int
+end
+
+# horizontal averages
+function vars_horzavg(FT)
+  @vars begin
+    ρ::FT
+    ρu::FT
+    ρv::FT
+    ρw::FT
+    e_tot::FT
+    ρq_tot::FT
+    q_liq::FT
+    q_vap::FT
+    θ_liq_ice::FT
+    θ_dry::FT
+    θ_v::FT
+    e_int::FT
+  end
+end
+num_horzavg(FT) = varsize(vars_horzavg(FT))
+horzavg_vars(array) = Vars{vars_horzavg(eltype(array))}(array)
+
+# compute adjustment for repeating nodes and nodes on the boundary
+function node_adjustment(i, j, Nq, x, xmax, y, ymax)
+    # node on the corner of domain is not repeated
+    if ((x == 0 || abs(x - xmax) <= 0.001)
+        && (ymax == 0 || abs(y - 1500) <= 0.001))
+        # cancel out the 4 times repetition below
+        bound = 4 
+    # node on the edge of the domain
+    elseif (x == 0 || abs(x - xmax) <= 0.001
+            || ymax == 0 || abs(y - 1500) <= 0.001)
+        # half its repetition
+        bound = 2
+    # node on not on any considered boundary
+    else
+        # no adjustment
+        bound = 1
+    end
+
+    if ((i == 1 || i == Nq) && (j == 1 || j == Nq))
+        # corner node repeated 4 times for horizontal considerations
+        rep = 1/4 * bound
+    elseif (i == 1 || i == Nq || j == 1 || j == Nq)
+        # edge node repeated 2 times for horizontal considerations
+        rep = 1/2 * bound
+    else
+        # inner node nothing done
+        rep = 1 * bound
+    end
+
+    return rep
+end
+
+function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+                           Nq, xmax, ymax, Nqk, nvertelem, localaux, κ,
+                           LWP, thermoQ, horzsums, repdvsr)
+    rep = node_adjustment(i, j, Nq, x, xmax, y, ymax)
+    th = thermo_vars(thermoQ[ijk,e])
+    hs = horzavg_vars(horzsums[k,ev])
+    hs.ρ         += rep * state.ρ
+    hs.ρu        += rep * state.ρu[1]
+    hs.ρv        += rep * state.ρu[2]
+    hs.ρw        += rep * state.ρu[3]
+    hs.e_tot     += rep * state.ρe
+    hs.ρq_tot    += rep * state.moisture.ρq_tot
+    hs.q_liq     += rep * th.q_liq
+    hs.q_vap     += rep * th.q_vap
+    hs.θ_liq_ice += rep * th.θ_liq_ice
+    hs.θ_dry     += rep * th.θ_dry
+    hs.θ_v       += rep * th.θ_v
+    hs.e_int     += rep * th.e_int
+
+    # liquid water path
+    # this condition is also going to be used to get the number of points that
+    # exist on a horizontal plane provided all planes have the same number of
+    # points
+    # TODO adjust for possibility of non equivalent horizontal slabs
+    if ev == floor(nvertelem/2) && k == floor(Nqk/2)
+        # TODO: uncomment the line below after rewriting the LWP assignment below using aux.∫dz...?
+        # aux = extract_aux(dg, localaux, ijk, e)
+        LWP[1] += rep * (localaux[ijk,1,e] + localaux[ijk,2,e]) / κ 
+        repdvsr[1] += rep # number of points to be divided by
+    end
+end
+
+function compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+                                 Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
+    rep = node_adjustment(i, j, x, xmax, y, ymax, Nq)
+    th = thermo_vars(thermoQ[ijk,e])
+    ha = horzavg_vars(horzavgs[k,ev])
+    ds = diagnostic_vars(dsums[k,ev])
+
+    u̅ = state.ρu[1] / state.ρ
+    v̅ = state.ρu[2] / state.ρ
+    w̅ = state.ρu[3] / state.ρ
+    q̅_tot = state.moisture.ρq_tot / state.ρ
+    ũ = ha.ρu / ha.ρ
+    ṽ = ha.ρv / ha.ρ
+    w̃ = ha.ρw / ha.ρ
+    ẽ = ha.e_tot / ha.ρ
+    q̃_tot = ha.ρq_tot / ha.ρ
+
+    # vertical coordinate
+    ds.z         += zvals[k,ev]
+
+    # state and functions of state
+    ds.u        += rep * ũ
+    ds.v        += rep * ṽ
+    ds.w        += rep * w̃
+    ds.e_tot    += rep * ẽ
+    ds.q_tot    += rep * ha.ρq_tot / ha.ρ
+    ds.q_liq    += rep * ha.q_liq
+    ds.θ        += rep * ha.θ_dry
+    ds.θ_liq    += rep * ha.θ_liq_ice
+    ds.θ_v      += rep * ha.θ_v
+    ds.e_int    += rep * ha.e_int
+
+    # vertical fluxes
+    ds.w′ρ′     += rep * (w̅ - w̃) * (state.ρ - ha.ρ)
+    ds.w′u′     += rep * (w̅ - w̃) * (u̅ - ha.ρu / ha.ρ)
+    ds.w′v′     += rep * (w̅ - w̃) * (v̅ - ha.ρv / ha.ρ)
+    ds.w′q_tot′ += rep * (w̅ - w̃) * (q̅_tot - q̃_tot)
+    ds.w′q_liq′ += rep * (w̅ - w̃) * (th.q_liq - ha.q_liq)
+    ds.w′q_vap′ += rep * (w̅ - w̃) * (th.q_vap - ha.q_vap)
+    ds.w′θ′     += rep * (w̅ - w̃) * (th.θ_dry - ha.θ_dry)
+    ds.w′θ_v′   += rep * (w̅ - w̃) * (th.θ_v - ha.θ_v)
+    ds.w′θ_liq′ += rep * (w̅ - w̃) * (th.θ_liq_ice - ha.θ_liq_ice)
+
+    # variances
+    ds.u′u′     += rep * (u̅ - ũ)^2
+    ds.v′v′     += rep * (v̅ - ṽ)^2
+    ds.w′w′     += rep * (w̅ - w̃)^2
+
+    # skewness
+    ds.w′w′w′   += rep * (w̅ - w̃)^3
+
+    # turbulent kinetic energy
+    ds.TKE      += rep * 0.5 * (ds.u′u′ + ds.v′v′ + ds.w′w′)
+end
+
+# TODO: make this a single reduction
+function horz_average_all(FT, mpicomm, num, (Nqk, nvertelem), sums, repdvsr)
+    mpirank = MPI.Comm_rank(mpicomm)
+    nranks = MPI.Comm_size(mpicomm)
+    avgs = [zeros(FT, num) for _ in 1:Nqk, _ in 1:nvertelem]
+    for ev in 1:nvertelem
+        for k in 1:Nqk
+            for n in 1:num
+                avgs[k,ev][n] = MPI.Reduce(sums[k,ev][n], +, 0, mpicomm)
+                if mpirank == 0
+                    avgs[k,ev][n] /= repdvsr
+                end
+            end
+        end
+    end
+    return avgs
+end
+
+"""
+    gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, out_dir)
+
+Compute various diagnostic variables and write them to JLD2 files in `out_dir`,
+indexed by `current_time_string`.
+"""
+function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, xmax, ymax ,out_dir)
     mpirank = MPI.Comm_rank(mpicomm)
     nranks = MPI.Comm_size(mpicomm)
 
+    # extract grid information
     bl = dg.balancelaw
     grid = dg.grid
     topology = grid.topology
     N = polynomialorder(grid)
     Nq = N + 1
     Nqk = dimensionality(grid) == 2 ? 1 : Nq
+    npoints = Nq * Nq * Nqk
     nrealelem = length(topology.realelems)
     nvertelem = topology.stacksize
     nhorzelem = div(nrealelem, nvertelem)
 
+    # get the state, auxiliary and geo variables onto the host if needed
     if Array ∈ typeof(Q).parameters
         localQ = Q.realdata
         localaux = dg.auxstate.realdata
@@ -51,125 +285,23 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, out_dir)
     nstate = num_state(bl, FT)
     nauxstate = num_aux(bl, FT)
 
-    nstate = 6
-    nthermo = 7
 
-    thermoQ = zeros(Nq * Nq * Nqk, nthermo, nrealelem)
-    Zvals = zeros(Nqk, nvertelem)
-
-    for e in 1:nrealelem  
-        for i in 1:Nq*Nq*Nqk
-            z = localvgeo[i,grid.x3id,e]
-
-            rho_node  = localQ[i,1,e]
-            u_node    = localQ[i,2,e] / rho_node
-            v_node    = localQ[i,3,e] / rho_node
-            w_node    = localQ[i,4,e] / rho_node
-            etot_node = localQ[i,5,e] / rho_node
-            qt_node   = localQ[i,6,e] / rho_node
-
-            e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
-
-            ts = PhaseEquil(e_int, qt_node, rho_node)
-            Phpart = PhasePartition(ts)
-            thermoQ[i,1,e] = Phpart.liq
-            thermoQ[i,2,e] = Phpart.ice
-            thermoQ[i,3,e] = qt_node-Phpart.liq-Phpart.ice
-            thermoQ[i,4,e] = ts.T
-            thermoQ[i,5,e] = liquid_ice_pottemp(ts)
-            thermoQ[i,6,e] = dry_pottemp(ts)
-            thermoQ[i,7,e] = virtual_pottemp(ts)
-        end
-    end
-
-    fluctT = zeros(Nq * Nq * Nqk, nthermo, nrealelem)    
-    fluctQ = zeros(Nq * Nq * Nqk, nstate, nrealelem)
-    varQ   = zeros(Nq * Nq * Nqk, nstate, nrealelem)
-
-    rho_localtot = sum(localQ[:,1,:]) / (size(localQ, 1) * size(localQ, 3))
-    U_localtot   = sum(localQ[:,2,:])
-    V_localtot   = sum(localQ[:,3,:])
-    W_localtot   = sum(localQ[:,4,:]) / (size(localQ, 1) * size(localQ, 3))
-    e_localtot   = sum(localQ[:,5,:])
-    qt_localtot  = sum(localQ[:,6,:])
-
-    qliq_localtot  = sum(thermoQ[:,1,:])
-    qice_localtot  = sum(thermoQ[:,2,:])
-    qvap_localtot  = sum(thermoQ[:,3,:])
-    T_localtot     = sum(thermoQ[:,4,:])
-    theta_localtot = sum(thermoQ[:,5,:])
-
-    rho_tot   = MPI.Reduce(rho_localtot, +, 0, mpicomm)
-    U_tot     = MPI.Reduce(U_localtot, +, 0, mpicomm)
-    V_tot     = MPI.Reduce(V_localtot, +, 0, mpicomm)
-    W_tot     = MPI.Reduce(W_localtot, +, 0, mpicomm)
-    e_tot     = MPI.Reduce(e_localtot, +, 0, mpicomm)
-    qt_tot    = MPI.Reduce(qt_localtot, +, 0, mpicomm)
-    qliq_tot  = MPI.Reduce(qliq_localtot, +, 0, mpicomm)
-    qice_tot  = MPI.Reduce(qice_localtot, +, 0, mpicomm)
-    qvap_tot  = MPI.Reduce(qvap_localtot, +, 0, mpicomm)
-    T_tot     = MPI.Reduce(T_localtot, +, 0, mpicomm)
-    theta_tot = MPI.Reduce(theta_localtot, +, 0, mpicomm)
-
-    if mpirank == 0
-        # TODO: use the integral of the domain instead and delete this hack
-        tot_num_elems = MPI.Allreduce(size(localQ, 3), +, mpicomm)
-        tot_points = dofs_per_element(grid) * tot_num_elems
-
-        rho_avg   = rho_tot / nranks
-        U_avg     = (U_tot / tot_points) / rho_avg
-        V_avg     = (V_tot / tot_points) / rho_avg
-        W_avg     = (W_tot / (nranks * rho_avg)) 
-        e_avg     = (e_tot / tot_points) / rho_avg
-        qt_avg    = (qt_tot / tot_points) / rho_avg
-        qliq_avg  = qliq_tot / tot_points
-        qice_avg  = qice_tot / tot_points
-        qvap_avg  = qvap_tot / tot_points
-        T_avg     = T_tot / tot_points
-        theta_avg = theta_tot / tot_points
-
-        @debug "ρ average = $(rho_avg)"
-        @debug "U average = $(U_avg)"
-        @debug "V average = $(V_avg)"
-        @debug "W average = $(W_avg)"
-        @debug "e average = $(e_avg)"
-        @debug "qt average = $(qt_avg)"
-        @debug "qliq average = $(qliq_avg)"
-        @debug "qice average = $(qice_avg)"
-        @debug "qvap average = $(qvap_avg)"
-        @debug "T average = $(T_avg)"
-        @debug "theta average = $(theta_avg)"
-    end
-
-    AVG = SVector(rho_avg, U_avg, V_avg, W_avg, e_avg, qt_avg)
-    AVG_T = SVector(qliq_avg, qice_avg, qvap_avg, T_avg, theta_avg)
-
-    # Horizontal averages
-    horz_avgs = zeros(Nqk, nvertelem, 10)
-    LWP_local = 0
-    for eh in 1:nhorzelem
-        for ev in 1:nvertelem
-            e = ev + (eh - 1) * nvertelem
-
-            for k in 1:Nqk
-                for j in 1:Nq
-                    for i in 1:Nq
-                        ijk = i + Nq * ((j-1) + Nq * (k-1)) 
-                        horz_avgs[k,ev,1] += localQ[ijk,1,e] #density average
-                        horz_avgs[k,ev,2] += localQ[ijk,2,e] #U average 
-                        horz_avgs[k,ev,3] += localQ[ijk,3,e] #V average
-                        horz_avgs[k,ev,4] += localQ[ijk,4,e] #W average
-                        horz_avgs[k,ev,5] += thermoQ[ijk,5,e] # theta l  average
-                        horz_avgs[k,ev,6] += thermoQ[ijk,1,e] #qliq average
-                        horz_avgs[k,ev,7] += thermoQ[ijk,3,e] #qvap average 
-                        horz_avgs[k,ev,8] += thermoQ[ijk,6,e] #dry theta average
-                        horz_avgs[k,ev,9] += localQ[ijk,6,e] #qt average
-                        horz_avgs[k,ev,10] += thermoQ[ijk,7,e] #virtual theta average
-
-                        # liquid water path
-                        if ev == floor(nvertelem/2) && k==floor(Nqk/2)
-                            LWP_local += (localaux[ijk,1,e] + localaux[ijk,2,e])
-                                         / κ / (Nq * Nq * nhorzelem)
+    # traverse the grid, running each of `funs` on each node
+    function visitQ(FT, funs::Vector{Function})
+        for eh in 1:nhorzelem
+            for ev in 1:nvertelem
+                e = ev + (eh - 1) * nvertelem
+                for k in 1:Nqk
+                    for j in 1:Nq
+                        for i in 1:Nq
+                            ijk = i + Nq * ((j-1) + Nq * (k-1)) 
+                            state = extract_state(dg, localQ, ijk, e)
+                            x = localvgeo[ijk,grid.x1id,e]
+                            y = localvgeo[ijk,grid.x2id,e]
+                            z = localvgeo[ijk,grid.x3id,e]
+                            for f in funs
+                                f(FT, state, i, j, k, ijk, ev, eh, e, x, y, z)
+                            end
                         end
                     end
                 end
@@ -177,139 +309,62 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, out_dir)
         end
     end
 
-    horz_avgs_tot = zeros(Nqk,nvertelem,10)
-    for s in 1:10
-        for ev in 1:nvertelem
-            for k in 1:Nqk
-                horz_avgs[k,ev,s] = horz_avgs[k,ev,s] /  (Nq * Nq * nhorzelem)
-                horz_avgs_tot[k,ev,s] = MPI.Reduce(horz_avgs[k,ev,s], +, 0, mpicomm)
-                if mpirank == 0
-                    horz_avgs_tot[k,ev,s] = horz_avgs_tot[k,ev,s] / (nranks)
-                end
-            end
-        end
+    # record the vertical coordinates and compute thermo variables
+    zvals = zeros(Nqk, nvertelem)
+    thermoQ = [zeros(FT, num_thermo(FT)) for _ in 1:npoints, _ in 1:nrealelem]
+    thermo_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
+        compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+                        zvals, thermoQ)
+
+    # divisor for horizontal averages
+    l_repdvsr = zeros(FT, 1) 
+
+    # compute the horizontal sums and the liquid water path
+    l_LWP = zeros(FT, 1)
+    horzsums = [zeros(FT, num_horzavg(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
+    horzsum_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
+        compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+                          Nq, xmax, ymax, Nqk, nvertelem, localaux, κ,
+                          l_LWP, thermoQ, horzsums, l_repdvsr)
+
+    # run both in one grid traversal
+    visitQ(FT, Function[thermo_visitor, horzsum_visitor])
+    
+    # compute the full number of points on a slab
+    repdvsr = zero(FT)
+    repdvsr = MPI.Reduce(l_repdvsr[1], +, 0, mpicomm)
+
+    # compute the horizontal and LWP averages
+    horzavgs = horz_average_all(FT, mpicomm, num_horzavg(FT), (Nqk, nvertelem),
+                                horzsums, repdvsr)
+    LWP = zero(FT)
+    LWP = MPI.Reduce(l_LWP[1], +, 0, mpicomm)
+    if mpirank == 0
+        LWP /= repdvsr
     end
+
+    # compute the diagnostics with the previous computed variables
+    dsums = [zeros(FT, num_diagnostic(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
+    dsum_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
+        compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+                                Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
+
+    # another grid traversal
+    visitQ(FT, Function[dsum_visitor])
+
+    # compute the averages
+    davgs = horz_average_all(FT, mpicomm, num_diagnostic(FT), (Nqk, nvertelem),
+                             dsums, repdvsr)
 
     if mpirank == 0
-        LWP=MPI.Reduce(LWP_local, +, 0, mpicomm) / (nranks) 
-    end
-
-    S=zeros(Nqk,nvertelem,18)
-    for eh in 1:nhorzelem
-        for ev in 1:nvertelem
-            e = ev + (eh - 1) * nvertelem
-
-            for k in 1:Nqk
-                for j in 1:Nq
-                    for i in 1:Nq
-                        ijk = i + Nq * ((j-1) + Nq * (k-1)) 
-                        S[k,ev,1] += (localQ[ijk,4,e]/localQ[ijk,1,e] - horz_avgs_tot[k,ev,4] / horz_avgs_tot[k,ev,1]) * (thermoQ[ijk,6,e] - horz_avgs_tot[k,ev,8]) #fluctQ[ijk,4,e] * fluctT[ijk,5,e]
-                        S[k,ev,2] += (localQ[ijk,4,e]/localQ[ijk,1,e] - horz_avgs_tot[k,ev,4] / horz_avgs_tot[k,ev,1]) * (thermoQ[ijk,3,e] - horz_avgs_tot[k,ev,7]) #fluctQ[ijk,4,e] * fluctT[ijk,3,e]
-                        S[k,ev,3] += (localQ[ijk,4,e]/localQ[ijk,1,e] - horz_avgs_tot[k,ev,4] / horz_avgs_tot[k,ev,1]) * (localQ[ijk,2,e] / localQ[ijk,1,e] - horz_avgs_tot[k,ev,2] / horz_avgs_tot[k,ev,1])
-                        #fluctQ[ijk,4,e] * fluctQ[ijk,2,e]
-                        S[k,ev,4] += (localQ[ijk,4,e]/localQ[ijk,1,e] - horz_avgs_tot[k,ev,4] / horz_avgs_tot[k,ev,1]) * (localQ[ijk,3,e] / localQ[ijk,1,e] - horz_avgs_tot[k,ev,3] / horz_avgs_tot[k,ev,1])  
-                        #fluctQ[ijk,4,e] * fluctQ[ijk,3,e]
-                        S[k,ev,5] += (localQ[ijk,4,e]/localQ[ijk,1,e]-horz_avgs_tot[k,ev,4]/horz_avgs[k,ev,1])^2  #fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
-                        S[k,ev,6] += (localQ[ijk,4,e]/localQ[ijk,1,e] - horz_avgs_tot[k,ev,4] / horz_avgs_tot[k,ev,1]) * (localQ[ijk,1,e] - horz_avgs_tot[k,ev,1])
-                        #fluctQ[ijk,4,e] * fluctQ[ijk,1,e]
-                        S[k,ev,7] = horz_avgs[k,ev,6]
-                        S[k,ev,8] += (localQ[ijk,4,e]/localQ[ijk,1,e]-horz_avgs_tot[k,ev,4]/horz_avgs_tot[k,ev,1]) * (thermoQ[ijk,1,e]-horz_avgs_tot[k,ev,6])  #fluctQ[ijk,4,e] * fluctT[ijk,1,e]
-                        S[k,ev,9] += (localQ[ijk,4,e]/localQ[ijk,1,e] - horz_avgs_tot[k,ev,4] / horz_avgs_tot[k,ev,1])^3
-                        #fluctQ[ijk,4,e] * fluctQ[ijk,4,e] * fluctQ[ijk,4,e]
-                        S[k,ev,10] += (localQ[ijk,2,e]/localQ[ijk,1,e]-horz_avgs_tot[k,ev,2]/horz_avgs[k,ev,1])^2  #fluctQ[ijk,2,e] * fluctQ[ijk,2,e]
-                        S[k,ev,11] += (localQ[ijk,3,e]/localQ[ijk,1,e]-horz_avgs_tot[k,ev,3]/horz_avgs[k,ev,1])^2  #fluctQ[ijk,3,e] * fluctQ[ijk,3,e]
-                        Zvals[k,ev] = localvgeo[ijk,grid.x3id,e]
-                        S[k,ev,12] = (horz_avgs_tot[k,ev,8])
-                        S[k,ev,13] = (horz_avgs_tot[k,ev,9]/horz_avgs[k,ev,1])
-                        S[k,ev,14] += S[k,ev,15]*(localQ[ijk,4,e]/localQ[ijk,1,e] - horz_avgs_tot[k,ev,4] / horz_avgs_tot[k,ev,1])
-                        S[k,ev,15] = (horz_avgs_tot[k,ev,5])
-                        S[k,ev,16] += (localQ[ijk,4,e]/localQ[ijk,1,e] - horz_avgs_tot[k,ev,4] / horz_avgs_tot[k,ev,1]) * (thermoQ[ijk,7,e] - horz_avgs_tot[k,ev,10])
-                        S[k,ev,17] += 0.5 * (S[k,ev,5] + S[k,ev,10] + S[k,ev,11])
-                        S[k,ev,18] += (localQ[ijk,4,e]/localQ[ijk,1,e] - horz_avgs_tot[k,ev,4] / horz_avgs_tot[k,ev,1]) * (thermoQ[ijk,5,e] - horz_avgs_tot[k,ev,5])
-                    end
-                end
-            end
+        jldopen(joinpath(out_dir, "diagnostics.jld2"), "a+") do file
+            file[current_time_string] = davgs
+        end
+        jldopen(joinpath(out_dir, "liquid_water_path.jld2"), "a+") do file
+            file[current_time_string] = LWP
         end
     end
-
-    # See Outputs below for what S[k,ev,:] are respectively.
-
-    S_avg = zeros(Nqk,nvertelem,18)
-    for s in 1:18
-        for ev in 1:nvertelem
-            for k in 1:Nqk
-                S[k,ev,s] = S[k,ev,s] /  (Nq * Nq * nhorzelem)
-                S_avg[k,ev,s] = MPI.Reduce(S[k,ev,s], +, 0, mpicomm)
-
-                if mpirank == 0
-                    S_avg[k,ev,s] = S_avg[k,ev,s] / (nranks)
-                end
-            end
-        end
-    end
-
-    OutputWtheta = zeros(nvertelem * Nqk)
-    OutputWQVAP = zeros(nvertelem * Nqk)
-    OutputWU = zeros(nvertelem * Nqk)
-    OutputWV = zeros(nvertelem * Nqk)
-    OutputWW = zeros(nvertelem * Nqk)
-    OutputWRHO = zeros(nvertelem * Nqk)
-    OutputQLIQ = zeros(nvertelem * Nqk)
-    OutputWQLIQ = zeros(nvertelem * Nqk)
-    OutputWWW = zeros(nvertelem * Nqk )
-    OutputUU = zeros(nvertelem * Nqk )
-    OutputVV = zeros(nvertelem * Nqk )
-    OutputZ = zeros(nvertelem * Nqk)
-    OutputU = zeros(nvertelem * Nqk)
-    OutputV = zeros(nvertelem * Nqk)
-    Outputtheta = zeros(nvertelem * Nqk)
-    Outputqt = zeros(nvertelem * Nqk)
-    OutputWqt = zeros(nvertelem * Nqk)
-    Outputthetaliq = zeros(nvertelem * Nqk)
-    OutputWthetav = zeros(nvertelem * Nqk)
-    OutputTKE = zeros(nvertelem * Nqk)
-    OutputWthetal = zeros(nvertelem * Nqk)
-
-    for ev in 1:nvertelem
-        for k in 1:Nqk
-            i=k + Nqk * (ev - 1)
-            OutputWtheta[i] = S_avg[k,ev,1] # <w'theta'>
-            OutputWQVAP[i] = S_avg[k,ev,2] # <w'qvap'>
-            OutputWU[i] = S_avg[k,ev,3] # <w'u'>
-            OutputWV[i] = S_avg[k,ev,4] # <w'v'>
-            OutputWW[i] = S_avg[k,ev,5] # <w'w'>
-            OutputWRHO[i] = S_avg[k,ev,6] #<w'rho'>
-            OutputQLIQ[i] = S_avg[k,ev,7] # qliq 
-            OutputWQLIQ[i] = S_avg[k,ev,8] # <w'qliq'>
-            OutputWWW[i] = S_avg[k,ev,9]  #<w'w'w'>
-            OutputUU[i] = S_avg[k,ev,10] #<u'u'>
-            OutputVV[i] = S_avg[k,ev,11] #<v'v'>
-            OutputZ[i] = Zvals[k,ev] # Height
-            OutputU[i] =  horz_avgs_tot[k,ev,2] / horz_avgs_tot[k,ev,1] # <u> 
-            OutputV[i] =  horz_avgs_tot[k,ev,3] / horz_avgs_tot[k,ev,1] # <v>
-            Outputtheta[i] = S_avg[k,ev,12] # <theta> 
-            Outputqt[i] = S_avg[k,ev,13]  # <qt>
-            OutputWqt[i] = S_avg[k,ev,14] #<w'qt'> 
-            Outputthetaliq[i] = S_avg[k,ev,15] # <thetaliq>
-            OutputWthetav[i] = S_avg[k,ev,16] # <w'thetav'>
-            OutputTKE[i] = S_avg[k,ev,17] # <TKE>
-            OutputWthetal[i] = S_avg[k,ev,18] # <w'thetal'>
-        end
-    end
-
-if mpirank == 0
-
-  io = open(diagnostics_fileout, "a")
-     current_time_str = string(current_time_string, "\n")
-     write(io, current_time_str)
-     writedlm(io, [OutputWtheta OutputWQVAP OutputWU OutputWV OutputWW OutputWRHO OutputQLIQ OutputWQLIQ OutputWWW OutputUU OutputVV OutputU OutputV Outputtheta Outputqt OutputWqt Outputthetaliq OutputWthetav OutputTKE OutputWthetal OutputZ])
-  close(io)
-  io = open(LWP_fileout, "a")
-     current_time_str = string(current_time_string, "\n")
-     write(io, current_time_str)
-     writedlm(io, LWP)
-  close(io)
-end
 end # function gather_diagnostics
 
 end # module Diagnostics
+
