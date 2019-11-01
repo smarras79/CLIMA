@@ -182,10 +182,10 @@ function compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e,
 end
 
 # TODO: make this a single reduction
-function horz_average_all(mpicomm, num, (Nqk, nvertelem), sums, dvsr)
+function horz_average_all(FT, mpicomm, num, (Nqk, nvertelem), sums, dvsr)
     mpirank = MPI.Comm_rank(mpicomm)
     nranks = MPI.Comm_size(mpicomm)
-    avgs = fill(zeros(num), (Nqk, nvertelem))
+    avgs = [zeros(FT, num) for _ in 1:Nqk, _ in 1:nvertelem]
     for ev in 1:nvertelem
         for k in 1:Nqk
             for n in 1:num
@@ -263,14 +263,14 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, out_dir)
 
     # record the vertical coordinates and compute thermo variables
     zvals = zeros(Nqk, nvertelem)
-    thermoQ = fill(zeros(num_thermo(FT)), (npoints, nrealelem))
+    thermoQ = [zeros(FT, num_thermo(FT)) for _ in 1:npoints, _ in 1:nrealelem]
     thermo_visitor(FT, state, i, j, k, ijk, ev, eh, e) =
         compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e, localvgeo, grid.x3id,
                         zvals, thermoQ)
 
     # compute the horizontal sums and the liquid water path
     l_LWP = zeros(FT, 1)
-    horzsums = fill(zeros(num_horzavg(FT)), (Nqk, nvertelem))
+    horzsums = [zeros(FT, num_horzavg(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
     horzsum_visitor(FT, state, i, j, k, ijk, ev, eh, e) =
         compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e,
                           Nqk, nvertelem, localaux, κ, hdvsr, l_LWP,
@@ -280,7 +280,7 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, out_dir)
     visitQ(FT, Function[thermo_visitor, horzsum_visitor])
 
     # compute the horizontal and LWP averages
-    horzavgs = horz_average_all(mpicomm, num_horzavg(FT), (Nqk, nvertelem),
+    horzavgs = horz_average_all(FT, mpicomm, num_horzavg(FT), (Nqk, nvertelem),
                                 horzsums, hdvsr)
     LWP = zero(FT)
     LWP = MPI.Reduce(l_LWP[1], +, 0, mpicomm)
@@ -289,7 +289,7 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, out_dir)
     end
 
     # compute the diagnostics with the previous computed variables
-    dsums = fill(zeros(num_diagnostic(FT)), (Nqk, nvertelem))
+    dsums = [zeros(FT, num_diagnostic(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
     dsum_visitor(FT, state, i, j, k, ijk, ev, eh, e) =
         compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e,
                                 zvals, thermoQ, horzavgs, dsums)
@@ -298,7 +298,7 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, out_dir)
     visitQ(FT, Function[dsum_visitor])
 
     # compute the averages
-    davgs = horz_average_all(mpicomm, num_diagnostic(FT), (Nqk, nvertelem),
+    davgs = horz_average_all(FT, mpicomm, num_diagnostic(FT), (Nqk, nvertelem),
                              dsums, hdvsr)
 
     if mpirank == 0

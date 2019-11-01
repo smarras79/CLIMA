@@ -29,7 +29,7 @@ const seed = MersenneTwister(0)
   using CUDAnative
   using CuArrays
   CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,) 
+  const ArrayTypes = (CuArray,)
 else
   const ArrayTypes = (Array,)
 end
@@ -42,11 +42,11 @@ end
 """
   Initial Condition for DYCOMS_RF01 LES
 @article{doi:10.1175/MWR2930.1,
-author = {Stevens, Bjorn and Moeng, Chin-Hoh and Ackerman, 
-          Andrew S. and Bretherton, Christopher S. and Chlond, 
-          Andreas and de Roode, Stephan and Edwards, James and Golaz, 
-          Jean-Christophe and Jiang, Hongli and Khairoutdinov, 
-          Marat and Kirkpatrick, Michael P. and Lewellen, David C. and Lock, Adrian and 
+author = {Stevens, Bjorn and Moeng, Chin-Hoh and Ackerman,
+          Andrew S. and Bretherton, Christopher S. and Chlond,
+          Andreas and de Roode, Stephan and Edwards, James and Golaz,
+          Jean-Christophe and Jiang, Hongli and Khairoutdinov,
+          Marat and Kirkpatrick, Michael P. and Lewellen, David C. and Lock, Adrian and
           Maeller, Frank and Stevens, David E. and Whelan, Eoin and Zhu, Ping},
 title = {Evaluation of Large-Eddy Simulations via Observations of Nocturnal Marine Stratocumulus},
 journal = {Monthly Weather Review},
@@ -70,14 +70,14 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   T_sfc::FT     = 292.5
   P_sfc::FT     = MSLP
   ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
-  # Specify moisture profiles 
+  # Specify moisture profiles
   q_liq::FT      = 0
   q_ice::FT      = 0
   zb::FT         = 600    # initial cloud bottom
   zi::FT         = 840    # initial cloud top
   dz_cloud       = zi - zb
-  q_liq_peak::FT = 0.00045 #cloud mixing ratio at z_i    
-  if xvert > zb && xvert <= zi        
+  q_liq_peak::FT = 0.00045 #cloud mixing ratio at z_i
+  if xvert > zb && xvert <= zi
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
   if xvert <= zi
@@ -95,16 +95,16 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   randnum2   = rand(seed, FT) / 1000
   #randnum1   = rand(Uniform(-0.02,0.02), 1, 1)
   #randnum2   = rand(Uniform(-0.000015,0.000015), 1, 1)
-  if xvert <= 25.0    
-    θ_liq += randnum1 * θ_liq 
-    #q_tot += randnum2 * q_tot      
+  if xvert <= 25.0
+    θ_liq += randnum1 * θ_liq
+    #q_tot += randnum2 * q_tot
   end
   # --------------------------------------------------
   # END perturb initial state
   # --------------------------------------------------
 
   # Calculate PhasePartition object for vertical domain extent
-  q_pt  = PhasePartition(q_tot, q_liq, q_ice) 
+  q_pt  = PhasePartition(q_tot, q_liq, q_ice)
   #Pressure
   H     = Rm_sfc * T_sfc / grav;
   p     = P_sfc * exp(-xvert/H);
@@ -118,7 +118,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
   state.ρ     = ρ
-  state.ρu    = SVector(ρ*u, ρ*v, ρ*w) 
+  state.ρu    = SVector(ρ*u, ρ*v, ρ*w)
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
 end
@@ -133,8 +133,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   # Problem constants
   # Radiation model
   κ             = FT(85)
-  α_z           = FT(1) 
-  z_i           = FT(840) 
+  α_z           = FT(1)
+  z_i           = FT(840)
   D_subsidence  = FT(3.75e-6)
   ρ_i           = FT(1.13)
   F_0           = FT(70)
@@ -143,17 +143,17 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   f_coriolis    = FT(7.62e-5)
   u_geostrophic = FT(7)
   v_geostrophic = FT(-5.5)
-  
+
   # Model definition
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
                      SmagorinskyLilly{FT}(C_smag),
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
-                     (Gravity(), 
-                      RayleighSponge{FT}(zmax, zsponge, 1), 
-                      Subsidence(), 
-                      GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)), 
+                     (Gravity(),
+                      RayleighSponge{FT}(zmax, zsponge, 1),
+                      Subsidence(),
+                      GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
   # Balancelaw description
@@ -164,7 +164,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                CentralGradPenalty())
   Q = init_ode_state(dg, FT(0); device=CPU())
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-  # Calculating initial condition norm 
+  # Calculating initial condition norm
  #= eng0 = norm(Q)
   @info @sprintf """Starting
   norm(Q₀) = %.16e""" eng0
@@ -185,7 +185,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                                   Dates.dateformat"HH:MM:SS"))
     end
   end
-  
+ 
   # Setup VTK output callbacks
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
@@ -193,7 +193,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                        MPI.Comm_rank(mpicomm), step[1])
     outprefix = joinpath(out_dir, fprefix)
     @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)), 
+    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)),
              dg.auxstate, flattenednames(vars_aux(model,FT)))
 
     step[1] += 1
@@ -252,7 +252,7 @@ let
   for ArrayType in ArrayTypes
     # Problem type
     FT = Float32
-    # DG polynomial order 
+    # DG polynomial order
     N = 4
     # SGS Filter constants
     C_smag = FT(0.15)
@@ -279,37 +279,17 @@ let
     end
     zmax = brickrange[dim][end]
     zsponge = FT(0.75 * zmax)
-    
+
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
     dt = 0.01
     timeend =  dt
     @info (ArrayType, dt, FT, dim)
-    result = run(mpicomm, ArrayType, dim, topl, 
+    result = run(mpicomm, ArrayType, dim, topl,
                  N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, zmax, zsponge,
                  out_dir)
 
   end
 end
-
-#nothing
-#=
-    #Create unique output path directory:
-    OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
-
-    #open diagnostics file and write header:
-    mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
-    if mpirank == 0
-
-      diagnostics_fileout = string(OUTPATH, "/statistic_diagnostics.dat")
-      io = open(diagnostics_fileout, "w")
-      writedlm(io, ["\n theta flux" "Wqvap" "WU" "WV" "WW" "Mass flux" "qliq" "qliq flux" "WWW" "UU" "VV" "U" "V" "qt"  "qt flux" "thetaL" "thetaVflux" "TKE" "thetaL flux" "Z\n"])
-      close(io)
-      LWP_fileout = string(OUTPATH, "/LWP_calc.dat")
-      io = open(LWP_fileout, "w")
-      write(io, "\n LWP \n")
-      close(io)
-    end
-=#
 
