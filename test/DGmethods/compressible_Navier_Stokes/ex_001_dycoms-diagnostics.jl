@@ -63,7 +63,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   FT            = eltype(state)
   xvert::FT     = z
   #These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(7.75e-3)
+  qref::FT      = FT(9.0e-3) #FT(7.75e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc        = gas_constant_air(q_pt_sfc)
@@ -112,6 +112,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   #Density, Temperature
   #TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
   TS    = LiquidIcePotTempSHumNonEquil(θ_liq, q_pt, p)
+  #TS    = LiquidIcePotTempSHumNonEquil(θ_liq, q_pt, p)
   ρ     = air_density(TS)
   T     = air_temperature(TS)
 
@@ -193,24 +194,22 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       ρu_node = SVector(ρ_node*u_node, ρ_node*v_node, ρ_node*w_node)
       e_int = internal_energy(ρ_node, ρ_node*etot_node, ρu_node, grav*z*ρ_node)
 
-      Phpart = PhasePartition(qt_node, FT(0), FT(0))
-      #T      = air_temperature(e_int, Phpart)
-      #p      = air_pressure(T, ρ_node, Phpart)
-      #θ_l    = liquid_ice_pottemp(T, p, Phpart)
-      #θ_v    = virtual_pottemp(T, p, Phpart)
-      #θ      = dry_pottemp(T, p, Phpart)
+      qt_node_pp = PhasePartition(qt_node)
+      #ts = PhaseNonEquil(e_int, qt_node_pp, ρ_node)
+      #ts = PhaseEquil(e_int, qt_node, ρ_node)
 
-      q_phpart = PhasePartition(qt_node)
-      ts = PhaseNonEquil(e_int, qt_node, ρ_node)
+      ts = PhaseEquil(e_int, qt_node, ρ_node, saturation_adjustment(e_int, ρ_node, qt_node))
+        
       Phpart = PhasePartition(ts)
         
       thermoQ[i,1,e] = Phpart.liq
       thermoQ[i,2,e] = Phpart.ice
       thermoQ[i,3,e] = qt_node - Phpart.liq - Phpart.ice
-      thermoQ[i,4,e] = ts.T
+      thermoQ[i,4,e] = 0 #ts.T
       thermoQ[i,5,e] = liquid_ice_pottemp(ts)
       thermoQ[i,6,e] = dry_pottemp(ts)
       thermoQ[i,7,e] = virtual_pottemp(ts)
+      
     end
   end
     
@@ -431,7 +430,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -448,7 +447,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   # Setup VTK output callbacks
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -461,7 +460,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
   
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
@@ -561,8 +560,8 @@ let
       close(io)
 
       #Write ICs file
-      io = open("./output/ICs-dycoms-NONequil-CHARLIE-THERMO.da", "w")
-        header_str = string("z   theta   theta_v   theta_l   q_tot   q_liq   q_vap   T   Exner   p   rho")
+      io = open("./output/ICs-dycoms-NONequil-CHARLIE-THERMO.dat", "w")
+        header_str = string("z   theta   theta_v   theta_l   q_tot   q_liq   q_vap   T   Exner   p   rho\n")
         write(io, header_str)
       close(io)
         
