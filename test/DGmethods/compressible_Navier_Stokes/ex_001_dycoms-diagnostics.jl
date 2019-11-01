@@ -111,7 +111,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   p     = P_sfc * exp(-xvert/H);
   #Density, Temperature
   #TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
-  TS    = LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq, q_pt, p)
+  TS    = LiquidIcePotTempSHumNonEquil(θ_liq, q_pt, p)
   ρ     = air_density(TS)
   T     = air_temperature(TS)
 
@@ -140,12 +140,12 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
 
   #writing initialized thermodynamic quantities
   q_vap = q_tot - q_liq - q_ice
-  p     = air_pressure(T,ρ,q_pt)
-  θ     = dry_pottemp(T,p,q_pt)
-  θ_v   = virtual_pottemp(T,p,q_pt)
-  ex    = exner(p,q_pt)
+  p     = air_pressure(TS)
+  θ     = dry_pottemp(TS)
+  θ_v   = virtual_pottemp(TS)
+  ex    = exner(TS)
     if ( abs(x) <= 1e-4 && abs(y) <= 1e-4)
-      io = open("./output/ICs-dycoms-NONequil.dat", "a")
+      io = open("./output/ICs-dycoms-NONequil-CHARLIE-THERMO.dat", "a")
       writedlm(io, [z θ θ_v θ_liq q_tot q_liq q_vap T ex p ρ])
       close(io)
   end
@@ -193,14 +193,15 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       ρu_node = SVector(ρ_node*u_node, ρ_node*v_node, ρ_node*w_node)
       e_int = internal_energy(ρ_node, ρ_node*etot_node, ρu_node, grav*z*ρ_node)
 
-      #Phpart = PhasePartition(qt_node)
+      Phpart = PhasePartition(qt_node, FT(0), FT(0))
       #T      = air_temperature(e_int, Phpart)
       #p      = air_pressure(T, ρ_node, Phpart)
       #θ_l    = liquid_ice_pottemp(T, p, Phpart)
       #θ_v    = virtual_pottemp(T, p, Phpart)
       #θ      = dry_pottemp(T, p, Phpart)
-      
-      ts = PhaseEquil(e_int, qt_node, ρ_node)
+
+      q_phpart = PhasePartition(qt_node)
+      ts = PhaseNonEquil(e_int, qt_node, ρ_node)
       Phpart = PhasePartition(ts)
         
       thermoQ[i,1,e] = Phpart.liq
@@ -400,13 +401,13 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   F_1           = FT(22)
   # Geostrophic forcing
   f_coriolis    = FT(7.62e-5)
-  u_geostrophic = FT(7)
+  u_geostrophic = FT(7.0)
   v_geostrophic = FT(-5.5)
     
   # Model definition
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
-                     SmagorinskyLilly{FT}(C_smag),
+                     Vreman{FT}(C_smag),
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(),
@@ -430,7 +431,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -447,7 +448,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   # Setup VTK output callbacks
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -460,7 +461,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
   
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(10000) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
@@ -528,15 +529,15 @@ let
                    grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
     
     zmax = brickrange[dim][end]
-    zsponge = FT(1200.0) #FT(0.75 * zmax)
-    
+    zsponge = FT(1200.0)
+        
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
 
     problem_name = "dycoms_IOstrings"
-    dt = 0.005
-    timeend = dt*1e-3 #14400
+    dt = 0.01
+    timeend = 5*dt #14400
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
@@ -560,7 +561,7 @@ let
       close(io)
 
       #Write ICs file
-      io = open("./output/ICs-dycoms-NONequil.dat", "w")
+      io = open("./output/ICs-dycoms-NONequil-CHARLIE-THERMO.da", "w")
         header_str = string("z   theta   theta_v   theta_l   q_tot   q_liq   q_vap   T   Exner   p   rho")
         write(io, header_str)
       close(io)
