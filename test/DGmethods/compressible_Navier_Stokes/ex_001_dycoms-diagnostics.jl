@@ -63,12 +63,12 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   FT            = eltype(state)
   xvert::FT     = z
   #These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(9.0e-3) #FT(7.75e-3)
+  qref::FT      = FT(7.75e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc        = gas_constant_air(q_pt_sfc)
   T_sfc::FT     = 292.5
-  P_sfc::FT     = MSLP
+  P_sfc::FT     = 101780.0 #MSLP
   ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
   # Specify moisture profiles 
   q_liq::FT      = 0
@@ -111,8 +111,8 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   p     = P_sfc * exp(-xvert/H);
   #Density, Temperature
   #TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
+  #TS    = LiquidIcePotTempSHumEquil(θ_liq, q_tot, ρ, p) #?
   TS    = LiquidIcePotTempSHumNonEquil(θ_liq, q_pt, p)
-  #TS    = LiquidIcePotTempSHumNonEquil(θ_liq, q_pt, p)
   ρ     = air_density(TS)
   T     = air_temperature(TS)
 
@@ -193,22 +193,22 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       #e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
       ρu_node = SVector(ρ_node*u_node, ρ_node*v_node, ρ_node*w_node)
       e_int = internal_energy(ρ_node, ρ_node*etot_node, ρu_node, grav*z*ρ_node)
-
-      qt_node_pp = PhasePartition(qt_node)
-      #ts = PhaseNonEquil(e_int, qt_node_pp, ρ_node)
-      #ts = PhaseEquil(e_int, qt_node, ρ_node)
-
-      ts = PhaseEquil(e_int, qt_node, ρ_node, saturation_adjustment(e_int, ρ_node, qt_node))
         
-      Phpart = PhasePartition(ts)
+      TS = PhaseEquil(e_int, qt_node, ρ_node)
+      T = air_temperature(TS)
+      θ_v = virtual_pottemp(TS)
+      θ_l = liquid_ice_pottemp(TS)
+      θ   = dry_pottemp(TS)
+      q_liq = PhasePartition(TS).liq
+      q_ice = PhasePartition(TS).ice
         
-      thermoQ[i,1,e] = Phpart.liq
-      thermoQ[i,2,e] = Phpart.ice
-      thermoQ[i,3,e] = qt_node - Phpart.liq - Phpart.ice
-      thermoQ[i,4,e] = 0 #ts.T
-      thermoQ[i,5,e] = liquid_ice_pottemp(ts)
-      thermoQ[i,6,e] = dry_pottemp(ts)
-      thermoQ[i,7,e] = virtual_pottemp(ts)
+      thermoQ[i,1,e] = q_liq
+      thermoQ[i,2,e] = q_ice
+      thermoQ[i,3,e] = qt_node - q_liq - q_ice
+      thermoQ[i,4,e] = T
+      thermoQ[i,5,e] = θ_l
+      thermoQ[i,6,e] = θ
+      thermoQ[i,7,e] = θ_v
       
     end
   end
@@ -430,7 +430,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -447,7 +447,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   
   # Setup VTK output callbacks
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -460,7 +460,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
   
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(1) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
@@ -536,7 +536,7 @@ let
 
     problem_name = "dycoms_IOstrings"
     dt = 0.01
-    timeend = 5*dt #14400
+    timeend = 14400
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
