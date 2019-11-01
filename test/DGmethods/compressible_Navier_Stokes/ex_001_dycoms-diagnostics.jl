@@ -223,31 +223,38 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
 
       for k in 1:Nqk
         for j in 1:Nq
-          for i in 1:Nq
-            ijk = i + Nq * ((j-1) + Nq * (k-1)) 
-            Horzavgs[k,ev,1]  += localQ[ijk,1,e]  #ρ
-            Horzavgs[k,ev,2]  += localQ[ijk,2,e]  #ρu
-            Horzavgs[k,ev,3]  += localQ[ijk,3,e]  #ρv
-            Horzavgs[k,ev,4]  += localQ[ijk,4,e]  #ρw
-            Horzavgs[k,ev,5]  += thermoQ[ijk,5,e] #θl
-            Horzavgs[k,ev,6]  += thermoQ[ijk,1,e] #ql
-            Horzavgs[k,ev,7]  += thermoQ[ijk,3,e] #qv
-            Horzavgs[k,ev,8]  += thermoQ[ijk,6,e] #θ
-            Horzavgs[k,ev,9]  += localQ[ijk,6,e]  #qt
-            Horzavgs[k,ev,10] += thermoQ[ijk,7,e] #θv
-            #The next three lines are for the liquid water path
-            if ev == floor(nvertelem/2) && k==floor(Nqk/2)
-                LWP_local += (localaux[ijk,1,e] + localaux[ijk,2,e])/κ / (Nq * Nq * nhorzelem)
+            for i in 1:Nq
+                if (i == 1 || i == Nq) && (j ==1 || j==Nq) (edited) 
+                    n=1 / 4
+                elseif i == 1 || i == Nq || j==1 || j==Nq
+                    n=1/2
+                else (edited) 
+                    n = 1
+                end
+                ijk = i + Nq * ((j-1) + Nq * (k-1)) 
+                Horzavgs[k,ev,1]  += n*localQ[ijk,1,e]  #ρ
+                Horzavgs[k,ev,2]  += n*localQ[ijk,2,e]  #ρu
+                Horzavgs[k,ev,3]  += n*localQ[ijk,3,e]  #ρv
+                Horzavgs[k,ev,4]  += n*localQ[ijk,4,e]  #ρw
+                Horzavgs[k,ev,5]  += n*thermoQ[ijk,5,e] #θl
+                Horzavgs[k,ev,6]  += n*thermoQ[ijk,1,e] #ql
+                Horzavgs[k,ev,7]  += n*thermoQ[ijk,3,e] #qv
+                Horzavgs[k,ev,8]  += n*thermoQ[ijk,6,e] #θ
+                Horzavgs[k,ev,9]  += n*localQ[ijk,6,e]  #qt
+                Horzavgs[k,ev,10] += n*thermoQ[ijk,7,e] #θv
+                #The next three lines are for the liquid water path
+                if ev == floor(nvertelem/2) && k==floor(Nqk/2)
+                    LWP_local += n*(localaux[ijk,1,e] + localaux[ijk,2,e])/κ / (Nq * Nq * nhorzelem)
+                end
             end
-          end
         end
       end
     end
   end
-  Horzavgstot = zeros(Nqk,nvertelem,10)
-for s in 1:10
-  for ev in 1:nvertelem
-       for k in 1:Nqk
+    Horzavgstot = zeros(Nqk,nvertelem,10)
+    for s in 1:10
+        for ev in 1:nvertelem
+            for k in 1:Nqk
        
            Horzavgs[k,ev,s] = Horzavgs[k,ev,s] /  (Nq * Nq * nhorzelem)
            Horzavgstot[k,ev,s] = MPI.Reduce(Horzavgs[k,ev,s], +, 0, MPI.COMM_WORLD)
@@ -267,33 +274,41 @@ end
 
       for k in 1:Nqk
         for j in 1:Nq
-          for i in 1:Nq
-              ijk = i + Nq * ((j-1) + Nq * (k-1))
-              wfluct = (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1])
-              
-              S[k,ev,1] += wfluct * (thermoQ[ijk,6,e] - Horzavgstot[k,ev,8]) #w'θ'
-              S[k,ev,2] += wfluct * (thermoQ[ijk,3,e] - Horzavgstot[k,ev,7]) #w'qv'
-              S[k,ev,3] += wfluct * (localQ[ijk,2,e] / localQ[ijk,1,e] - Horzavgstot[k,ev,2] / Horzavgstot[k,ev,1]) #w'u'
-              S[k,ev,4] += wfluct * (localQ[ijk,3,e] / localQ[ijk,1,e] - Horzavgstot[k,ev,3] / Horzavgstot[k,ev,1]) #w'v'
-              S[k,ev,5] += wfluct * wfluct  #w'w'
-              S[k,ev,6] += wfluct * (localQ[ijk,1,e] - Horzavgstot[k,ev,1]) #w'\rho'
-              S[k,ev,7] += Horzavgstot[k,ev,6] #ql
-              S[k,ev,8] += wfluct * (thermoQ[ijk,1,e] - Horzavgstot[k,ev,6]) #w'ql'
-              S[k,ev,9] += wfluct * wfluct * wfluct #w'w'w'
-              
-              S[k,ev,10] += (localQ[ijk,2,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,2]/Horzavgstot[k,ev,1])^2  #u'u'
-              S[k,ev,11] += (localQ[ijk,3,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,3]/Horzavgstot[k,ev,1])^2  #v'v'
-              
-              S[k,ev,12] += (Horzavgstot[k,ev,8]) #<θ>
-              S[k,ev,13] += (Horzavgstot[k,ev,9]/Horzavgstot[k,ev,1]) #<ρqt>/<ρ>
-              S[k,ev,14] += wfluct * (localQ[ijk,6,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,9]/Horzavgstot[k,ev,1]) #w'qt'
-              S[k,ev,15] += (Horzavgstot[k,ev,5]) #<θl>
-              S[k,ev,16] += wfluct * (thermoQ[ijk,7,e] - Horzavgstot[k,ev,10]) #w'θv'
-              S[k,ev,17] += 0.5 * (S[k,ev,5] + S[k,ev,10] + S[k,ev,11]) #TKE
-              S[k,ev,18] += wfluct * (thermoQ[ijk,5,e] - Horzavgstot[k,ev,5]) #w'θl'
-              
-              Zvals[k,ev] = localvgeo[ijk,grid.x3id,e] #z
-          end
+            for i in 1:Nq
+                if (i == 1 || i == Nq) && (j ==1 || j==Nq) (edited) 
+                    n=1 / 4
+                elseif i == 1 || i == Nq || j==1 || j==Nq
+                    n=1/2
+                else (edited) 
+                    n = 1
+                end
+                
+                ijk = i + Nq * ((j-1) + Nq * (k-1))
+                wfluct = (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1])
+                
+                S[k,ev,1] += n*wfluct * (thermoQ[ijk,6,e] - Horzavgstot[k,ev,8]) #w'θ'
+                S[k,ev,2] += n*wfluct * (thermoQ[ijk,3,e] - Horzavgstot[k,ev,7]) #w'qv'
+                S[k,ev,3] += n*wfluct * (localQ[ijk,2,e] / localQ[ijk,1,e] - Horzavgstot[k,ev,2] / Horzavgstot[k,ev,1]) #w'u'
+                S[k,ev,4] += n*wfluct * (localQ[ijk,3,e] / localQ[ijk,1,e] - Horzavgstot[k,ev,3] / Horzavgstot[k,ev,1]) #w'v'
+                S[k,ev,5] += n*wfluct * wfluct  #w'w'
+                S[k,ev,6] += n*wfluct * (localQ[ijk,1,e] - Horzavgstot[k,ev,1]) #w'\rho'
+                S[k,ev,7] += n*Horzavgstot[k,ev,6] #ql
+                S[k,ev,8] += n*wfluct * (thermoQ[ijk,1,e] - Horzavgstot[k,ev,6]) #w'ql'
+                S[k,ev,9] += n*wfluct * wfluct * wfluct #w'w'w'
+                
+                S[k,ev,10] += n*(localQ[ijk,2,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,2]/Horzavgstot[k,ev,1])^2  #u'u'
+                S[k,ev,11] += n*(localQ[ijk,3,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,3]/Horzavgstot[k,ev,1])^2  #v'v'
+                
+                S[k,ev,12] += n*(Horzavgstot[k,ev,8]) #<θ>
+                S[k,ev,13] += n*(Horzavgstot[k,ev,9]/Horzavgstot[k,ev,1]) #<ρqt>/<ρ>
+                S[k,ev,14] += n*wfluct * (localQ[ijk,6,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,9]/Horzavgstot[k,ev,1]) #w'qt'
+                S[k,ev,15] += n*(Horzavgstot[k,ev,5]) #<θl>
+                S[k,ev,16] += n*wfluct * (thermoQ[ijk,7,e] - Horzavgstot[k,ev,10]) #w'θv'
+                S[k,ev,17] += n*0.5 * (S[k,ev,5] + S[k,ev,10] + S[k,ev,11]) #TKE
+                S[k,ev,18] += n*wfluct * (thermoQ[ijk,5,e] - Horzavgstot[k,ev,5]) #w'θl'
+                
+                Zvals[k,ev] = n*localvgeo[ijk,grid.x3id,e] #z
+            end
         end
       end
     end
