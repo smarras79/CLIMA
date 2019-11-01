@@ -1,3 +1,13 @@
+"""
+    Diagnostics variable template
+
+Container for diagnostic variables of interest. Useful also for 
+post-processing.
+
+"""
+
+using CLIMA.VariableTemplates
+
 function vars_diagnostic(FT)
   @vars begin
     # vertical coordinate
@@ -31,4 +41,5 @@ function vars_diagnostic(FT)
   end
 end
 num_diagnostic(FT) = varsize(vars_diagnostic(FT))
+diagnostic_vars(array) = Vars{vars_diagnostic(eltype(array))}(array)
 
