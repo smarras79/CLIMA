@@ -224,11 +224,11 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       for k in 1:Nqk
         for j in 1:Nq
             for i in 1:Nq
-                if (i == 1 || i == Nq) && (j ==1 || j==Nq) (edited) 
-                    n=1 / 4
-                elseif i == 1 || i == Nq || j==1 || j==Nq
-                    n=1/2
-                else (edited) 
+                if ((i == 1 || i == Nq) && (j ==1 || j==Nq))
+                    n = 1/4
+                elseif (i == 1 || i == Nq || j==1 || j==Nq)
+                    n = 1/2
+                else
                     n = 1
                 end
                 ijk = i + Nq * ((j-1) + Nq * (k-1)) 
@@ -275,11 +275,11 @@ end
       for k in 1:Nqk
         for j in 1:Nq
             for i in 1:Nq
-                if (i == 1 || i == Nq) && (j ==1 || j==Nq) (edited) 
-                    n=1 / 4
-                elseif i == 1 || i == Nq || j==1 || j==Nq
+                if ((i == 1 || i == Nq) && (j ==1 || j==Nq))
+                    n=1/4
+                elseif (i == 1 || i == Nq || j==1 || j==Nq)
                     n=1/2
-                else (edited) 
+                else
                     n = 1
                 end
                 
