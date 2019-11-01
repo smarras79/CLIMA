@@ -307,7 +307,7 @@ end
                 S[k,ev,17] += n*0.5 * (S[k,ev,5] + S[k,ev,10] + S[k,ev,11]) #TKE
                 S[k,ev,18] += n*wfluct * (thermoQ[ijk,5,e] - Horzavgstot[k,ev,5]) #w'θl'
                 
-                Zvals[k,ev] = n*localvgeo[ijk,grid.x3id,e] #z
+                Zvals[k,ev] = localvgeo[ijk,grid.x3id,e] #z
             end
         end
       end
