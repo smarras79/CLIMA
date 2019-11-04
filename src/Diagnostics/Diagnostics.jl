@@ -147,7 +147,7 @@ function compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e,
     q̃_tot = ha.ρq_tot / ha.ρ
 
     # vertical coordinate
-    ds.z         = zvals[k,ev]
+    ds.z         += zvals[k,ev]
 
     # state and functions of state
     ds.u        += ũ
