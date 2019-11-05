@@ -27,7 +27,7 @@ using CLIMA.IOstrings
   using CUDAnative
   using CuArrays
   CuArrays.allowscalar(false)
-  const ArrayTypes = (CuArray,) 
+  const ArrayTypes = (CuArray,)
 else
   const ArrayTypes = (Array,)
 end
@@ -42,11 +42,11 @@ const seed = MersenneTwister(0)
 """
   Initial Condition for DYCOMS_RF01 LES
 @article{doi:10.1175/MWR2930.1,
-author = {Stevens, Bjorn and Moeng, Chin-Hoh and Ackerman, 
-          Andrew S. and Bretherton, Christopher S. and Chlond, 
-          Andreas and de Roode, Stephan and Edwards, James and Golaz, 
-          Jean-Christophe and Jiang, Hongli and Khairoutdinov, 
-          Marat and Kirkpatrick, Michael P. and Lewellen, David C. and Lock, Adrian and 
+author = {Stevens, Bjorn and Moeng, Chin-Hoh and Ackerman,
+          Andrew S. and Bretherton, Christopher S. and Chlond,
+          Andreas and de Roode, Stephan and Edwards, James and Golaz,
+          Jean-Christophe and Jiang, Hongli and Khairoutdinov,
+          Marat and Kirkpatrick, Michael P. and Lewellen, David C. and Lock, Adrian and
           Maeller, Frank and Stevens, David E. and Whelan, Eoin and Zhu, Ping},
 title = {Evaluation of Large-Eddy Simulations via Observations of Nocturnal Marine Stratocumulus},
 journal = {Monthly Weather Review},
@@ -70,15 +70,15 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   T_sfc::FT     = 292.5
   P_sfc::FT     = 101780.0 #MSLP
   ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
-  # Specify moisture profiles 
+  # Specify moisture profiles
   q_liq::FT      = 0
   q_ice::FT      = 0
   zb::FT         = 600    # initial cloud bottom
   zi::FT         = 840    # initial cloud top
   ziplus::FT     = 875
   dz_cloud       = zi - zb
-  q_liq_peak::FT = 0.00045 #cloud mixing ratio at z_i    
-  if xvert > zb && xvert <= zi        
+  q_liq_peak::FT = 0.00045 #cloud mixing ratio at z_i
+  if xvert > zb && xvert <= zi
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
   if xvert <= zi
@@ -96,16 +96,16 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   #randnum2   = rand(seed, FT) / 1000
   #randnum1   = rand(Uniform(-0.02,0.02), 1, 1)
   #randnum2   = rand(Uniform(-0.000015,0.000015), 1, 1)
-  #=if xvert <= 25.0    
-    θ_liq += randnum1 * θ_liq 
-    #q_tot += randnum2 * q_tot      
+  #=if xvert <= 25.0
+    θ_liq += randnum1 * θ_liq
+    #q_tot += randnum2 * q_tot
   end=#
   # --------------------------------------------------
   # END perturb initial state
   # --------------------------------------------------
 
   # Calculate PhasePartition object for vertical domain extent
-  q_pt  = PhasePartition(q_tot, q_liq, q_ice) 
+  q_pt  = PhasePartition(q_tot, q_liq, q_ice)
   #Pressure
   H     = Rm_sfc * T_sfc / grav;
   p     = P_sfc * exp(-xvert/H);
@@ -127,7 +127,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   else
       m = (ziplus - zi)/(u2 - u1)
       u = (xvert - zi)/m + u1
-      
+
       m = (ziplus - zi)/(v2 - v1)
       v = (xvert - zi)/m + v1
   end
@@ -135,7 +135,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
   state.ρ     = ρ
-  state.ρu    = SVector(ρ*u, ρ*v, ρ*w) 
+  state.ρu    = SVector(ρ*u, ρ*v, ρ*w)
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
 
@@ -150,7 +150,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
       writedlm(io, [z θ θ_v θ_liq q_tot q_liq q_vap T ex p ρ])
       close(io)
   end
-    
+
 end
 
 
@@ -179,7 +179,7 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
   vgeo = grid.vgeo
   localvgeo = host_array ? vgeo : Array(vgeo)
   Zvals = zeros(Nqk,nvertelem)
-  for e in 1:nrealelem  
+  for e in 1:nrealelem
     for i in 1:Nq * Nq * Nqk
       z = localvgeo[i,grid.x3id,e]
 
@@ -189,11 +189,11 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       w_node    = localQ[i,4,e] / localQ[i,1,e]
       etot_node = localQ[i,5,e] / localQ[i,1,e]
       qt_node   = localQ[i,6,e] / localQ[i,1,e]
-      
+
       #e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
       ρu_node = SVector(ρ_node*u_node, ρ_node*v_node, ρ_node*w_node)
       e_int = internal_energy(ρ_node, ρ_node*etot_node, ρu_node, grav*z*ρ_node)
-        
+
       TS = PhaseEquil(e_int, qt_node, ρ_node)
       T = air_temperature(TS)
       θ_v = virtual_pottemp(TS)
@@ -201,7 +201,7 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       θ   = dry_pottemp(TS)
       q_liq = PhasePartition(TS).liq
       q_ice = PhasePartition(TS).ice
-        
+
       thermoQ[i,1,e] = q_liq
       thermoQ[i,2,e] = q_ice
       thermoQ[i,3,e] = qt_node - q_liq - q_ice
@@ -209,14 +209,15 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       thermoQ[i,5,e] = θ_l
       thermoQ[i,6,e] = θ
       thermoQ[i,7,e] = θ_v
-      
+
     end
   end
-    
+
   #Horizontal averages we might need
   #Horizontal averages we might need
   Horzavgs = zeros(Nqk, nvertelem,10)
   LWP_local = 0
+  pointslocal = 0
   for eh in 1:nhorzelem
     for ev in 1:nvertelem
       e = ev + (eh - 1) * nvertelem
@@ -224,14 +225,23 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       for k in 1:Nqk
         for j in 1:Nq
             for i in 1:Nq
-                if ((i == 1 || i == Nq) && (j ==1 || j==Nq))
-                    n = 1/4
-                elseif (i == 1 || i == Nq || j==1 || j==Nq)
-                    n = 1/2
+                ijk = i + Nq * ((j-1) + Nq * (k-1))
+                x = localvgeo[ijk,grid.x1id,e]
+                y = localvgeo[ijk,grid.x2id,e]
+                if ((x == 0 || x == 1500) && (y == 0 || y == 1500))#TODO let function get passed xmax and ymax remove hard coding
+                  m = 4
+                elseif (x == 0 || x == 1500 || y == 0 || y == 1500)
+                  m = 2
                 else
-                    n = 1
+                  m = 1
                 end
-                ijk = i + Nq * ((j-1) + Nq * (k-1)) 
+                if ((i == 1 || i == Nq) && (j ==1 || j==Nq))
+                    n = 1/4 * m
+                elseif (i == 1 || i == Nq || j==1 || j==Nq)
+                    n = 1/2 * m
+                else
+                    n = 1 * m
+                end
                 Horzavgs[k,ev,1]  += n*localQ[ijk,1,e]  #ρ
                 Horzavgs[k,ev,2]  += n*localQ[ijk,2,e]  #ρu
                 Horzavgs[k,ev,3]  += n*localQ[ijk,3,e]  #ρv
@@ -245,27 +255,31 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
                 #The next three lines are for the liquid water path
                 if ev == floor(nvertelem/2) && k==floor(Nqk/2)
                     LWP_local += n*(localaux[ijk,1,e] + localaux[ijk,2,e])/κ / (Nq * Nq * nhorzelem)
+                    # accounting for repeating nodes in division
+                    # TODO for warped meshes calculate number of points for each plane separately
+                    pointslocal += n
                 end
             end
         end
       end
     end
   end
+  points = 0
+  points = MPI.Reduce(pointslocal, +, 0, MPI.COMM_WORLD)
     Horzavgstot = zeros(Nqk,nvertelem,10)
     for s in 1:10
         for ev in 1:nvertelem
             for k in 1:Nqk
-       
-           Horzavgs[k,ev,s] = Horzavgs[k,ev,s] /  (Nq * Nq * nhorzelem)
+
            Horzavgstot[k,ev,s] = MPI.Reduce(Horzavgs[k,ev,s], +, 0, MPI.COMM_WORLD)
            if mpirank == 0
-               Horzavgstot[k,ev,s] = Horzavgstot[k,ev,s] / (nranks)
+               Horzavgstot[k,ev,s] = Horzavgstot[k,ev,s] / points
            end
        end
   end
 end
 if mpirank == 0
- LWP=MPI.Reduce(LWP_local, +, 0, MPI.COMM_WORLD) / (nranks) 
+ LWP=MPI.Reduce(LWP_local, +, 0, MPI.COMM_WORLD) / (nranks)
 end
   S=zeros(Nqk,nvertelem,18)
   for eh in 1:nhorzelem
@@ -275,17 +289,27 @@ end
       for k in 1:Nqk
         for j in 1:Nq
             for i in 1:Nq
-                if ((i == 1 || i == Nq) && (j ==1 || j==Nq))
-                    n=1/4
-                elseif (i == 1 || i == Nq || j==1 || j==Nq)
-                    n=1/2
-                else
-                    n = 1
-                end
-                
-                ijk = i + Nq * ((j-1) + Nq * (k-1))
+            ijk = i + Nq * ((j-1) + Nq * (k-1))
+            x = localvgeo[ijk,grid.x1id,e]
+            y = localvgeo[ijk,grid.x2id,e]
+            if ((x == 0 || x == 1500) && (y == 0 || y == 1500))#TODO let function get passed xmax and ymax remove hard coding
+              m = 4
+            elseif (x == 0 || x == 1500 || y == 0 || y == 1500)
+              m = 2
+            else
+              m = 1
+            end
+            if ((i == 1 || i == Nq) && (j ==1 || j==Nq))
+                n = 1/4 * m
+            elseif (i == 1 || i == Nq || j==1 || j==Nq)
+                n = 1/2 * m
+            else
+                n = 1 * m
+            end
+
+
                 wfluct = (localQ[ijk,4,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1])
-                
+
                 S[k,ev,1] += n*wfluct * (thermoQ[ijk,6,e] - Horzavgstot[k,ev,8]) #w'θ'
                 S[k,ev,2] += n*wfluct * (thermoQ[ijk,3,e] - Horzavgstot[k,ev,7]) #w'qv'
                 S[k,ev,3] += n*wfluct * (localQ[ijk,2,e] / localQ[ijk,1,e] - Horzavgstot[k,ev,2] / Horzavgstot[k,ev,1]) #w'u'
@@ -295,10 +319,10 @@ end
                 S[k,ev,7] += n*Horzavgstot[k,ev,6] #ql
                 S[k,ev,8] += n*wfluct * (thermoQ[ijk,1,e] - Horzavgstot[k,ev,6]) #w'ql'
                 S[k,ev,9] += n*wfluct * wfluct * wfluct #w'w'w'
-                
+
                 S[k,ev,10] += n*(localQ[ijk,2,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,2]/Horzavgstot[k,ev,1])^2  #u'u'
                 S[k,ev,11] += n*(localQ[ijk,3,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,3]/Horzavgstot[k,ev,1])^2  #v'v'
-                
+
                 S[k,ev,12] += n*(Horzavgstot[k,ev,8]) #<θ>
                 S[k,ev,13] += n*(Horzavgstot[k,ev,9]/Horzavgstot[k,ev,1]) #<ρqt>/<ρ>
                 S[k,ev,14] += n*wfluct * (localQ[ijk,6,e]/localQ[ijk,1,e] - Horzavgstot[k,ev,9]/Horzavgstot[k,ev,1]) #w'qt'
@@ -306,7 +330,7 @@ end
                 S[k,ev,16] += n*wfluct * (thermoQ[ijk,7,e] - Horzavgstot[k,ev,10]) #w'θv'
                 S[k,ev,17] += n*0.5 * (S[k,ev,5] + S[k,ev,10] + S[k,ev,11]) #TKE
                 S[k,ev,18] += n*wfluct * (thermoQ[ijk,5,e] - Horzavgstot[k,ev,5]) #w'θl'
-                
+
                 Zvals[k,ev] = localvgeo[ijk,grid.x3id,e] #z
             end
         end
@@ -319,11 +343,10 @@ end
   for s in 1:18
     for ev in 1:nvertelem
       for k in 1:Nqk
-        S[k,ev,s] = S[k,ev,s] /  (Nq * Nq * nhorzelem)
         S_avg[k,ev,s] = MPI.Reduce(S[k,ev,s], +, 0, MPI.COMM_WORLD)
-     
+
         if mpirank == 0
-          S_avg[k,ev,s] = S_avg[k,ev,s] / (nranks)
+          S_avg[k,ev,s] = S_avg[k,ev,s] / points
         end
       end
     end
@@ -350,7 +373,7 @@ end
   OutputWthetav = zeros(nvertelem * Nqk)
   OutputTKE = zeros(nvertelem * Nqk)
   OutputWthetal = zeros(nvertelem * Nqk)
-  
+
   for ev in 1:nvertelem
     for k in 1:Nqk
       i=k + Nqk * (ev - 1)
@@ -360,16 +383,16 @@ end
       OutputWV[i] = S_avg[k,ev,4] # <w'v'>
       OutputWW[i] = S_avg[k,ev,5] # <w'w'>
       OutputWRHO[i] = S_avg[k,ev,6] #<w'rho'>
-      OutputQLIQ[i] = S_avg[k,ev,7] # qliq 
+      OutputQLIQ[i] = S_avg[k,ev,7] # qliq
       OutputWQLIQ[i] = S_avg[k,ev,8] # <w'qliq'>
       OutputWWW[i] = S_avg[k,ev,9]  #<w'w'w'>
       OutputUU[i] = S_avg[k,ev,10] #<u'u'>
       OutputVV[i] = S_avg[k,ev,11] #<v'v'>
-      OutputU[i] =  Horzavgstot[k,ev,2] / Horzavgstot[k,ev,1] # <u> 
+      OutputU[i] =  Horzavgstot[k,ev,2] / Horzavgstot[k,ev,1] # <u>
       OutputV[i] =  Horzavgstot[k,ev,3] / Horzavgstot[k,ev,1] # <v>
-      Outputtheta[i] = S_avg[k,ev,12] # <theta> 
+      Outputtheta[i] = S_avg[k,ev,12] # <theta>
       Outputqt[i] = S_avg[k,ev,13]  # <qt>
-      OutputWqt[i] = S_avg[k,ev,14] #<w'qt'> 
+      OutputWqt[i] = S_avg[k,ev,14] #<w'qt'>
       Outputthetaliq[i] = S_avg[k,ev,15] # <thetaliq>
       OutputWthetav[i] = S_avg[k,ev,16] # <w'thetav'>
       OutputTKE[i] = S_avg[k,ev,17] # <TKE>
@@ -383,7 +406,7 @@ if mpirank == 0
   io = open(diagnostics_fileout, "a")
      current_time_str = string(current_time_string, "\n")
      write(io, current_time_str)
-     writedlm(io, [Outputtheta Outputthetaliq Outputqt OutputQLIQ OutputU OutputV OutputWtheta OutputWthetav OutputUU OutputVV OutputWW OutputWU OutputWV OutputWWW OutputWRHO OutputWQVAP OutputWQLIQ OutputWqt OutputZ])    
+     writedlm(io, [Outputtheta Outputthetaliq Outputqt OutputQLIQ OutputU OutputV OutputWtheta OutputWthetav OutputUU OutputVV OutputWW OutputWU OutputWV OutputWWW OutputWRHO OutputWQVAP OutputWQLIQ OutputWqt OutputZ])
   close(io)
 
   #Write <LWP>
@@ -407,8 +430,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   # Problem constants
   # Radiation model
   κ             = FT(85)
-  α_z           = FT(1) 
-  z_i           = FT(840) 
+  α_z           = FT(1)
+  z_i           = FT(840)
   D_subsidence  = FT(3.75e-6)
   ρ_i           = FT(1.13)
   F_0           = FT(70)
@@ -417,7 +440,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   f_coriolis    = FT(7.62e-5)
   u_geostrophic = FT(7.0)
   v_geostrophic = FT(-5.5)
-    
+
   # Model definition
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
@@ -426,8 +449,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(),
                       RayleighSponge{FT}(zmax, zsponge, 1, u_geostrophic, v_geostrophic),
-                      Subsidence(), 
-                      GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)), 
+                      Subsidence(),
+                      GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
                      Initialise_DYCOMS!)
   # Balancelaw description
@@ -438,7 +461,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                CentralGradPenalty())
   Q = init_ode_state(dg, FT(0); device=CPU())
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
-  # Calculating initial condition norm 
+  # Calculating initial condition norm
  #= eng0 = norm(Q)
   @info @sprintf """Starting
   norm(Q₀) = %.16e""" eng0
@@ -459,7 +482,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                                   Dates.dateformat"HH:MM:SS"))
     end
   end
-  
+
   # Setup VTK output callbacks
   step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
@@ -467,30 +490,29 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
     @debug "doing VTK output" outprefix
-    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)), 
+    writevtk(outprefix, Q, dg, flattenednames(vars_state(model,FT)),
              dg.auxstate, flattenednames(vars_aux(model,FT)))
-        
+
     step[1] += 1
     nothing
   end
-  
+
   #Get statistics during run:
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
-    
+
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
 
   #Get statistics at the end of the run:
   current_time_str = string(ODESolvers.gettime(lsrk))
   gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
 
-    
+
   # Print some end of the simulation information
  #= engf = norm(Q)
   Qe = init_ode_state(dg, FT(timeend))
-
   engfe = norm(Qe)
   errf = euclidean_distance(Q, Qe)
   @info @sprintf """Finished
@@ -521,7 +543,7 @@ let
     for ArrayType in ArrayTypes
     # Problem type
     FT = Float32
-    # DG polynomial order 
+    # DG polynomial order
     N = 4
     # SGS Filter constants
     C_smag = FT(0.15)
@@ -537,14 +559,14 @@ let
     grid_resolution = [Δx, Δy, Δz]
     domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
     dim = length(grid_resolution)
-        
+
      brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
                    grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
                    grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
-    
+
     zmax = brickrange[dim][end]
     zsponge = FT(1200.0)
-        
+
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
                                 boundary=((0,0),(0,0),(1,2)))
@@ -568,7 +590,7 @@ let
         write(io, diags_header_str)
       close(io)
 
-      # Write LWP file:  
+      # Write LWP file:
       LWP_fileout = string(OUTPATH, "/LWP_calc.dat")
         io = open(LWP_fileout, "w")
         write(io, "LWP \n")
@@ -579,11 +601,11 @@ let
         header_str = string("z   theta   theta_v   theta_l   q_tot   q_liq   q_vap   T   Exner   p   rho\n")
         write(io, header_str)
       close(io)
-        
+
     end
-      
+
     @info (ArrayType, dt, FT, dim)
-    result = run(mpicomm, ArrayType, dim, topl, 
+    result = run(mpicomm, ArrayType, dim, topl,
                  N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH, LWP_fileout)
 
   end

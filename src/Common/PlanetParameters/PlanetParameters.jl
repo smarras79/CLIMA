@@ -17,11 +17,10 @@ using ..ParametersType
 
 # Properties of dry air
 @exportparameter molmass_dryair    28.97e-3      "Molecular weight dry air (kg/mol)"
-@exportparameter R_d               gas_constant/
-                                   molmass_dryair "Gas constant dry air (J/kg/K)"
+@exportparameter R_d               287.0         "dry R "
 @exportparameter kappa_d           2//7          "Adiabatic exponent dry air"
-@exportparameter cp_d              R_d/kappa_d   "Isobaric specific heat dry air"
-@exportparameter cv_d              cp_d - R_d    "Isochoric specific heat dry air"
+@exportparameter cp_d              1015.0   "Isobaric specific heat dry air"
+@exportparameter cv_d              717.0    "Isochoric specific heat dry air"
 
 # Properties of water
 @exportparameter ρ_cloud_liq       1e3           "Density of liquid water (kg/m^3)"
@@ -29,9 +28,8 @@ using ..ParametersType
 @exportparameter molmass_water     18.01528e-3   "Molecular weight (kg/mol)"
 @exportparameter molmass_ratio     molmass_dryair/
                                    molmass_water "Molar mass ratio dry air/water"
-@exportparameter R_v               gas_constant/
-                                   molmass_water "Gas constant water vapor (J/kg/K)"
-@exportparameter cp_v              1859          "Isobaric specific heat vapor (J/kg/K)"
+@exportparameter R_v               461.5         "Rv"
+@exportparameter cp_v              1870          "Isobaric specific heat vapor (J/kg/K) Stevens"
 @exportparameter cp_l              4181          "Isobaric specific heat liquid (J/kg/K)"
 @exportparameter cp_i              2100          "Isobaric specific heat ice (J/kg/K)"
 @exportparameter cv_v              cp_v - R_v    "Isochoric specific heat vapor (J/kg/K)"
@@ -42,7 +40,7 @@ using ..ParametersType
 @exportparameter T_icenuc          233.00        "Homogeneous nucleation temperature (K)"
 @exportparameter T_triple          273.16        "Triple point temperature (K)"
 @exportparameter T_0               T_triple      "Reference temperature (K)"
-@exportparameter LH_v0             2.5008e6      "Latent heat vaporization at T_0 (J/kg)"
+@exportparameter LH_v0             2.47e6        "Latent heat vaporization at T_0 (J/kg)"
 @exportparameter LH_s0             2.8344e6      "Latent heat sublimation at T_0 (J/kg)"
 @exportparameter LH_f0             LH_s0 - LH_v0  "Latent heat of fusion at T_0 (J/kg)"
 @exportparameter e_int_v0          LH_v0 - R_v*T_0 "Specific internal energy of
@@ -63,6 +61,6 @@ using ..ParametersType
 @exportparameter year_anom         365.26*day    "Length of anomalistic year (s)"
 @exportparameter orbit_semimaj     1*astro_unit  "Length of semimajor orbital axis (m)"
 @exportparameter TSI               1362          "Total solar irradiance (W/m^2)"
-@exportparameter MSLP              1.01325e5     "Mean sea level pressure (Pa)"
+@exportparameter MSLP              1.0178e5      "Mean sea level pressure (Pa)"
 
 end
