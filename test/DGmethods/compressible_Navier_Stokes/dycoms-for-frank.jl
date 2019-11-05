@@ -202,7 +202,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -218,8 +218,9 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
 
   # Setup VTK output callbacks
-  step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+    out_interval = 5000
+    step = [0]
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(out_interval) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -286,11 +287,15 @@ let
     domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
     dim = length(grid_resolution)
 
-     brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
-                   grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
-                   grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
+        
+  #   brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
+  #                 grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
+  #                 grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
 
-    zmax = brickrange[dim][end]
+      brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
+                    grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
+                    grid1d(zmin, zmax, InteriorStretching{FT}(840); elemsize=FT(15)*N))
+        
     zsponge = FT(1200.0)
 
     topl = StackedBrickTopology(mpicomm, brickrange,
@@ -299,7 +304,7 @@ let
 
     problem_name = "dycoms_IOstrings"  #FRANK: CHANGE THE NAME OF YOUR OUTPUT DIRECTORY HERE
     dt = 0.0005
-    timeend = 14400
+    timeend = dt*1e-5 #14400
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
