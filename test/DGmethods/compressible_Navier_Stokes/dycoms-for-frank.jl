@@ -288,13 +288,13 @@ let
     dim = length(grid_resolution)
 
         
-  #   brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
-  #                 grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
-  #                 grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
-
-      brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
-                    grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
-                    grid1d(zmin, zmax, InteriorStretching{FT}(840); elemsize=FT(15)*N))
+     brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
+                   grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
+                   grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
+#
+#      brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
+#                    grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
+#                    grid1d(zmin, zmax, InteriorStretching{FT}(840); elemsize=FT(15)*N))
         
     zsponge = FT(1200.0)
 

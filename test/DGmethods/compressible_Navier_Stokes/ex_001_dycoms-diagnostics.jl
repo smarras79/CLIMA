@@ -159,7 +159,7 @@ end
 # TODO: temporary; move to new CLIMA module
 # TODO: add an option to reduce communication: compute averages
 # locally only
-function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnostics_fileout,κ,LWP_fileout)
+function gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_string, diagnostics_fileout,κ,LWP_fileout)
   mpirank = MPI.Comm_rank(MPI.COMM_WORLD)
   nranks = MPI.Comm_size(MPI.COMM_WORLD)
   grid = dg.grid
@@ -181,6 +181,9 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
   vgeo = grid.vgeo
   localvgeo = host_array ? vgeo : Array(vgeo)
   Zvals = zeros(Nqk,nvertelem)
+
+  xmax = domain_size[2]
+  ymax = domain_size[4]   
   for e in 1:nrealelem
     for i in 1:Nq * Nq * Nqk
       z = localvgeo[i,grid.x3id,e]
@@ -194,7 +197,7 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
 
      
       ρu_node = SVector(ρ_node*u_node, ρ_node*v_node, ρ_node*w_node)
-      e_int = internal_energy(ρ_node, etot_node, ρu_node/ρ, grav*z)
+      e_int = internal_energy(ρ_node, etot_node, ρu_node/ρ_node, grav*z)
       #e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
         
       TS = PhaseEquil(e_int, qt_node, ρ_node)
@@ -231,9 +234,9 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
                 ijk = i + Nq * ((j-1) + Nq * (k-1))
                 x = localvgeo[ijk,grid.x1id,e]
                 y = localvgeo[ijk,grid.x2id,e]
-                if ((x == 0 || abs(x - 1500)<=0.001) && (y == 0 || abs(y - 1500)<=0.001))#TODO let function get passed xmax and ymax remove hard coding
+                if ((x == 0 || abs(x - xmax) <= 0.0001) && (y == 0 || abs(y - ymax) <= 0.0001)) #TODO let function get passed xmax and ymax remove hard coding
                   m = 4
-                elseif (x == 0 || abs(x - 1500)<= 0.001 || y == 0 || abs(y - 1500)<=0.001)
+                elseif (x == 0 || abs(x - xmax) <= 0.0001 || y == 0 || abs(y - ymax) <= 0.0001)
                   m = 2
                 else
                   m = 1
@@ -297,9 +300,9 @@ end
             ijk = i + Nq * ((j-1) + Nq * (k-1))
             x = localvgeo[ijk,grid.x1id,e]
             y = localvgeo[ijk,grid.x2id,e]
-            if ((x == 0 || abs(x - 1500)<=0.001) && (y == 0 || abs(y - 1500)<=0.001))#TODO let function get passed xmax and ymax remove hard coding
+            if ((x == 0 || abs(x - xmax) <= 0.0001) && (y == 0 || abs(y - ymax) <= 0.0001))#TODO let function get passed xmax and ymax remove hard coding
               m = 4
-            elseif (x == 0 || abs(x - 1500)<= 0.001 || y == 0 || abs(y - 1500)<=0.001)
+            elseif (x == 0 || abs(x - xmax) <= 0.0001 || y == 0 || abs(y - ymax) <= 0.0001)
               m = 2
             else
               m = 1
@@ -454,7 +457,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   f_coriolis    = FT(7.62e-5)
   u_geostrophic = FT(7.0)
   v_geostrophic = FT(-5.5)
-
+  #zmax = domain_size[end]
+    
   # Model definition
   model = AtmosModel(FlatOrientation(),
                      NoReferenceState(),
@@ -482,7 +486,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(90, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -498,7 +502,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
 
   # Setup VTK output callbacks
-  output_interval = 1
+  output_interval = 7500
   step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(output_interval) do (init=false)
     mkpath(OUTPATH)
@@ -515,14 +519,14 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   #Get statistics during run:
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(output_interval) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
-      gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
+      gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
 
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
 
   #Get statistics at the end of the run:
   current_time_str = string(ODESolvers.gettime(lsrk))
-  gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
+  gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_str, diagnostics_fileout,κ,LWP_fileout)
 
 
   # Print some end of the simulation information
@@ -567,8 +571,8 @@ let
     C_drag = FT(0.0011)
     # User defined domain parameters
     Δx, Δy, Δz = 50, 50, 20
-    xmin, xmax = 0, 1500
-    ymin, ymax = 0, 1500
+    xmin, xmax = 0, 2000
+    ymin, ymax = 0, 2000
     zmin, zmax = 0, 1500
 
     grid_resolution = [Δx, Δy, Δz]
@@ -578,8 +582,7 @@ let
      brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
                    grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
                    grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
-
-    zmax = brickrange[dim][end]
+        
     zsponge = FT(1200.0)
 
     topl = StackedBrickTopology(mpicomm, brickrange,
@@ -588,7 +591,7 @@ let
 
     problem_name = "dycoms_IOstrings"
     dt = 0.01
-    timeend = dt*1e-6 #14400
+    timeend = 14400
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
