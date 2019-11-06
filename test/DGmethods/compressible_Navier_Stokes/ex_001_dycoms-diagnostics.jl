@@ -145,7 +145,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   ex    = exner(TS)
     if ( abs(x) <= 1e-4 && abs(y) <= 1e-4)
       io = open("./output/ICs-dycoms-NONequil-CHARLIE-THERMO.dat", "a")
-      writedlm(io, [z θ θ_v θ_liq q_tot q_liq q_vap T ex p ρ])
+      writedlm(io, [z θ θ_v θ_liq q_tot q_liq q_vap T ex p ρ E])
       close(io)
   end
 
@@ -172,7 +172,7 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
   nhorzelem = div(nrealelem, nvertelem)
   aux1=dg.auxstate
   nstate = 6
-  nthermo = 7
+  nthermo = 8
   host_array = Array ∈ typeof(Q).parameters
   localQ = host_array ? Q.realdata : Array(Q.realdata)
   host_array1 = Array ∈ typeof(dg.auxstate).parameters
@@ -211,13 +211,13 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       thermoQ[i,5,e] = θ_l
       thermoQ[i,6,e] = θ
       thermoQ[i,7,e] = θ_v
-
+      thermoQ[i,8,e] = e_int
     end
   end
 
   #Horizontal averages we might need
   #Horizontal averages we might need
-  Horzavgs = zeros(Nqk, nvertelem,10)
+  Horzavgs = zeros(Nqk, nvertelem,12)
   LWP_local = 0
   pointslocal = 0
   for eh in 1:nhorzelem
@@ -254,6 +254,8 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
                 Horzavgs[k,ev,8]  += n*thermoQ[ijk,6,e] #θ
                 Horzavgs[k,ev,9]  += n*localQ[ijk,6,e]  #qt
                 Horzavgs[k,ev,10] += n*thermoQ[ijk,7,e] #θv
+                Horzavgs[k,ev,11] += n*thermoQ[ijk,8,e] #e_int
+                Horzavgs[k,ev,12] += n*localQ[ijk,5,e] #e_tot
                 #The next three lines are for the liquid water path
                 if ev == floor(nvertelem/2) && k==floor(Nqk/2)
                     LWP_local += n*(localaux[ijk,1,e] + localaux[ijk,2,e])/κ / (Nq * Nq * nhorzelem)
@@ -268,8 +270,8 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
   end
   points = 0
   points = MPI.Reduce(pointslocal, +, 0, MPI.COMM_WORLD)
-    Horzavgstot = zeros(Nqk,nvertelem,10)
-    for s in 1:10
+    Horzavgstot = zeros(Nqk,nvertelem,12)
+    for s in 1:12
         for ev in 1:nvertelem
             for k in 1:Nqk
 
@@ -354,6 +356,8 @@ end
     end
   end
 
+  Outputthetav = zeros(nvertelem * Nqk)
+  OutputRHO = zeros(nvertelem * Nqk)
   OutputWtheta = zeros(nvertelem * Nqk)
   OutputWQVAP = zeros(nvertelem * Nqk)
   OutputWU = zeros(nvertelem * Nqk)
@@ -375,11 +379,15 @@ end
   OutputWthetav = zeros(nvertelem * Nqk)
   OutputTKE = zeros(nvertelem * Nqk)
   OutputWthetal = zeros(nvertelem * Nqk)
+  Outputeint = zeros(nvertelem * Nqk)
+  Outputetot = zeros(nvertelem * Nqk)
 
   for ev in 1:nvertelem
     for k in 1:Nqk
       i=k + Nqk * (ev - 1)
-      OutputWtheta[i] = S_avg[k,ev,1] # <w'theta'>
+      Outputthetav[i] = Horzavgstot[k,ev,10] #<θv>
+      OutputRHO[i] = Horzavgstot[k,ev,1] #<ρ>
+      OutputWtheta[i] = S_avg[k,ev,1] # <w'θ '>
       OutputWQVAP[i] = S_avg[k,ev,2] # <w'qvap'>
       OutputWU[i] = S_avg[k,ev,3] # <w'u'>
       OutputWV[i] = S_avg[k,ev,4] # <w'v'>
@@ -399,6 +407,8 @@ end
       OutputWthetav[i] = S_avg[k,ev,16] # <w'thetav'>
       OutputTKE[i] = S_avg[k,ev,17] # <TKE>
       OutputWthetal[i] = S_avg[k,ev,18] # <w'thetal'>
+      Outputeint[i] = Horzavgstot[k,ev,11] # <e_int>
+      Outputetot[i] = Horzavgstot[k,ev,12] / Horzavgstot[k,ev,1] #<e_tot>
       OutputZ[i] = Zvals[k,ev] # Height
     end
   end
@@ -408,7 +418,7 @@ if mpirank == 0
   io = open(diagnostics_fileout, "a")
      current_time_str = string(current_time_string, "\n")
      write(io, current_time_str)
-     writedlm(io, [Outputtheta Outputthetaliq Outputqt OutputQLIQ OutputU OutputV OutputWtheta OutputWthetav OutputUU OutputVV OutputWW OutputWU OutputWV OutputWWW OutputWRHO OutputWQVAP OutputWQLIQ OutputWqt OutputZ])
+     writedlm(io, [Outputtheta Outputthetaliq Outputthetav OutputRHO Outputqt OutputQLIQ OutputU OutputV OutputWtheta OutputWthetav OutputUU OutputVV OutputWW OutputWU OutputWV OutputWWW OutputWRHO OutputWQVAP OutputWQLIQ OutputWqt Outputeint Outputetot OutputZ])
   close(io)
 
   #Write <LWP>
@@ -590,7 +600,7 @@ let
       # Write diagnostics file:
       diagnostics_fileout = string(OUTPATH, "/statistic_diagnostics.dat")
       io = open(diagnostics_fileout, "w")
-        diags_header_str = string("<theta>  <thetal>  <qt>  <ql>  <u>  <v>  <th.w>  <thv.w>  <u.u>  <v.v>  <w.w>  <u.w>  <v.w>  <w.w.w>  <rho.w>  <qv.w>  <ql.w>  <qt.w>  z\n")
+        diags_header_str = string("<theta>  <thetal> <thetav> <rho> <qt>  <ql>  <u>  <v>  <th.w>  <thv.w>  <u.u>  <v.v>  <w.w>  <u.w>  <v.w>  <w.w.w>  <rho.w>  <qv.w>  <ql.w>  <qt.w> <e_int> <e_tot> z\n")
         write(io, diags_header_str)
       close(io)
 
@@ -602,7 +612,7 @@ let
 
       #Write ICs file
       io = open("./output/ICs-dycoms-NONequil-CHARLIE-THERMO.dat", "w")
-        header_str = string("z   theta   theta_v   theta_l   q_tot   q_liq   q_vap   T   Exner   p   rho\n")
+        header_str = string("z   theta   theta_v   theta_l   q_tot   q_liq   q_vap   T   Exner   p   rho E_tot\n")
         write(io, header_str)
       close(io)
 
