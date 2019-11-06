@@ -192,10 +192,11 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
       etot_node = localQ[i,5,e] / localQ[i,1,e]
       qt_node   = localQ[i,6,e] / localQ[i,1,e]
 
-      #e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
+     
       ρu_node = SVector(ρ_node*u_node, ρ_node*v_node, ρ_node*w_node)
-      e_int = internal_energy(ρ_node, ρ_node*etot_node, ρu_node, grav*z*ρ_node)
-
+      e_int = internal_energy(ρ_node, etot_node, ρu_node/ρ, grav*z)
+      #e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
+        
       TS = PhaseEquil(e_int, qt_node, ρ_node)
       T = air_temperature(TS)
       θ_v = virtual_pottemp(TS)
