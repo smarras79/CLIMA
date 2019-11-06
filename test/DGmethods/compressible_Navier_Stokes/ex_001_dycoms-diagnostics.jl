@@ -68,7 +68,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc        = gas_constant_air(q_pt_sfc)
   T_sfc::FT     = 292.5
-  P_sfc::FT     = 101780.0 #MSLP
+  P_sfc::FT     = MSLP
   ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
   # Specify moisture profiles
   q_liq::FT      = 0
@@ -109,10 +109,8 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   #Pressure
   H     = Rm_sfc * T_sfc / grav;
   p     = P_sfc * exp(-xvert/H);
-  #Density, Temperature
-  #TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
-  #TS    = LiquidIcePotTempSHumEquil(θ_liq, q_tot, ρ, p) #?
-  TS    = LiquidIcePotTempSHumNonEquil(θ_liq, q_pt, p)
+  #Density, Temperature  
+  TS    = LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq, q_pt, p) 
   ρ     = air_density(TS)
   T     = air_temperature(TS)
 
@@ -152,6 +150,10 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   end
 
 end
+
+
+
+####DIAGS
 
 
 # TODO: temporary; move to new CLIMA module
@@ -228,9 +230,9 @@ function gather_diagnostics(dg, Q, grid_resolution, current_time_string, diagnos
                 ijk = i + Nq * ((j-1) + Nq * (k-1))
                 x = localvgeo[ijk,grid.x1id,e]
                 y = localvgeo[ijk,grid.x2id,e]
-                if ((x == 0 || x == 1500) && (y == 0 || y == 1500))#TODO let function get passed xmax and ymax remove hard coding
+                if ((x == 0 || abs(x - 1500)<=0.001) && (y == 0 || abs(y - 1500)<=0.001))#TODO let function get passed xmax and ymax remove hard coding
                   m = 4
-                elseif (x == 0 || x == 1500 || y == 0 || y == 1500)
+                elseif (x == 0 || abs(x - 1500)<= 0.001 || y == 0 || abs(y - 1500)<=0.001)
                   m = 2
                 else
                   m = 1
@@ -292,9 +294,9 @@ end
             ijk = i + Nq * ((j-1) + Nq * (k-1))
             x = localvgeo[ijk,grid.x1id,e]
             y = localvgeo[ijk,grid.x2id,e]
-            if ((x == 0 || x == 1500) && (y == 0 || y == 1500))#TODO let function get passed xmax and ymax remove hard coding
+            if ((x == 0 || abs(x - 1500)<=0.001) && (y == 0 || abs(y - 1500)<=0.001))#TODO let function get passed xmax and ymax remove hard coding
               m = 4
-            elseif (x == 0 || x == 1500 || y == 0 || y == 1500)
+            elseif (x == 0 || abs(x - 1500)<= 0.001 || y == 0 || abs(y - 1500)<=0.001)
               m = 2
             else
               m = 1
@@ -418,7 +420,8 @@ if mpirank == 0
 
 end
 end
-
+###
+#####END
 
 function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF, C_drag, grid_resolution, domain_size, zmax, zsponge, problem_name, diagnostics_fileout, OUTPATH,LWP_fileout)
   # Grid setup (topl contains brickrange information)
@@ -468,7 +471,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(1, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -484,8 +487,9 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
 
   # Setup VTK output callbacks
+  output_interval = 1
   step = [0]
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(output_interval) do (init=false)
     mkpath(OUTPATH)
     outprefix = @sprintf("%s/dycoms_%dD_mpirank%04d_step%04d", OUTPATH, dim,
                            MPI.Comm_rank(mpicomm), step[1])
@@ -498,7 +502,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
 
   #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(output_interval) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
@@ -573,7 +577,7 @@ let
 
     problem_name = "dycoms_IOstrings"
     dt = 0.01
-    timeend = 14400
+    timeend = dt*1e-6 #14400
 
     #Create unique output path directory:
     OUTPATH = IOstrings_outpath_name(problem_name, grid_resolution)
