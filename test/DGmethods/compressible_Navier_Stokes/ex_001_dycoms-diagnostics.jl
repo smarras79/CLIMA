@@ -300,7 +300,7 @@ end
             ijk = i + Nq * ((j-1) + Nq * (k-1))
             x = localvgeo[ijk,grid.x1id,e]
             y = localvgeo[ijk,grid.x2id,e]
-            if ((x == 0 || abs(x - xmax) <= 0.01 && (y == 0 || abs(y - ymax) <= 0.01))#TODO let function get passed xmax and ymax remove hard coding
+            if ((x == 0 || abs(x - xmax) <= 0.01) && (y == 0 || abs(y - ymax) <= 0.01)) #TODO let function get passed xmax and ymax remove hard coding
               m = 4
             elseif (x == 0 || abs(x - xmax) <= 0.01 || y == 0 || abs(y - ymax) <= 0.01)
               m = 2
