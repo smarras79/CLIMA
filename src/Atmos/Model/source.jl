@@ -62,7 +62,6 @@ struct RayleighSponge{FT} <: Source
   "u and v reference (background) velocities"
   u_ref::FT
   v_ref::FT
-  
 end
 
 function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
@@ -77,6 +76,10 @@ function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Va
   #source.ρu -= state.ρu .* SVector{3,FT}(0.0, 0.0, coeff)
   u_background = SVector(s.u_ref, s.v_ref, 0.0)
   u = state.ρu / state.ρ
-  source.ρu -= state.ρ * (u - s.u_ref) * coeff
+  source.ρu[1] -= state.ρ *   (u[1]   - (7.0)) * coeff
+  source.ρu[2] -= state.ρ *   (u[2]   - (-5.5)) * coeff
+    
+  w_ref = FT(0)
+  source.ρu[end] -= state.ρ * (u[end] - w_ref) * coeff
     
 end

@@ -197,8 +197,8 @@ function gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_st
 
      
       ρu_node = SVector(ρ_node*u_node, ρ_node*v_node, ρ_node*w_node)
-      e_int = internal_energy(ρ_node, etot_node, ρu_node/ρ_node, grav*z)
-      #e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
+      #e_int = internal_energy(ρ_node, etot_node, ρu_node/ρ_node, grav*z)
+      e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
         
       TS = PhaseEquil(e_int, qt_node, ρ_node)
       T = air_temperature(TS)
@@ -234,9 +234,9 @@ function gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_st
                 ijk = i + Nq * ((j-1) + Nq * (k-1))
                 x = localvgeo[ijk,grid.x1id,e]
                 y = localvgeo[ijk,grid.x2id,e]
-                if ((x == 0 || abs(x - xmax) <= 0.0001) && (y == 0 || abs(y - ymax) <= 0.0001)) #TODO let function get passed xmax and ymax remove hard coding
+                if ((x == 0 || abs(x - xmax) <= 0.01) && (y == 0 || abs(y - ymax) <= 0.01)) #TODO let function get passed xmax and ymax remove hard coding
                   m = 4
-                elseif (x == 0 || abs(x - xmax) <= 0.0001 || y == 0 || abs(y - ymax) <= 0.0001)
+                elseif (x == 0 || abs(x - xmax) <= 0.01 || y == 0 || abs(y - ymax) <= 0.01)
                   m = 2
                 else
                   m = 1
@@ -300,9 +300,9 @@ end
             ijk = i + Nq * ((j-1) + Nq * (k-1))
             x = localvgeo[ijk,grid.x1id,e]
             y = localvgeo[ijk,grid.x2id,e]
-            if ((x == 0 || abs(x - xmax) <= 0.0001) && (y == 0 || abs(y - ymax) <= 0.0001))#TODO let function get passed xmax and ymax remove hard coding
+            if ((x == 0 || abs(x - xmax) <= 0.01 && (y == 0 || abs(y - ymax) <= 0.01))#TODO let function get passed xmax and ymax remove hard coding
               m = 4
-            elseif (x == 0 || abs(x - xmax) <= 0.0001 || y == 0 || abs(y - ymax) <= 0.0001)
+            elseif (x == 0 || abs(x - xmax) <= 0.01 || y == 0 || abs(y - ymax) <= 0.01)
               m = 2
             else
               m = 1

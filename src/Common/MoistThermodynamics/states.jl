@@ -7,7 +7,7 @@ export ThermodynamicState,
        TemperatureSHumEquil,
        LiquidIcePotTempSHumEquil,
        LiquidIcePotTempSHumNonEquil,
-       LiquidIcePotTempSHumNonEquil_given_pressure
+       LiquidIcePotTempSHumNonEquil_density
 
 """
     PhasePartition
@@ -114,22 +114,6 @@ function LiquidIcePotTempSHumEquil(θ_liq_ice::FT, q_tot::FT, ρ::FT) where {FT<
 end
 
 """
-    LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice, q_pt, p)
-
-Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
-
- - `θ_liq_ice` - liquid-ice potential temperature
- - `q_pt` - phase partition
- - `p` - pressure
-"""
-function LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice::FT, q_pt::PhasePartition{FT}, p::FT) where {FT<:Real}
-    T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, p, q_pt)
-    ρ = air_density(T, p, q_pt)
-    e_int = internal_energy(T, q_pt)
-    PhaseEquil(e_int, q_pt, ρ)
-end
-
-"""
     TemperatureSHumEquil(T, q_tot, p)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
@@ -170,22 +154,7 @@ struct PhaseNonEquil{FT} <: ThermodynamicState{FT}
 end
 
 """
-    LiquidIcePotTempSHumNonEquil(θ_liq_ice, q_pt, ρ)
-
-Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
-
- - `θ_liq_ice` - liquid-ice potential temperature
- - `q_pt` - phase partition
- - `ρ` - density
-"""
-function LiquidIcePotTempSHumNonEquil(θ_liq_ice::FT, q_pt::PhasePartition{FT}, ρ::FT) where {FT<:Real}
-    T = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, ρ, q_pt)
-    e_int = internal_energy(T, q_pt)
-    PhaseNonEquil(e_int, q_pt, ρ)
-end
-
-"""
-    LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice, q_pt, p)
+    LiquidIcePotTempSHumNonEquil(θ_liq_ice, q_pt, p)
 
 Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
 
@@ -193,9 +162,24 @@ Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
  - `q_pt` - phase partition
  - `p` - pressure
 """
-function LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice::FT, q_pt::PhasePartition{FT}, p::FT) where {FT<:Real}
-    T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq_ice, p, q_pt)
+function LiquidIcePotTempSHumNonEquil(θ_liq_ice::FT, q_pt::PhasePartition{FT}, p::FT) where {FT<:Real}
+    T = air_temperature_from_liquid_ice_pottemp(θ_liq_ice, p, q_pt)
     ρ = air_density(T, p, q_pt)
+    e_int = internal_energy(T, q_pt)
+    PhaseNonEquil(e_int, q_pt, ρ)
+end
+
+"""
+    LiquidIcePotTempSHumNonEquil_density(θ_liq_ice, q_pt, ρ)
+
+Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
+
+ - `θ_liq_ice` - liquid-ice potential temperature
+ - `q_pt` - phase partition
+ - `ρ` - density
+"""
+function LiquidIcePotTempSHumNonEquil_density(θ_liq_ice::FT, q_pt::PhasePartition{FT}, ρ::FT) where {FT<:Real}
+    T = air_temperature_initial_guess(θ_liq_ice, ρ, q_pt)
     e_int = internal_energy(T, q_pt)
     PhaseNonEquil(e_int, q_pt, ρ)
 end
