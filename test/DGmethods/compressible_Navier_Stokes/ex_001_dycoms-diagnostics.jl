@@ -466,7 +466,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(),
-                      RayleighSponge{FT}(zmax, zsponge, 1, u_geostrophic, v_geostrophic),
+                      RayleighSponge{FT}(zmax, zsponge, 1, u_geostrophic, v_geostrophic, 0),
                       Subsidence(),
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
