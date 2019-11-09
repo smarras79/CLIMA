@@ -48,9 +48,11 @@ end
 
 """
   RayleighSponge{FT} <: Source
-Rayleigh Damping (Linear Relaxation) for top wall momentum components
+Rayleigh Damping (Relaxation) for top wall momentum components
 Assumes laterally periodic boundary conditions for LES flows. Momentum components
-are relaxed to reference values (zero velocities) at the top boundary.
+are relaxed to reference values (user defined) within the sponge layer whose thickness
+is user defined in the driver.
+The relaxation function now is a simple quartic function. Additional sponges may be added.
 """
 struct RayleighSponge{FT} <: Source
   "Domain maximum height [m]"
@@ -59,9 +61,13 @@ struct RayleighSponge{FT} <: Source
   zsponge::FT
   "Sponge Strength 0 ⩽ c_sponge ⩽ 1"
   c_sponge::FT
-  "Reference relaxation velocity"
+  "Lateral reference relaxation velocity, u [m/s]"
   u_ref::FT
+  "Lateral reference relaxation velocity, v [m/s]"
   v_ref::FT
+  "Vertical reference relaxation velocity, w [m/s]"
+  w_ref::FT
+    
 end
 
 function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
@@ -72,8 +78,8 @@ function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Va
     coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
     coeff = min(coeff_top, 1.0)
   end
-  
-  #u             = source.ρu/source.ρ
-  #u_relax_state = SVector(s.u_ref, s.v_ref, 0.0)
-  source.ρu    -= state.ρu*coeff
+
+  u = state.ρu / state.ρ
+  u_relaxation = SVector(s.u_ref, s.v_ref, s.w_ref)
+  source.ρu -= state.ρ * coeff * (u - u_relaxation)
 end
