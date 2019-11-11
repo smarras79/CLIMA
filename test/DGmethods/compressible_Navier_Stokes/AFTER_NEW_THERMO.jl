@@ -139,6 +139,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   state.moisture.ρq_tot = ρ * q_tot
 
   #writing initialized thermodynamic quantities
+  e_int  = internal_energy(ρ, E, state.ρu, e_pot)
   q_vap = q_tot - q_liq - q_ice
   p     = air_pressure(TS)
   θ     = dry_pottemp(TS)
@@ -146,7 +147,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   ex    = exner(TS)
     if ( abs(x) <= 1e-4 && abs(y) <= 1e-4)
       io = open("./output/ICs-dycoms-NONequil-CHARLIE-THERMO.dat", "a")
-      writedlm(io, [z θ θ_v θ_liq q_tot q_liq q_vap T ex p ρ E])
+      writedlm(io, [z θ θ_v θ_liq q_tot q_liq q_vap T ex p ρ E e_int])
       close(io)
   end
 
@@ -198,7 +199,7 @@ function gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_st
 
      
       ρu_node = SVector(ρ_node*u_node, ρ_node*v_node, ρ_node*w_node)
-      #e_int = internal_energy(ρ_node, etot_node, ρu_node/ρ_node, grav*z)
+      #e_int = internal_energy(ρ_node, ρ_node*etot_node, ρu_node, grav*z)
       e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
         
       TS = PhaseEquil(e_int, qt_node, ρ_node)
@@ -467,7 +468,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                      EquilMoist(),
                      StevensRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1),
                      (Gravity(),
-                      RayleighSponge{FT}(zmax, zsponge, 1, u_geostrophic, v_geostrophic),
+                      RayleighSponge{FT}(zmax, zsponge, 1, u_geostrophic, v_geostrophic, 0.0),
                       Subsidence(),
                       GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)),
                      DYCOMS_BC{FT}(C_drag, LHF, SHF),
@@ -617,7 +618,7 @@ let
 
       #Write ICs file
       io = open("./output/ICs-dycoms-NONequil-CHARLIE-THERMO.dat", "w")
-        header_str = string("z   theta   theta_v   theta_l   q_tot   q_liq   q_vap   T   Exner   p   rho E_tot\n")
+        header_str = string("z   theta   theta_v   theta_l   q_tot   q_liq   q_vap   T   Exner   p   rho E_tot e_int\n")
         write(io, header_str)
       close(io)
 

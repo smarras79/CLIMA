@@ -62,6 +62,7 @@ struct RayleighSponge{FT} <: Source
   "u and v reference (background) velocities"
   u_ref::FT
   v_ref::FT
+  w_ref::FT  
   
 end
 
