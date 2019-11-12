@@ -63,7 +63,7 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   FT            = eltype(state)
   xvert::FT     = z
   #These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(7.75e-3)
+  qref::FT      = FT(9.0e-3) #FT(7.75e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
   Rm_sfc        = gas_constant_air(q_pt_sfc)
@@ -518,9 +518,9 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     nothing
   end
 
-  #Get statistics during run:
-  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(output_interval) do (init=false)
-    current_time_str = string(ODESolvers.gettime(lsrk))
+    #Get statistics during run:
+    cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(output_interval)     do (init=false)
+        current_time_str = string(ODESolvers.gettime(lsrk))
       gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_str, diagnostics_fileout,κ,LWP_fileout)
   end
 
