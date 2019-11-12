@@ -63,10 +63,10 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   FT            = eltype(state)
   xvert::FT     = z
   #These constants are those used by Stevens et al. (2005)
-  qref::FT      = FT(9.0e-3) #FT(7.75e-3)
+  qref::FT      = FT(9.0e-3)
   q_tot_sfc::FT = qref
   q_pt_sfc      = PhasePartition(q_tot_sfc)
-  Rm_sfc        = gas_constant_air(q_pt_sfc)
+  Rm_sfc::FT    = 461.5 #gas_constant_air(q_pt_sfc)
   T_sfc::FT     = 292.5
   P_sfc::FT     = MSLP
   ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
@@ -202,11 +202,11 @@ function gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_st
       #e_int = internal_energy(ρ_node, ρ_node*etot_node, ρu_node, grav*z)
       e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
         
-      TS = PhaseEquil(e_int, qt_node, ρ_node)
-      T = air_temperature(TS)
-      θ_v = virtual_pottemp(TS)
-      θ_l = liquid_ice_pottemp(TS)
-      θ   = dry_pottemp(TS)
+      TS    = PhaseEquil(e_int, qt_node, ρ_node)
+      T     = air_temperature(TS)
+      θ_v   = virtual_pottemp(TS)
+      θ_l   = liquid_ice_pottemp(TS)
+      θ     = dry_pottemp(TS)
       q_liq = PhasePartition(TS).liq
       q_ice = PhasePartition(TS).ice
 
@@ -218,6 +218,9 @@ function gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_st
       thermoQ[i,6,e] = θ
       thermoQ[i,7,e] = θ_v
       thermoQ[i,8,e] = e_int
+        if θ_v < 100 || qt_node < 1e-4
+            @show θ_v qt_node
+        end
     end
   end
 
@@ -488,7 +491,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
  =#
   # Set up the information callback
   starttime = Ref(now())
-  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(90, mpicomm) do (s=false)
+  cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s=false)
     if s
       starttime[] = now()
     else
@@ -568,8 +571,8 @@ let
     N = 4
     # SGS Filter constants
     C_smag = FT(0.15)
-    LHF    = FT(-115)
-    SHF    = FT(-15)
+    LHF    = FT(115)
+    SHF    = FT(15)
     C_drag = FT(0.0011)
     # User defined domain parameters
     Δx, Δy, Δz = 50, 50, 20

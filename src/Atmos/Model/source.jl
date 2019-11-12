@@ -46,38 +46,41 @@ function atmos_source!(s::GeostrophicForcing, m::AtmosModel, source::Vars, state
   source.ρu -= state.ρ * s.f_coriolis * (u - u_geo)
 end
 
+
 """
   RayleighSponge{FT} <: Source
-Rayleigh Damping (Linear Relaxation) for top wall momentum components
+Rayleigh Damping (Relaxation) for top wall momentum components
 Assumes laterally periodic boundary conditions for LES flows. Momentum components
-are relaxed to reference values (zero velocities) at the top boundary.
+are relaxed to reference values (user defined) within the sponge layer whose thickness
+is user defined in the driver.
+The relaxation function now is a simple quartic function. Additional sponges may be added.
 """
 struct RayleighSponge{FT} <: Source
   "Domain maximum height [m]"
   zmax::FT
   "Vertical extent at with sponge starts [m]"
   zsponge::FT
-  "Sponge Strength 0 ⩽ c_sponge ⩽ 1"    
+  "Sponge Strength 0 ⩽ c_sponge ⩽ 1"
   c_sponge::FT
-  "u and v reference (background) velocities"
+  "Lateral reference relaxation velocity, u [m/s]"
   u_ref::FT
+  "Lateral reference relaxation velocity, v [m/s]"
   v_ref::FT
-  w_ref::FT  
-  
+  "Vertical reference relaxation velocity, w [m/s]"
+  w_ref::FT
+    
 end
 
 function atmos_source!(s::RayleighSponge, m::AtmosModel, source::Vars, state::Vars, aux::Vars, t::Real)
   FT = eltype(state)
   z = aux.orientation.Φ / grav
   coeff = FT(0)
-    
   if z >= s.zsponge
-      coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
-      coeff = min(coeff_top, 1.0)
+    coeff_top = s.c_sponge * (sinpi(FT(1/2)*(z - s.zsponge)/(s.zmax-s.zsponge)))^FT(4)
+    coeff = min(coeff_top, 1.0)
   end
-  #source.ρu -= state.ρu .* SVector{3,FT}(0.0, 0.0, coeff)
-  u_background = SVector(s.u_ref, s.v_ref, 0.0)
+
   u = state.ρu / state.ρ
-  source.ρu -= state.ρ * (u - s.u_ref) * coeff
-    
+  u_relaxation = SVector(s.u_ref, s.v_ref, s.w_ref)
+  source.ρu -= state.ρ * coeff * (u - u_relaxation)
 end
