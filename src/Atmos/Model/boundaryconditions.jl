@@ -191,16 +191,7 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     e_intM      = EM/ρM - windspeed^2/2 - grav*zM
     TSM         = PhaseEquil(e_intM, q_totM, ρM) 
     q_vapM      = q_totM - PhasePartition(TSM).liq
-      TM          = air_temperature(TSM)
-
-SST = FT(292.5)
-      TM     = SST
-      q_ptM  = PhasePartition(q_totM)
-      e_intM = internal_energy(TM, q_ptM)
-      e_kinM = FT(1//2)*windspeed^2
-      e_potM = grav*zM
-      e_totM = total_energy(e_kinM, e_potM, TM, q_ptM)
-      stateP.ρe = ρM * e_totM
+    TM          = air_temperature(TSM)
       
     # ----------------------------------------------------------
     # Extract components of diffusive momentum flux (minus-side)
@@ -233,6 +224,18 @@ SST = FT(292.5)
     diffP.ρd_h_tot  = SVector(FT(0),
                               FT(0),
                               bc.LHF + bc.SHF)
+
+    
+    #Dirichlet on T
+    SST = FT(292.5)
+    TM     = SST
+    q_ptM  = PhasePartition(q_totM)
+    e_intM = internal_energy(TM, q_ptM)
+    e_kinM = FT(1//2)*windspeed^2
+    e_potM = grav*zM
+    e_totM = total_energy(e_kinM, e_potM, TM, q_ptM)
+    stateP.ρe = ρM * e_totM
+
   end
 end
 
