@@ -225,7 +225,7 @@ function gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_st
       h_t   = etot_node + Rm*T
       
       thermoQ[i,1,e] = q_liq
-      thermoQ[i,2,e] = h_t #h_OBtot
+      thermoQ[i,2,e] = h_t #h_tot
       thermoQ[i,3,e] = qt_node - q_liq - q_ice
       thermoQ[i,4,e] = T
       thermoQ[i,5,e] = θ_l
@@ -306,7 +306,7 @@ end
 if mpirank == 0
  LWP=MPI.Reduce(LWP_local, +, 0, MPI.COMM_WORLD) / (nranks)
 end
-  S=zeros(Nqk,nvertelem,19)
+  S=zeros(Nqk,nvertelem,20)
   for eh in 1:nhorzelem
     for ev in 1:nvertelem
       e = ev + (eh - 1) * nvertelem
@@ -355,8 +355,9 @@ end
                 S[k,ev,16] += n*wfluct * (thermoQ[ijk,7,e] - Horzavgstot[k,ev,10]) #w'θv'
                 S[k,ev,17] += n*0.5 * (S[k,ev,5] + S[k,ev,10] + S[k,ev,11]) #TKE
                 S[k,ev,18] += n*wfluct * (thermoQ[ijk,5,e] - Horzavgstot[k,ev,5]) #w'θl'
-
+                
                 S[k,ev,19] += n*(Horzavgstot[k,ev,13]) #<h_t>
+                S[k,ev,20] += n*wfluct*(thermoQ[ijk,2,e] - Horzavgstot[k,ev,13]) #<w'h_t'>
                 
                 Zvals[k,ev] = localvgeo[ijk,grid.x3id,e] #z
             end
@@ -366,8 +367,8 @@ end
   end
 
 #See Outputs below for what S[k,ev,:] are respectively.
-  S_avg = zeros(Nqk,nvertelem,19)
-  for s in 1:19
+  S_avg = zeros(Nqk,nvertelem,20)
+  for s in 1:20
     for ev in 1:nvertelem
       for k in 1:Nqk
         S_avg[k,ev,s] = MPI.Reduce(S[k,ev,s], +, 0, MPI.COMM_WORLD)
@@ -406,6 +407,7 @@ end
   Outputeint = zeros(nvertelem * Nqk)
   Outputetot = zeros(nvertelem * Nqk)
   Outputhtot = zeros(nvertelem * Nqk)
+  OutputWhtot = zeros(nvertelem * Nqk)
 
   for ev in 1:nvertelem
     for k in 1:Nqk
@@ -433,9 +435,10 @@ end
       OutputWthetav[i] = S_avg[k,ev,16] # <w'thetav'>
       OutputTKE[i] = S_avg[k,ev,17] # <TKE>
       OutputWthetal[i] = S_avg[k,ev,18] # <w'thetal'>
-      Outputeint[i] = Horzavgstot[k,ev,11] # <e_int>
-      Outputetot[i] = Horzavgstot[k,ev,12] / Horzavgstot[k,ev,1] #<e_tot>
-      Outputhtot[i] = Horzavgstot[k,ev,13] # h_tot
+      Outputeint[i]  = Horzavgstot[k,ev,11] # <e_int>
+      Outputetot[i]  = Horzavgstot[k,ev,12] / Horzavgstot[k,ev,1] #<e_tot>
+      Outputhtot[i]  = S_avg[k,ev,19] # <h_tot>
+      OutputWhtot[i] = S_avg[k,ev,20] # <w'h_tot'>
       OutputZ[i] = Zvals[k,ev] # Height
 
     end
@@ -446,7 +449,7 @@ if mpirank == 0
   io = open(diagnostics_fileout, "a")
      current_time_str = string(current_time_string, "\n")
      write(io, current_time_str)
-     writedlm(io, [Outputtheta Outputthetaliq Outputthetav OutputRHO Outputqt OutputQLIQ OutputU OutputV OutputW OutputWtheta OutputWthetav OutputUU OutputVV OutputWW OutputWU OutputWV OutputWWW OutputWRHO OutputWQVAP OutputWQLIQ OutputWqt Outputeint Outputetot Outputhtot OutputZ])
+     writedlm(io, [Outputtheta Outputthetaliq Outputthetav OutputRHO Outputqt OutputQLIQ OutputU OutputV OutputW OutputWtheta OutputWthetav OutputUU OutputVV OutputWW OutputWU OutputWV OutputWWW OutputWRHO OutputWQVAP OutputWQLIQ OutputWqt Outputeint Outputetot Outputhtot OutputWhtot OutputZ])
   close(io)
 
   #Write <LWP>
@@ -628,7 +631,7 @@ let
       # Write diagnostics file:
       diagnostics_fileout = string(OUTPATH, "/statistic_diagnostics.dat")
       io = open(diagnostics_fileout, "w")
-        diags_header_str = string("<theta>  <thetal> <thetav> <rho> <qt>  <ql>  <u>  <v> <w>  <th.w>  <thv.w>  <u.u>  <v.v>  <w.w>  <u.w>  <v.w>  <w.w.w>  <rho.w>  <qv.w>  <ql.w>  <qt.w> <e_int> <e_tot> <h_tot> z\n")
+        diags_header_str = string("<theta>  <thetal> <thetav> <rho> <qt>  <ql>  <u>  <v> <w>  <th.w>  <thv.w>  <u.u>  <v.v>  <w.w>  <u.w>  <v.w>  <w.w.w>  <rho.w>  <qv.w>  <ql.w>  <qt.w> <e_int> <e_tot> <h_tot> <w'.h_tot'> z\n")
         write(io, diags_header_str)
       close(io)
 
