@@ -106,15 +106,21 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
 
   # Calculate PhasePartition object for vertical domain extent
   q_pt  = PhasePartition(q_tot, q_liq, q_ice)
+  Rm    = gas_constant_air(q_pt)
+    
   #Pressure
   H     = Rm_sfc * T_sfc / grav;
   p     = P_sfc * exp(-xvert/H);
-    #Density, Temperature
+
+  #Density, Temperature
 #  TS    = LiquidIcePotTempSHumNonEquil_no_ρ(θ_liq, q_pt, p)
-  TS    = LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq, q_pt, p) 
+#=  TS    = LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq, q_pt, p) 
   ρ     = air_density(TS)
   T     = air_temperature(TS)
-
+    =#
+  T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq, p, q_pt)
+  ρ = air_density(T, p, q_pt)
+    
   #Assign State Variables
   u1, u2 = FT(6), FT(7)
   v1, v2 = FT(-4.25), FT(-5.5)
@@ -132,22 +138,27 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   end
   e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
-  E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
+  e_tot       = total_energy(e_kin, e_pot, T, q_pt)
+  E           = ρ * e_tot
   state.ρ     = ρ
   state.ρu    = SVector(ρ*u, ρ*v, ρ*w)
   state.ρe    = E
   state.moisture.ρq_tot = ρ * q_tot
 
   #writing initialized thermodynamic quantities
-  e_int  = internal_energy(ρ, E, state.ρu, e_pot)
+  e_int  = internal_energy(ρ, state.ρe, state.ρu, e_pot)
   q_vap = q_tot - q_liq - q_ice
-  p     = air_pressure(TS)
-  θ     = dry_pottemp(TS)
-  θ_v   = virtual_pottemp(TS)
-  ex    = exner(TS)
+  #p     = air_pressure(TS)
+  #θ     = dry_pottemp(TS)
+  #θ_v   = virtual_pottemp(TS)
+  p     = air_pressure(T, ρ, q_pt)
+  θ     = dry_pottemp(T, ρ, q_pt)
+  θ_v   = virtual_pottemp(T, ρ, q_pt)
+  ex    = exner(T, ρ, q_pt)  
+  h_t   = e_tot + Rm*T
     if ( abs(x) <= 1e-4 && abs(y) <= 1e-4)
       io = open("./output/ICs-dycoms-NONequil-CHARLIE-THERMO.dat", "a")
-      writedlm(io, [z θ θ_v θ_liq q_tot q_liq q_vap T ex p ρ E e_int])
+      writedlm(io, [z θ θ_v θ_liq q_tot q_liq q_vap T ex p ρ E e_int h_t])
       close(io)
   end
 
@@ -197,36 +208,36 @@ function gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_st
       etot_node = localQ[i,5,e] / localQ[i,1,e]
       qt_node   = localQ[i,6,e] / localQ[i,1,e]
 
-     
+      
       ρu_node = SVector(ρ_node*u_node, ρ_node*v_node, ρ_node*w_node)
-      #e_int = internal_energy(ρ_node, ρ_node*etot_node, ρu_node, grav*z)
-      e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - grav * z
+      e_pot = grav*z  
+      #e_int = internal_energy(ρ_node, ρ_node*etot_node, ρu_node, e_pot)
+      e_int = etot_node - 1//2 * (u_node^2 + v_node^2 + w_node^2) - e_pot
         
-      TS    = PhaseEquil(e_int, qt_node, ρ_node)
+      TS    = PhaseEquil(e_int, qt_node, ρ_node)        
       T     = air_temperature(TS)
       θ_v   = virtual_pottemp(TS)
       θ_l   = liquid_ice_pottemp(TS)
       θ     = dry_pottemp(TS)
       q_liq = PhasePartition(TS).liq
       q_ice = PhasePartition(TS).ice
-
+      Rm    = gas_constant_air(TS)      
+      h_t   = etot_node + Rm*T
+      
       thermoQ[i,1,e] = q_liq
-      thermoQ[i,2,e] = q_ice
+      thermoQ[i,2,e] = h_t #h_OBtot
       thermoQ[i,3,e] = qt_node - q_liq - q_ice
       thermoQ[i,4,e] = T
       thermoQ[i,5,e] = θ_l
       thermoQ[i,6,e] = θ
       thermoQ[i,7,e] = θ_v
       thermoQ[i,8,e] = e_int
-        if θ_v < 100 || qt_node < 1e-4
-            @show θ_v qt_node
-        end
     end
   end
 
   #Horizontal averages we might need
   #Horizontal averages we might need
-  Horzavgs = zeros(Nqk, nvertelem,12)
+  Horzavgs = zeros(Nqk, nvertelem,13)
   LWP_local = 0
   pointslocal = 0
   for eh in 1:nhorzelem
@@ -265,6 +276,7 @@ function gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_st
                 Horzavgs[k,ev,10] += n*thermoQ[ijk,7,e] #θv
                 Horzavgs[k,ev,11] += n*thermoQ[ijk,8,e] #e_int
                 Horzavgs[k,ev,12] += n*localQ[ijk,5,e] #e_tot
+                Horzavgs[k,ev,13] += n*thermoQ[ijk,2,e] #h_tot
                 #The next three lines are for the liquid water path
                 if ev == floor(nvertelem/2) && k==floor(Nqk/2)
                     LWP_local += n*(localaux[ijk,1,e] + localaux[ijk,2,e])/κ / (Nq * Nq * nhorzelem)
@@ -279,8 +291,8 @@ function gather_diagnostics(dg, Q, grid_resolution, domain_size, current_time_st
   end
   points = 0
   points = MPI.Reduce(pointslocal, +, 0, MPI.COMM_WORLD)
-    Horzavgstot = zeros(Nqk,nvertelem,12)
-    for s in 1:12
+    Horzavgstot = zeros(Nqk,nvertelem,13)
+    for s in 1:13
         for ev in 1:nvertelem
             for k in 1:Nqk
 
@@ -294,7 +306,7 @@ end
 if mpirank == 0
  LWP=MPI.Reduce(LWP_local, +, 0, MPI.COMM_WORLD) / (nranks)
 end
-  S=zeros(Nqk,nvertelem,18)
+  S=zeros(Nqk,nvertelem,19)
   for eh in 1:nhorzelem
     for ev in 1:nvertelem
       e = ev + (eh - 1) * nvertelem
@@ -344,6 +356,8 @@ end
                 S[k,ev,17] += n*0.5 * (S[k,ev,5] + S[k,ev,10] + S[k,ev,11]) #TKE
                 S[k,ev,18] += n*wfluct * (thermoQ[ijk,5,e] - Horzavgstot[k,ev,5]) #w'θl'
 
+                S[k,ev,19] += n*(Horzavgstot[k,ev,13]) #<h_t>
+                
                 Zvals[k,ev] = localvgeo[ijk,grid.x3id,e] #z
             end
         end
@@ -352,8 +366,8 @@ end
   end
 
 #See Outputs below for what S[k,ev,:] are respectively.
-  S_avg = zeros(Nqk,nvertelem,18)
-  for s in 1:18
+  S_avg = zeros(Nqk,nvertelem,19)
+  for s in 1:19
     for ev in 1:nvertelem
       for k in 1:Nqk
         S_avg[k,ev,s] = MPI.Reduce(S[k,ev,s], +, 0, MPI.COMM_WORLD)
@@ -381,6 +395,7 @@ end
   OutputZ = zeros(nvertelem * Nqk)
   OutputU = zeros(nvertelem * Nqk)
   OutputV = zeros(nvertelem * Nqk)
+  OutputW = zeros(nvertelem * Nqk)
   Outputtheta = zeros(nvertelem * Nqk)
   Outputqt = zeros(nvertelem * Nqk)
   OutputWqt = zeros(nvertelem * Nqk)
@@ -390,6 +405,7 @@ end
   OutputWthetal = zeros(nvertelem * Nqk)
   Outputeint = zeros(nvertelem * Nqk)
   Outputetot = zeros(nvertelem * Nqk)
+  Outputhtot = zeros(nvertelem * Nqk)
 
   for ev in 1:nvertelem
     for k in 1:Nqk
@@ -409,6 +425,7 @@ end
       OutputVV[i] = S_avg[k,ev,11] #<v'v'>
       OutputU[i] =  Horzavgstot[k,ev,2] / Horzavgstot[k,ev,1] # <u>
       OutputV[i] =  Horzavgstot[k,ev,3] / Horzavgstot[k,ev,1] # <v>
+      OutputW[i] =  Horzavgstot[k,ev,4] / Horzavgstot[k,ev,1] # <w>
       Outputtheta[i] = S_avg[k,ev,12] # <theta>
       Outputqt[i] = S_avg[k,ev,13]  # <qt>
       OutputWqt[i] = S_avg[k,ev,14] #<w'qt'>
@@ -418,7 +435,9 @@ end
       OutputWthetal[i] = S_avg[k,ev,18] # <w'thetal'>
       Outputeint[i] = Horzavgstot[k,ev,11] # <e_int>
       Outputetot[i] = Horzavgstot[k,ev,12] / Horzavgstot[k,ev,1] #<e_tot>
+      Outputhtot[i] = Horzavgstot[k,ev,13] # h_tot
       OutputZ[i] = Zvals[k,ev] # Height
+
     end
   end
 if mpirank == 0
@@ -427,7 +446,7 @@ if mpirank == 0
   io = open(diagnostics_fileout, "a")
      current_time_str = string(current_time_string, "\n")
      write(io, current_time_str)
-     writedlm(io, [Outputtheta Outputthetaliq Outputthetav OutputRHO Outputqt OutputQLIQ OutputU OutputV OutputWtheta OutputWthetav OutputUU OutputVV OutputWW OutputWU OutputWV OutputWWW OutputWRHO OutputWQVAP OutputWQLIQ OutputWqt Outputeint Outputetot OutputZ])
+     writedlm(io, [Outputtheta Outputthetaliq Outputthetav OutputRHO Outputqt OutputQLIQ OutputU OutputV OutputW OutputWtheta OutputWthetav OutputUU OutputVV OutputWW OutputWU OutputWV OutputWWW OutputWRHO OutputWQVAP OutputWQLIQ OutputWqt Outputeint Outputetot Outputhtot OutputZ])
   close(io)
 
   #Write <LWP>
@@ -507,7 +526,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   end
 
   # Setup VTK output callbacks
-  output_interval = 7500
+  output_interval = 5000
   step = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(output_interval) do (init=false)
     mkpath(OUTPATH)
@@ -609,7 +628,7 @@ let
       # Write diagnostics file:
       diagnostics_fileout = string(OUTPATH, "/statistic_diagnostics.dat")
       io = open(diagnostics_fileout, "w")
-        diags_header_str = string("<theta>  <thetal> <thetav> <rho> <qt>  <ql>  <u>  <v>  <th.w>  <thv.w>  <u.u>  <v.v>  <w.w>  <u.w>  <v.w>  <w.w.w>  <rho.w>  <qv.w>  <ql.w>  <qt.w> <e_int> <e_tot> z\n")
+        diags_header_str = string("<theta>  <thetal> <thetav> <rho> <qt>  <ql>  <u>  <v> <w>  <th.w>  <thv.w>  <u.u>  <v.v>  <w.w>  <u.w>  <v.w>  <w.w.w>  <rho.w>  <qv.w>  <ql.w>  <qt.w> <e_int> <e_tot> <h_tot> z\n")
         write(io, diags_header_str)
       close(io)
 
@@ -621,7 +640,7 @@ let
 
       #Write ICs file
       io = open("./output/ICs-dycoms-NONequil-CHARLIE-THERMO.dat", "w")
-        header_str = string("z   theta   theta_v   theta_l   q_tot   q_liq   q_vap   T   Exner   p   rho E_tot e_int\n")
+        header_str = string("z   theta   theta_v   theta_l   q_tot   q_liq   q_vap   T   Exner   p   rho E_tot e_int h_tot\n")
         write(io, header_str)
       close(io)
 

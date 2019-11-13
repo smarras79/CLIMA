@@ -185,13 +185,28 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # --------------------------
     # Bottom boundary quantities 
     # --------------------------
-    zM          = auxM.coord[3] 
+    zM          = auxM.coord[3]
     q_totM      = QTM/ρM
     windspeed   = sqrt(uM^2 + vM^2 + wM^2)
+#=    #FIXED FLUX:
     e_intM      = EM/ρM - windspeed^2/2 - grav*zM
     TSM         = PhaseEquil(e_intM, q_totM, ρM) 
     q_vapM      = q_totM - PhasePartition(TSM).liq
-    TM          = air_temperature(TSM)
+=#
+
+#SM
+      #FIX T=SST:
+      #= TM          = air_temperature(TSM)=#
+      SST = 292.5
+      TM     = SST
+      q_ptM  = PhasePartition(q_totM)
+      e_intM = internal_energy(TM, q_ptM)
+      e_kinM = 0.5*windspeed^2
+      e_potM = grav*zM
+      e_totM = total_energy(e_kinM, e_potM, TM, q_ptM)
+      stateP.ρe = ρM * e_totM
+      
+#END SM
     # ----------------------------------------------------------
     # Extract components of diffusive momentum flux (minus-side)
     # ----------------------------------------------------------
@@ -219,10 +234,12 @@ function atmos_boundary_state!(::CentralNumericalFluxDiffusive, bc::DYCOMS_BC,
     # ----------------------------------------------------------
     # Boundary energy fluxes
     # ----------------------------------------------------------
-    # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
+#SM
+#=      # Assign diffusive enthalpy flux (i.e. ρ(J+D) terms) 
     diffP.ρd_h_tot  = SVector(FT(0),
                               FT(0),
                               bc.LHF + bc.SHF)
+=#
   end
 end
 
