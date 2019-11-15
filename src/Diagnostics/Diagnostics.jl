@@ -66,8 +66,8 @@ num_thermo(FT) = varsize(vars_thermo(FT))
 thermo_vars(array) = Vars{vars_thermo(eltype(array))}(array)
 
 function compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e,
-                         localvgeo, x3id, zvals, thermoQ)
-    zvals[k,ev] = localvgeo[ijk,x3id,e]
+                         x, y, z, zvals, thermoQ)
+    zvals[k,ev] = z
 
     u̅ = state.ρu[1] / state.ρ
     v̅ = state.ρu[2] / state.ρ
@@ -75,7 +75,7 @@ function compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e,
     e̅_tot = state.ρe / state.ρ
     q̅_tot = state.moisture.ρq_tot / state.ρ
 
-    e_int = e̅_tot - 1//2 * (u̅^2 + v̅^2 + w̅^2) - grav * zvals[k,ev]
+    e_int = e̅_tot - 1//2 * (u̅^2 + v̅^2 + w̅^2) - grav * z
 
     ts = PhaseEquil(convert(FT, e_int), q̅_tot, state.ρ)
     Phpart = PhasePartition(ts)
@@ -88,7 +88,7 @@ function compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e,
     th.θ_liq_ice = liquid_ice_pottemp(ts)
     th.θ_dry     = dry_pottemp(ts)
     th.θ_v       = virtual_pottemp(ts)
-    th.e_int = e_int
+    th.e_int     = e_int
 end
 
 # horizontal averages
@@ -111,30 +111,42 @@ end
 num_horzavg(FT) = varsize(vars_horzavg(FT))
 horzavg_vars(array) = Vars{vars_horzavg(eltype(array))}(array)
 
-function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e,
-                           Nqk, nvertelem, localaux, LWP,
-                           thermoQ, horzsums, localvgeo, xmax, ymax, repdvsr, x1id, x2id, Nq)
-    #the next lines are used to properly take into account repeating nodes while also factoring in nodes on the boundary
-    x = localvgeo[ijk,x1id,e]
-    y = localvgeo[ijk,x2id,e]
-
-    if ((x == 0 || abs(x - xmax)<=0.001) && (ymax == 0 || abs(y - 1500)<=0.001))
-      bound = 4 #node on the corner of domain thus is not repeated and we cancel out the 4 times repetition below
-    elseif (x == 0 || abs(x - xmax)<= 0.001 || ymax == 0 || abs(y - 1500)<=0.001)
-      bound = 2 #node on the edge of the domain thus we halve it's repetition
+# compute adjustment for repeating nodes and nodes on the boundary
+function node_adjustment(i, j, Nq, x, xmax, y, ymax)
+    # node on the corner of domain is not repeated
+    if ((x == 0 || abs(x - xmax) <= 0.001)
+        && (ymax == 0 || abs(y - 1500) <= 0.001))
+        # cancel out the 4 times repetition below
+        bound = 4 
+    # node on the edge of the domain
+    elseif (x == 0 || abs(x - xmax) <= 0.001
+            || ymax == 0 || abs(y - 1500) <= 0.001)
+        # half its repetition
+        bound = 2
+    # node on not on any considered boundary
     else
-      bound = 1 #node not on any considered boundary and thus nothing done.
+        # no adjustment
+        bound = 1
     end
 
-    if ((i == 1 || i == Nq) && (j ==1 || j==Nq))
-      rep = 1/4 * bound #corner node repeated 4 times for horizontal considerations
-    elseif (i == 1 || i == Nq || j==1 || j==Nq)
-      rep = 1/2 * bound #edge node repeated 2 times for horizontal considerations
+    if ((i == 1 || i == Nq) && (j == 1 || j == Nq))
+        # corner node repeated 4 times for horizontal considerations
+        rep = 1/4 * bound
+    elseif (i == 1 || i == Nq || j == 1 || j == Nq)
+        # edge node repeated 2 times for horizontal considerations
+        rep = 1/2 * bound
     else
-      rep = 1 * bound # inner node nothing done
+        # inner node nothing done
+        rep = 1 * bound
     end
-    #end of repetition consideration
 
+    return rep
+end
+
+function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+                           Nq, xmax, ymax, Nqk, nvertelem, localaux, κ,
+                           LWP, thermoQ, horzsums, repdvsr)
+    rep = node_adjustment(i, j, Nq, x, xmax, y, ymax)
     th = thermo_vars(thermoQ[ijk,e])
     hs = horzavg_vars(horzsums[k,ev])
     hs.ρ         += rep * state.ρ
@@ -151,40 +163,21 @@ function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e,
     hs.e_int     += rep * th.e_int
 
     # liquid water path
-    # This condition is also going to be used to get the number of points that exist on a horizontal plane provided all planes have the same number of points
+    # this condition is also going to be used to get the number of points that
+    # exist on a horizontal plane provided all planes have the same number of
+    # points
     # TODO adjust for possibility of non equivalent horizontal slabs
     if ev == floor(nvertelem/2) && k == floor(Nqk/2)
         # TODO: uncomment the line below after rewriting the LWP assignment below using aux.∫dz...?
         # aux = extract_aux(dg, localaux, ijk, e)
-        LWP[1] += rep * (localaux[ijk,1,e] + localaux[ijk,2,e]) 
-        repdvsr[1] += rep #number of points to be divided by
+        LWP[1] += rep * (localaux[ijk,1,e] + localaux[ijk,2,e]) / κ 
+        repdvsr[1] += rep # number of points to be divided by
     end
 end
 
-function compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e,
-                                 zvals, thermoQ, horzavgs, dsums, localvgeo, xmax, ymax, x1id, x2id, Nq)
-
-    #the next lines are used to properly take into account repeating nodes while also factoring in nodes on the boundary
-    x = localvgeo[ijk,x1id,e]
-    y = localvgeo[ijk,x2id,e]
-
-    if ((x == 0 || abs(x - xmax)<=0.001) && (ymax == 0 || abs(y - 1500)<=0.001))
-      bound = 4 #node on the corner of domain thus is not repeated and we cancel out the 4 times repetition below
-    elseif (x == 0 || abs(x - xmax)<= 0.001 || ymax == 0 || abs(y - 1500)<=0.001)
-      bound = 2 #node on the edge of the domain thus we halve it's repetition
-    else
-      bound = 1 #node not on any considered boundary and thus nothing done.
-    end
-
-    if ((i == 1 || i == Nq) && (j ==1 || j==Nq))
-      rep = 1/4 * bound #corner node repeated 4 times for horizontal considerations
-    elseif (i == 1 || i == Nq || j==1 || j==Nq)
-      rep = 1/2 * bound #edge node repeated 2 times for horizontal considerations
-    else
-      rep = 1 * bound # inner node nothing done
-    end
-    #end of repetition consideration
-
+function compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+                                 Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
+    rep = node_adjustment(i, j, x, xmax, y, ymax, Nq)
     th = thermo_vars(thermoQ[ijk,e])
     ha = horzavg_vars(horzavgs[k,ev])
     ds = diagnostic_vars(dsums[k,ev])
@@ -245,8 +238,7 @@ function horz_average_all(FT, mpicomm, num, (Nqk, nvertelem), sums, repdvsr)
     for ev in 1:nvertelem
         for k in 1:Nqk
             for n in 1:num
-                avgs[k,ev][n] = sums[k,ev][n]
-                avgs[k,ev][n] = MPI.Reduce(avgs[k,ev][n], +, 0, mpicomm)
+                avgs[k,ev][n] = MPI.Reduce(sums[k,ev][n], +, 0, mpicomm)
                 if mpirank == 0
                     avgs[k,ev][n] /= repdvsr
                 end
@@ -262,7 +254,7 @@ end
 Compute various diagnostic variables and write them to JLD2 files in `out_dir`,
 indexed by `current_time_string`.
 """
-function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out_dir)
+function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, xmax, ymax ,out_dir)
     mpirank = MPI.Comm_rank(mpicomm)
     nranks = MPI.Comm_size(mpicomm)
 
@@ -293,22 +285,22 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out
     nstate = num_state(bl, FT)
     nauxstate = num_aux(bl, FT)
 
-    # divisor for horizontal averages
-    l_repdvsr = zeros(FT, 1) 
 
     # traverse the grid, running each of `funs` on each node
     function visitQ(FT, funs::Vector{Function})
         for eh in 1:nhorzelem
             for ev in 1:nvertelem
                 e = ev + (eh - 1) * nvertelem
-
                 for k in 1:Nqk
                     for j in 1:Nq
                         for i in 1:Nq
                             ijk = i + Nq * ((j-1) + Nq * (k-1)) 
                             state = extract_state(dg, localQ, ijk, e)
+                            x = localvgeo[ijk,grid.x1id,e]
+                            y = localvgeo[ijk,grid.x2id,e]
+                            z = localvgeo[ijk,grid.x3id,e]
                             for f in funs
-                                f(FT, state, i, j, k, ijk, ev, eh, e)
+                                f(FT, state, i, j, k, ijk, ev, eh, e, x, y, z)
                             end
                         end
                     end
@@ -320,17 +312,20 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out
     # record the vertical coordinates and compute thermo variables
     zvals = zeros(Nqk, nvertelem)
     thermoQ = [zeros(FT, num_thermo(FT)) for _ in 1:npoints, _ in 1:nrealelem]
-    thermo_visitor(FT, state, i, j, k, ijk, ev, eh, e) =
-        compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e, localvgeo, grid.x3id,
+    thermo_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
+        compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
                         zvals, thermoQ)
+
+    # divisor for horizontal averages
+    l_repdvsr = zeros(FT, 1) 
 
     # compute the horizontal sums and the liquid water path
     l_LWP = zeros(FT, 1)
     horzsums = [zeros(FT, num_horzavg(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
-    horzsum_visitor(FT, state, i, j, k, ijk, ev, eh, e) =
-        compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e,
-                          Nqk, nvertelem, localaux, l_LWP,
-                          thermoQ, horzsums, localvgeo, xmax, ymax, l_repdvsr, grid.x1id, grid.x2id, Nq)
+    horzsum_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
+        compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+                          Nq, xmax, ymax, Nqk, nvertelem, localaux, κ,
+                          l_LWP, thermoQ, horzsums, l_repdvsr)
 
     # run both in one grid traversal
     visitQ(FT, Function[thermo_visitor, horzsum_visitor])
@@ -338,6 +333,7 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out
     # compute the full number of points on a slab
     repdvsr = zero(FT)
     repdvsr = MPI.Reduce(l_repdvsr[1], +, 0, mpicomm)
+
     # compute the horizontal and LWP averages
     horzavgs = horz_average_all(FT, mpicomm, num_horzavg(FT), (Nqk, nvertelem),
                                 horzsums, repdvsr)
@@ -349,9 +345,9 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out
 
     # compute the diagnostics with the previous computed variables
     dsums = [zeros(FT, num_diagnostic(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
-    dsum_visitor(FT, state, i, j, k, ijk, ev, eh, e) =
-        compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e,
-                                zvals, thermoQ, horzavgs, dsums, localvgeo, xmax, ymax, grid.x1id, grid.x2id, Nq)
+    dsum_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
+        compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+                                Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
 
     # another grid traversal
     visitQ(FT, Function[dsum_visitor])

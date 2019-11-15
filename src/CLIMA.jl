@@ -1,5 +1,6 @@
 module CLIMA
 
+include("misc.jl")
 include("Utilities/ParametersType/ParametersType.jl")
 include("Common/PlanetParameters/PlanetParameters.jl")
 include("Utilities/RootSolvers/RootSolvers.jl")
@@ -29,6 +30,9 @@ include("ODESolvers/GenericCallbacks.jl")
 include("Atmos/Model/AtmosModel.jl")
 include("Diagnostics/Diagnostics.jl")
 include("InputOutput/VTK/VTK.jl")
+<<<<<<< HEAD
 include("misc.jl")
+=======
+>>>>>>> f31d71af3a157eef6f8e79e751f84cc783132e1f
 
 end
