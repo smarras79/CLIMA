@@ -65,8 +65,8 @@ end
 num_thermo(FT) = varsize(vars_thermo(FT))
 thermo_vars(array) = Vars{vars_thermo(eltype(array))}(array)
 
-function compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e,
-                         x, y, z, zvals, thermoQ)
+function compute_thermo!(FT, state, aux, i, j, k, ijk, ev, eh, e,
+                         x, y, z, zvals, thermoQ, model)
     zvals[k,ev] = z
 
     u̅ = state.ρu[1] / state.ρ
@@ -74,10 +74,11 @@ function compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e,
     w̅ = state.ρu[3] / state.ρ
     e̅_tot = state.ρe / state.ρ
     q̅_tot = state.moisture.ρq_tot / state.ρ
-
-    e_int = e̅_tot - 1//2 * (u̅^2 + v̅^2 + w̅^2) - grav * z
-
-    ts = PhaseEquil(convert(FT, e_int), q̅_tot, state.ρ)
+    
+    e_int = internal_energy(model.moisture, model.orientation, state, aux)
+    ts = thermo_state(model.moisture, model.orientation, state, aux)
+    #e_int = e̅_tot - 1//2 * (u̅^2 + v̅^2 + w̅^2) - grav * z
+    #ts = PhaseEquil(convert(FT, e_int), q̅_tot, state.ρ)
     Phpart = PhasePartition(ts)
 
     th = thermo_vars(thermoQ[ijk,e])
@@ -143,7 +144,7 @@ function node_adjustment(i, j, Nq, x, xmax, y, ymax)
     return rep
 end
 
-function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+function compute_horzsums!(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z,
                            Nq, xmax, ymax, Nqk, nvertelem, localaux,
                            LWP, thermoQ, horzsums, repdvsr)
     rep = node_adjustment(i, j, Nq, x, xmax, y, ymax)
@@ -175,7 +176,7 @@ function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
     end
 end
 
-function compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+function compute_diagnosticsums!(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z,
                                  Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
     rep = node_adjustment(i, j, x, xmax, y, ymax, Nq)
     th = thermo_vars(thermoQ[ijk,e])
@@ -257,7 +258,7 @@ indexed by `current_time_string`.
 function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out_dir)
     mpirank = MPI.Comm_rank(mpicomm)
     nranks = MPI.Comm_size(mpicomm)
-
+    model = dg.model
     # extract grid information
     bl = dg.balancelaw
     grid = dg.grid
@@ -296,11 +297,12 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out
                         for i in 1:Nq
                             ijk = i + Nq * ((j-1) + Nq * (k-1)) 
                             state = extract_state(dg, localQ, ijk, e)
+                            aux = extrac_aux(dg, localaux, ijk, e)
                             x = localvgeo[ijk,grid.x1id,e]
                             y = localvgeo[ijk,grid.x2id,e]
                             z = localvgeo[ijk,grid.x3id,e]
                             for f in funs
-                                f(FT, state, i, j, k, ijk, ev, eh, e, x, y, z)
+                                f(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z)
                             end
                         end
                     end
@@ -312,9 +314,9 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out
     # record the vertical coordinates and compute thermo variables
     zvals = zeros(Nqk, nvertelem)
     thermoQ = [zeros(FT, num_thermo(FT)) for _ in 1:npoints, _ in 1:nrealelem]
-    thermo_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
-        compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
-                        zvals, thermoQ)
+    thermo_visitor(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z) =
+        compute_thermo!(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z,
+                        zvals, thermoQ, model)
 
     # divisor for horizontal averages
     l_repdvsr = zeros(FT, 1) 
@@ -322,8 +324,8 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out
     # compute the horizontal sums and the liquid water path
     l_LWP = zeros(FT, 1)
     horzsums = [zeros(FT, num_horzavg(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
-    horzsum_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
-        compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+    horzsum_visitor(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z) =
+        compute_horzsums!(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z,
                           Nq, xmax, ymax, Nqk, nvertelem, localaux,
                           l_LWP, thermoQ, horzsums, l_repdvsr)
 
@@ -345,8 +347,8 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out
 
     # compute the diagnostics with the previous computed variables
     dsums = [zeros(FT, num_diagnostic(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
-    dsum_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
-        compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
+    dsum_visitor(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z) =
+        compute_diagnosticsums!(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z,
                                 Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
 
     # another grid traversal
