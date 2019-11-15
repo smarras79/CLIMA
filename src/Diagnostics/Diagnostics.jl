@@ -144,7 +144,7 @@ function node_adjustment(i, j, Nq, x, xmax, y, ymax)
 end
 
 function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
-                           Nq, xmax, ymax, Nqk, nvertelem, localaux, κ,
+                           Nq, xmax, ymax, Nqk, nvertelem, localaux,
                            LWP, thermoQ, horzsums, repdvsr)
     rep = node_adjustment(i, j, Nq, x, xmax, y, ymax)
     th = thermo_vars(thermoQ[ijk,e])
@@ -170,7 +170,7 @@ function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
     if ev == floor(nvertelem/2) && k == floor(Nqk/2)
         # TODO: uncomment the line below after rewriting the LWP assignment below using aux.∫dz...?
         # aux = extract_aux(dg, localaux, ijk, e)
-        LWP[1] += rep * (localaux[ijk,1,e] + localaux[ijk,2,e]) / κ 
+        LWP[1] += rep * (localaux[ijk,1,e] + localaux[ijk,2,e]) 
         repdvsr[1] += rep # number of points to be divided by
     end
 end
@@ -254,7 +254,7 @@ end
 Compute various diagnostic variables and write them to JLD2 files in `out_dir`,
 indexed by `current_time_string`.
 """
-function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, xmax, ymax ,out_dir)
+function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out_dir)
     mpirank = MPI.Comm_rank(mpicomm)
     nranks = MPI.Comm_size(mpicomm)
 
@@ -324,7 +324,7 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, xmax, ymax 
     horzsums = [zeros(FT, num_horzavg(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
     horzsum_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
         compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
-                          Nq, xmax, ymax, Nqk, nvertelem, localaux, κ,
+                          Nq, xmax, ymax, Nqk, nvertelem, localaux,
                           l_LWP, thermoQ, horzsums, l_repdvsr)
 
     # run both in one grid traversal

@@ -203,14 +203,14 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   # Get statistics during run
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(50) do (init=false)
     current_time_str = string(ODESolvers.gettime(lsrk))
-    gather_diagnostics(mpicomm, dg, Q, current_time_str, κ, xmax, ymax, out_dir)
+    gather_diagnostics(mpicomm, dg, Q, current_time_str, xmax, ymax, out_dir)
   end
 
   solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
 
   # Get statistics at the end of the run
   current_time_str = string(ODESolvers.gettime(lsrk))
-  gather_diagnostics(mpicomm, dg, Q, current_time_str, κ, xmax, ymax, out_dir)
+  gather_diagnostics(mpicomm, dg, Q, current_time_str, xmax, ymax, out_dir)
 
   # Print some end of the simulation information
  #= engf = norm(Q)
