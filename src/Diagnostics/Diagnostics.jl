@@ -112,7 +112,7 @@ num_horzavg(FT) = varsize(vars_horzavg(FT))
 horzavg_vars(array) = Vars{vars_horzavg(eltype(array))}(array)
 
 function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e,
-                           Nqk, nvertelem, localaux, κ, LWP,
+                           Nqk, nvertelem, localaux, LWP,
                            thermoQ, horzsums, localvgeo, xmax, ymax, repdvsr, x1id, x2id, Nq)
     #the next lines are used to properly take into account repeating nodes while also factoring in nodes on the boundary
     x = localvgeo[ijk,x1id,e]
@@ -156,7 +156,7 @@ function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e,
     if ev == floor(nvertelem/2) && k == floor(Nqk/2)
         # TODO: uncomment the line below after rewriting the LWP assignment below using aux.∫dz...?
         # aux = extract_aux(dg, localaux, ijk, e)
-        LWP[1] += rep * (localaux[ijk,1,e] + localaux[ijk,2,e]) / κ 
+        LWP[1] += rep * (localaux[ijk,1,e] + localaux[ijk,2,e]) 
         repdvsr[1] += rep #number of points to be divided by
     end
 end
@@ -262,7 +262,7 @@ end
 Compute various diagnostic variables and write them to JLD2 files in `out_dir`,
 indexed by `current_time_string`.
 """
-function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, xmax, ymax ,out_dir)
+function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out_dir)
     mpirank = MPI.Comm_rank(mpicomm)
     nranks = MPI.Comm_size(mpicomm)
 
@@ -329,7 +329,7 @@ function gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, xmax, ymax 
     horzsums = [zeros(FT, num_horzavg(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
     horzsum_visitor(FT, state, i, j, k, ijk, ev, eh, e) =
         compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e,
-                          Nqk, nvertelem, localaux, κ, l_LWP,
+                          Nqk, nvertelem, localaux, l_LWP,
                           thermoQ, horzsums, localvgeo, xmax, ymax, l_repdvsr, grid.x1id, grid.x2id, Nq)
 
     # run both in one grid traversal
