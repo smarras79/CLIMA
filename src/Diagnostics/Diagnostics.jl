@@ -9,10 +9,7 @@ Accumulate mean fields and covariance statistics on the computational grid.
 
 module Diagnostics
 
-<<<<<<< HEAD
-=======
 using Dates
->>>>>>> upstream/kp/diagnostics
 using FileIO
 using JLD2
 using MPI
@@ -69,13 +66,8 @@ end
 num_thermo(FT) = varsize(vars_thermo(FT))
 thermo_vars(array) = Vars{vars_thermo(eltype(array))}(array)
 
-<<<<<<< HEAD
-function compute_thermo!(FT, state, aux, i, j, k, ijk, ev, eh, e,
-                         x, y, z, zvals, thermoQ, model)
-=======
 function compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e,
                          x, y, z, zvals, thermoQ)
->>>>>>> upstream/kp/diagnostics
     zvals[k,ev] = z
 
     u̅ = state.ρu[1] / state.ρ
@@ -83,18 +75,10 @@ function compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e,
     w̅ = state.ρu[3] / state.ρ
     e̅_tot = state.ρe / state.ρ
     q̅_tot = state.moisture.ρq_tot / state.ρ
-<<<<<<< HEAD
-    
-    e_int = internal_energy(model.moisture, model.orientation, state, aux)
-    ts = thermo_state(model.moisture, model.orientation, state, aux)
-    #e_int = e̅_tot - 1//2 * (u̅^2 + v̅^2 + w̅^2) - grav * z
-    #ts = PhaseEquil(convert(FT, e_int), q̅_tot, state.ρ)
-=======
 
     e_int = e̅_tot - 1//2 * (u̅^2 + v̅^2 + w̅^2) - grav * z
 
     ts = PhaseEquil(convert(FT, e_int), q̅_tot, state.ρ)
->>>>>>> upstream/kp/diagnostics
     Phpart = PhasePartition(ts)
 
     th = thermo_vars(thermoQ[ijk,e])
@@ -132,20 +116,12 @@ horzavg_vars(array) = Vars{vars_horzavg(eltype(array))}(array)
 function node_adjustment(i, j, Nq, x, xmax, y, ymax)
     # node on the corner of domain is not repeated
     if ((x == 0 || abs(x - xmax) <= 0.001)
-<<<<<<< HEAD
-        && (ymax == 0 || abs(y - 1500) <= 0.001))
-=======
         && (y == 0 || abs(y - ymax) <= 0.001))
->>>>>>> upstream/kp/diagnostics
         # cancel out the 4 times repetition below
         bound = 4 
     # node on the edge of the domain
     elseif (x == 0 || abs(x - xmax) <= 0.001
-<<<<<<< HEAD
-            || ymax == 0 || abs(y - 1500) <= 0.001)
-=======
             || y == 0 || abs(y - ymax) <= 0.001)
->>>>>>> upstream/kp/diagnostics
         # half its repetition
         bound = 2
     # node on not on any considered boundary
@@ -156,17 +132,10 @@ function node_adjustment(i, j, Nq, x, xmax, y, ymax)
 
     if ((i == 1 || i == Nq) && (j == 1 || j == Nq))
         # corner node repeated 4 times for horizontal considerations
-<<<<<<< HEAD
-        rep = 1/4 * bound
-    elseif (i == 1 || i == Nq || j == 1 || j == Nq)
-        # edge node repeated 2 times for horizontal considerations
-        rep = 1/2 * bound
-=======
         rep = 0.25 * bound
     elseif (i == 1 || i == Nq || j == 1 || j == Nq)
         # edge node repeated 2 times for horizontal considerations
         rep = 0.5 * bound
->>>>>>> upstream/kp/diagnostics
     else
         # inner node nothing done
         rep = 1 * bound
@@ -175,11 +144,7 @@ function node_adjustment(i, j, Nq, x, xmax, y, ymax)
     return rep
 end
 
-<<<<<<< HEAD
-function compute_horzsums!(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z,
-=======
 function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
->>>>>>> upstream/kp/diagnostics
                            Nq, xmax, ymax, Nqk, nvertelem, localaux,
                            LWP, thermoQ, horzsums, repdvsr)
     rep = node_adjustment(i, j, Nq, x, xmax, y, ymax)
@@ -206,24 +171,14 @@ function compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
     if ev == floor(nvertelem/2) && k == floor(Nqk/2)
         # TODO: uncomment the line below after rewriting the LWP assignment below using aux.∫dz...?
         # aux = extract_aux(dg, localaux, ijk, e)
-<<<<<<< HEAD
-        LWP[1] += rep * (localaux[ijk,1,e] + localaux[ijk,2,e]) 
-=======
         LWP[1] += rep * (localaux[ijk,1,e] + localaux[ijk,2,e])
->>>>>>> upstream/kp/diagnostics
         repdvsr[1] += rep # number of points to be divided by
     end
 end
 
-<<<<<<< HEAD
-function compute_diagnosticsums!(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z,
-                                 Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
-    rep = node_adjustment(i, j, x, xmax, y, ymax, Nq)
-=======
 function compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
                                  Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
     rep = node_adjustment(i, j, Nq, x, xmax, y, ymax)
->>>>>>> upstream/kp/diagnostics
     th = thermo_vars(thermoQ[ijk,e])
     ha = horzavg_vars(horzavgs[k,ev])
     ds = diagnostic_vars(dsums[k,ev])
@@ -239,11 +194,7 @@ function compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
     q̃_tot = ha.ρq_tot / ha.ρ
 
     # vertical coordinate
-<<<<<<< HEAD
-    ds.z         += zvals[k,ev]
-=======
     ds.z        += rep * zvals[k,ev]
->>>>>>> upstream/kp/diagnostics
 
     # state and functions of state
     ds.u        += rep * ũ
@@ -299,27 +250,16 @@ function horz_average_all(FT, mpicomm, num, (Nqk, nvertelem), sums, repdvsr)
 end
 
 """
-<<<<<<< HEAD
-    gather_diagnostics(mpicomm, dg, Q, current_time_string, κ, out_dir)
-=======
     gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax, out_dir)
->>>>>>> upstream/kp/diagnostics
 
 Compute various diagnostic variables and write them to JLD2 files in `out_dir`,
 indexed by `current_time_string`.
 """
-<<<<<<< HEAD
-function gather_diagnostics(mpicomm, dg, Q, current_time_string, xmax, ymax ,out_dir)
-    mpirank = MPI.Comm_rank(mpicomm)
-    nranks = MPI.Comm_size(mpicomm)
-    model = dg.model
-=======
 function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
                             xmax, ymax, out_dir)
     mpirank = MPI.Comm_rank(mpicomm)
     nranks = MPI.Comm_size(mpicomm)
 
->>>>>>> upstream/kp/diagnostics
     # extract grid information
     bl = dg.balancelaw
     grid = dg.grid
@@ -347,10 +287,6 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
     nstate = num_state(bl, FT)
     nauxstate = num_aux(bl, FT)
 
-<<<<<<< HEAD
-
-=======
->>>>>>> upstream/kp/diagnostics
     # traverse the grid, running each of `funs` on each node
     function visitQ(FT, funs::Vector{Function})
         for eh in 1:nhorzelem
@@ -361,19 +297,11 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
                         for i in 1:Nq
                             ijk = i + Nq * ((j-1) + Nq * (k-1)) 
                             state = extract_state(dg, localQ, ijk, e)
-<<<<<<< HEAD
-                            aux = extrac_aux(dg, localaux, ijk, e)
-=======
->>>>>>> upstream/kp/diagnostics
                             x = localvgeo[ijk,grid.x1id,e]
                             y = localvgeo[ijk,grid.x2id,e]
                             z = localvgeo[ijk,grid.x3id,e]
                             for f in funs
-<<<<<<< HEAD
-                                f(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z)
-=======
                                 f(FT, state, i, j, k, ijk, ev, eh, e, x, y, z)
->>>>>>> upstream/kp/diagnostics
                             end
                         end
                     end
@@ -385,15 +313,9 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
     # record the vertical coordinates and compute thermo variables
     zvals = zeros(Nqk, nvertelem)
     thermoQ = [zeros(FT, num_thermo(FT)) for _ in 1:npoints, _ in 1:nrealelem]
-<<<<<<< HEAD
-    thermo_visitor(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z) =
-        compute_thermo!(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z,
-                        zvals, thermoQ, model)
-=======
     thermo_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
         compute_thermo!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
                         zvals, thermoQ)
->>>>>>> upstream/kp/diagnostics
 
     # divisor for horizontal averages
     l_repdvsr = zeros(FT, 1) 
@@ -401,13 +323,8 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
     # compute the horizontal sums and the liquid water path
     l_LWP = zeros(FT, 1)
     horzsums = [zeros(FT, num_horzavg(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
-<<<<<<< HEAD
-    horzsum_visitor(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z) =
-        compute_horzsums!(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z,
-=======
     horzsum_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
         compute_horzsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
->>>>>>> upstream/kp/diagnostics
                           Nq, xmax, ymax, Nqk, nvertelem, localaux,
                           l_LWP, thermoQ, horzsums, l_repdvsr)
 
@@ -429,13 +346,8 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
 
     # compute the diagnostics with the previous computed variables
     dsums = [zeros(FT, num_diagnostic(FT)) for _ in 1:Nqk, _ in 1:nvertelem]
-<<<<<<< HEAD
-    dsum_visitor(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z) =
-        compute_diagnosticsums!(FT, state, aux, i, j, k, ijk, ev, eh, e, x, y, z,
-=======
     dsum_visitor(FT, state, i, j, k, ijk, ev, eh, e, x, y, z) =
         compute_diagnosticsums!(FT, state, i, j, k, ijk, ev, eh, e, x, y, z,
->>>>>>> upstream/kp/diagnostics
                                 Nq, xmax, ymax, zvals, thermoQ, horzavgs, dsums)
 
     # another grid traversal
@@ -446,15 +358,6 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
                              dsums, repdvsr)
 
     if mpirank == 0
-<<<<<<< HEAD
-        jldopen(joinpath(out_dir, "diagnostics.jld2"), "a+") do file
-            file[current_time_string] = davgs
-        end
-        jldopen(joinpath(out_dir, "liquid_water_path.jld2"), "a+") do file
-            file[current_time_string] = LWP
-        end
-    end
-=======
         jldopen(joinpath(out_dir,
                 "diagnostics-$(diagnostics_time_str).jld2"), "a+") do file
             file[sim_time_str] = davgs
@@ -466,7 +369,6 @@ function gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
     end
 
     return nothing
->>>>>>> upstream/kp/diagnostics
 end # function gather_diagnostics
 
 end # module Diagnostics

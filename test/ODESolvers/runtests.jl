@@ -131,18 +131,12 @@ end
 
   @testset "IMEX methods" begin
     struct DivideLinearSolver <: AbstractLinearSolver end
-<<<<<<< HEAD
-    function LinearSolvers.linearsolve!(linearoperator!, Qtt, Qhat, ::DivideLinearSolver)
-      @. Qhat = 1 / Qhat
-      linearoperator!(Qtt, Qhat)
-=======
     function LinearSolvers.prefactorize(linearoperator!, ::DivideLinearSolver, args...)
       linearoperator!
     end
     function LinearSolvers.linearsolve!(linearoperator!, ::DivideLinearSolver, Qtt, Qhat, args...)
       @. Qhat = 1 / Qhat
       linearoperator!(Qtt, Qhat, args...)
->>>>>>> upstream/kp/diagnostics
       @. Qtt = 1 / Qtt
     end
 

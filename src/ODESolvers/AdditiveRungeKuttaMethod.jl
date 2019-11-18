@@ -13,8 +13,6 @@ ODEs = ODESolvers
 using ..SpaceMethods
 using ..LinearSolvers
 using ..MPIStateArrays: device, realview
-<<<<<<< HEAD
-=======
 
 
 
@@ -41,7 +39,6 @@ function (op::EulerOperator)(LQ, Q, args...)
   op.f!(LQ, Q, args..., increment=false)
   @. LQ = Q + op.ϵ * LQ
 end
->>>>>>> upstream/kp/diagnostics
 
 """
     AdditiveRungeKutta(f, l, linsol, RKAe, RKAi, RKB, RKC, Q; dt, t0 = 0)
@@ -120,10 +117,6 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.Ab
     Qhat = similar(Q)
     Qtt = similar(Q)
 
-<<<<<<< HEAD
-    new{T, RT, AT, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
-                                             rhs!, rhs_linear!, linearsolver,
-=======
     # The code throughout assumes SDIRK implicit tableau so we assert that
     # here.
     for is = 2:nstages
@@ -139,7 +132,6 @@ mutable struct AdditiveRungeKutta{T, RT, AT, LT, Nstages, Nstages_sq} <: ODEs.Ab
 
     new{T, RT, AT, LT, nstages, nstages ^ 2}(RT(dt), RT(t0),
                                              rhs!, rhs_linear!, implicitoperator!, linearsolver,
->>>>>>> upstream/kp/diagnostics
                                              Qstages, Rstages, Qhat, Qtt,
                                              RKA_explicit, RKA_implicit, RKB, RKC,
                                              split_nonlinear_linear)
@@ -160,9 +152,6 @@ function AdditiveRungeKutta(spacedisc::AbstractSpaceMethod,
                      Q; dt=dt, t0=t0)
 end
 
-<<<<<<< HEAD
-ODEs.updatedt!(ark::AdditiveRungeKutta, dt) = (ark.dt = dt)
-=======
 function ODEs.updatedt!(ark::AdditiveRungeKutta, dt)
   ark.dt = dt
   # this will only work for iterative solves
@@ -170,7 +159,6 @@ function ODEs.updatedt!(ark::AdditiveRungeKutta, dt)
   α = dt * ark.RKA_implicit[2, 2]
   ark.implicitoperator! = EulerOperator(ark.rhs_linear!, -α)
 end
->>>>>>> upstream/kp/diagnostics
 ODEs.updatetime!(ark::AdditiveRungeKutta, time) = (ark.t = time)
 
 function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, timeend::Real,
@@ -194,11 +182,7 @@ end
 function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
                       slow_δ = nothing, slow_rv_dQ = nothing,
                       slow_scaling = nothing)
-<<<<<<< HEAD
-  linearsolver = ark.linearsolver
-=======
   implicitoperator!, linearsolver = ark.implicitoperator!, ark.linearsolver
->>>>>>> upstream/kp/diagnostics
   RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
   RKB, RKC = ark.RKB, ark.RKC
   rhs!, rhs_linear! = ark.rhs!, ark.rhs_linear!
@@ -220,14 +204,11 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
   # calculate the rhs at first stage to initialize the stage loop
   rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
 
-<<<<<<< HEAD
-=======
   if dt != ark.dt
     α = dt * RKA_implicit[2, 2]
     implicitoperator! = EulerOperator(rhs_linear!, -α)
   end
 
->>>>>>> upstream/kp/diagnostics
   # note that it is important that this loop does not modify Q!
   for istage = 2:nstages
     stagetime = time + RKC[istage] * dt
@@ -239,16 +220,7 @@ function ODEs.dostep!(Q, ark::AdditiveRungeKutta, p, time::Real, dt::Real,
                           Val(split_nonlinear_linear), slow_δ, slow_rv_dQ))
 
     #solves Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
-<<<<<<< HEAD
-    α = dt * RKA_implicit[istage, istage]
-    linearoperator! = function(LQ, Q)
-      rhs_linear!(LQ, Q, p, stagetime; increment = false)
-      @. LQ = Q - α * LQ
-    end
-    linearsolve!(linearoperator!, Qtt, Qhat, linearsolver)
-=======
     linearsolve!(implicitoperator!, linearsolver, Qtt, Qhat, p, stagetime)
->>>>>>> upstream/kp/diagnostics
 
     #update Qstages
     Qstages[istage] .+= Qtt

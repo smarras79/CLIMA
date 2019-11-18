@@ -16,23 +16,15 @@ export linearsolve!, settolerance!, prefactorize
 export AbstractLinearSolver, AbstractIterativeLinearSolver
 
 """
-<<<<<<< HEAD
-This is an abstract type representing a generic linear solver.
-
-=======
     AbstractLinearSolver
 
 This is an abstract type representing a generic linear solver.
->>>>>>> upstream/kp/diagnostics
 """
 abstract type AbstractLinearSolver end
 
 """
-<<<<<<< HEAD
-=======
     AbstractIterativeLinearSolver
 
->>>>>>> upstream/kp/diagnostics
 This is an abstract type representing a generic iterative
 linear solver.
 
@@ -86,20 +78,12 @@ function linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q,
   converged = false
   iters = 0
 
-<<<<<<< HEAD
-  converged, threshold = initialize!(linearoperator!, Q, Qrhs, solver)
-=======
   converged, threshold = initialize!(linearoperator!, Q, Qrhs, solver, args...)
->>>>>>> upstream/kp/diagnostics
   converged && return iters
 
   while !converged
     converged, inner_iters, residual_norm = 
-<<<<<<< HEAD
-      doiteration!(linearoperator!, Q, Qrhs, solver, threshold)
-=======
       doiteration!(linearoperator!, Q, Qrhs, solver, threshold, args...)
->>>>>>> upstream/kp/diagnostics
 
     iters += inner_iters
 

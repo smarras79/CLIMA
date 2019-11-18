@@ -71,11 +71,7 @@ function LS.initialize!(linearoperator!, Q, Qrhs,
     @assert size(Q) == size(residual)
 
     threshold = solver.tolerance[1] * norm(Qrhs, weighted)
-<<<<<<< HEAD
-    linearoperator!(residual, Q)
-=======
     linearoperator!(residual, Q, args...)
->>>>>>> upstream/kp/diagnostics
     residual .-= Qrhs
     
     converged = false

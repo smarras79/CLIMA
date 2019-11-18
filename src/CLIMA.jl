@@ -31,9 +31,5 @@ include("ODESolvers/GenericCallbacks.jl")
 include("Atmos/Model/AtmosModel.jl")
 include("Diagnostics/Diagnostics.jl")
 include("InputOutput/VTK/VTK.jl")
-<<<<<<< HEAD
-include("misc.jl")
-=======
 
->>>>>>> upstream/kp/diagnostics
 end
