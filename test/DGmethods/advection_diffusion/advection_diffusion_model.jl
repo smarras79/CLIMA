@@ -144,6 +144,11 @@ function boundary_state!(nf, m::AdvectionDiffusion, stateP::Vars, auxP::Vars,
     boundary_state_Dirichlet!(nf, m, stateP, auxP, nM, stateM, auxM, t)
   elseif bctype == 2
     # TODO: boundary_state_Neumann(nf, m, stateP, auxP, nM, stateM, auxM, t)
+<<<<<<< HEAD
+=======
+  elseif bctype == 3 # zero Dirichlet
+    stateP.ρ = 0
+>>>>>>> upstream/kp/diagnostics
   end
 end
 
@@ -155,7 +160,13 @@ function boundary_state!(nf, m::AdvectionDiffusion, stateP::Vars, diffP::Vars,
                               auxM, t)
   elseif bctype == 2
     # boundary_state_Neumann(nf, m, stateP, auxP, nM, stateM, auxM, t)
+<<<<<<< HEAD
    end
+=======
+  elseif bctype == 3 # zero Dirichlet
+    stateP.ρ = - stateM.ρ
+  end
+>>>>>>> upstream/kp/diagnostics
 end
 
 ###

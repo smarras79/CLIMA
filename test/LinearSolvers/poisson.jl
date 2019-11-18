@@ -122,12 +122,21 @@ function run(mpicomm, ArrayType, FT, dim, polynomialorder, brickrange, periodici
   Q = init_ode_state(dg, FT(0))
   Qrhs = dg.auxstate
   Qexact = init_ode_state(dg, FT(0))
+<<<<<<< HEAD
 
   linearoperator!(y, x) = dg(y, x, nothing, 0; increment = false)
 
   linearsolver = linmethod(Q)
 
   iters = linearsolve!(linearoperator!, Q, Qrhs, linearsolver)
+=======
+
+  linearoperator!(y, x) = dg(y, x, nothing, 0; increment = false)
+
+  linearsolver = linmethod(Q)
+
+  iters = linearsolve!(linearoperator!, linearsolver, Q, Qrhs)
+>>>>>>> upstream/kp/diagnostics
 
   error = euclidean_distance(Q, Qexact)
 

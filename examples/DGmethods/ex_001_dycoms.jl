@@ -13,16 +13,28 @@ using CLIMA.Atmos
 using CLIMA.VariableTemplates
 using CLIMA.MoistThermodynamics
 using CLIMA.PlanetParameters
+<<<<<<< HEAD
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
+=======
+>>>>>>> upstream/kp/diagnostics
 using CLIMA.VTK
 
 using CLIMA.Atmos: vars_state, vars_aux
 
+<<<<<<< HEAD
 using GPUifyLoops
 using Random
 const seed = MersenneTwister(0)
+=======
+using LinearAlgebra
+using Random
+using StaticArrays
+using Logging
+using Printf
+using Dates
+>>>>>>> upstream/kp/diagnostics
 
 @static if haspkg("CuArrays")
   using CUDAdrv
@@ -62,6 +74,7 @@ eprint = {https://doi.org/10.1175/MWR2930.1}
 function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   FT            = eltype(state)
   xvert::FT     = z
+<<<<<<< HEAD
   #These constants are those used by Stevens et al. (2005)
   qref::FT      = 7.75e-3
   q_tot_sfc::FT = qref
@@ -69,14 +82,32 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   Rm_sfc        = gas_constant_air(q_pt_sfc)
   T_sfc::FT     = 292.5
   P_sfc::FT     = MSLP
+=======
+  Rd::FT        = R_d
+  # These constants are those used by Stevens et al. (2005)
+  qref::FT      = FT(9.0e-3)
+  q_tot_sfc::FT = qref
+  q_pt_sfc      = PhasePartition(q_tot_sfc)
+  Rm_sfc::FT    = 461.5 #gas_constant_air(q_pt_sfc)
+  T_sfc::FT     = 292.5
+  P_sfc::FT     = 101780 #MSLP
+>>>>>>> upstream/kp/diagnostics
   ρ_sfc::FT     = P_sfc / Rm_sfc / T_sfc
   # Specify moisture profiles
   q_liq::FT      = 0
   q_ice::FT      = 0
+<<<<<<< HEAD
   zb::FT         = 600    # initial cloud bottom
   zi::FT         = 840    # initial cloud top
   dz_cloud       = zi - zb
   q_liq_peak::FT = 0.00045 #cloud mixing ratio at z_i
+=======
+  zb::FT         = 600         # initial cloud bottom
+  zi::FT         = 840         # initial cloud top
+  ziplus::FT     = 875
+  dz_cloud       = zi - zb
+  q_liq_peak::FT = 0.00045     # cloud mixing ratio at z_i
+>>>>>>> upstream/kp/diagnostics
   if xvert > zb && xvert <= zi
     q_liq = (xvert - zb)*q_liq_peak/dz_cloud
   end
@@ -87,10 +118,15 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     θ_liq = FT(297.5) + (xvert - zi)^(FT(1/3))
     q_tot = FT(1.5e-3)
   end
+<<<<<<< HEAD
+=======
+
+>>>>>>> upstream/kp/diagnostics
   # --------------------------------------------------
   # perturb initial state to break the symmetry and
   # trigger turbulent convection
   # --------------------------------------------------
+<<<<<<< HEAD
   randnum1   = rand(seed, FT) / 100
   randnum2   = rand(seed, FT) / 1000
   #randnum1   = rand(Uniform(-0.02,0.02), 1, 1)
@@ -99,12 +135,23 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
     θ_liq += randnum1 * θ_liq
     #q_tot += randnum2 * q_tot
   end
+=======
+  #randnum1   = rand(seed, FT) / 100
+  #randnum2   = rand(seed, FT) / 1000
+  #randnum1   = rand(Uniform(-0.02,0.02), 1, 1)
+  #randnum2   = rand(Uniform(-0.000015,0.000015), 1, 1)
+  #if xvert <= 25.0
+  #  θ_liq += randnum1 * θ_liq
+  #  q_tot += randnum2 * q_tot
+  #end
+>>>>>>> upstream/kp/diagnostics
   # --------------------------------------------------
   # END perturb initial state
   # --------------------------------------------------
 
   # Calculate PhasePartition object for vertical domain extent
   q_pt  = PhasePartition(q_tot, q_liq, q_ice)
+<<<<<<< HEAD
   #Pressure
   H     = Rm_sfc * T_sfc / grav;
   p     = P_sfc * exp(-xvert/H);
@@ -114,6 +161,37 @@ function Initialise_DYCOMS!(state::Vars, aux::Vars, (x,y,z), t)
   T     = air_temperature(TS)
   #Assign State Variables
   u, v, w     = FT(7), FT(-5.5), FT(0)
+=======
+  Rm    = gas_constant_air(q_pt)
+
+  # Pressure
+  H     = Rm_sfc * T_sfc / grav;
+  p     = P_sfc * exp(-xvert/H);
+  # Density, Temperature
+  # TODO: temporary fix
+  # TS    = LiquidIcePotTempSHumEquil_no_ρ(θ_liq, q_pt, p)
+  #TS    = LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq, q_pt, p)
+  #ρ     = air_density(TS)
+  #T     = air_temperature(TS)
+  T = air_temperature_from_liquid_ice_pottemp_given_pressure(θ_liq, p, q_pt)
+  ρ = air_density(T, p, q_pt)
+
+  # Assign State Variables
+  u1, u2 = FT(6), FT(7)
+  v1, v2 = FT(-4.25), FT(-5.5)
+  w = FT(0)
+  if (xvert <= zi)
+      u, v = u1, v1
+  elseif (xvert >= ziplus)
+      u, v = u2, v2
+  else
+      m = (ziplus - zi)/(u2 - u1)
+      u = (xvert - zi)/m + u1
+
+      m = (ziplus - zi)/(v2 - v1)
+      v = (xvert - zi)/m + v1
+  end
+>>>>>>> upstream/kp/diagnostics
   e_kin       = FT(1/2) * (u^2 + v^2 + w^2)
   e_pot       = grav * xvert
   E           = ρ * total_energy(e_kin, e_pot, T, q_pt)
@@ -141,7 +219,11 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   F_1           = FT(22)
   # Geostrophic forcing
   f_coriolis    = FT(7.62e-5)
+<<<<<<< HEAD
   u_geostrophic = FT(7)
+=======
+  u_geostrophic = FT(7.0)
+>>>>>>> upstream/kp/diagnostics
   v_geostrophic = FT(-5.5)
 
   # Model definition
@@ -162,7 +244,12 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                Rusanov(),
                CentralNumericalFluxDiffusive(),
                CentralGradPenalty())
+<<<<<<< HEAD
   Q = init_ode_state(dg, FT(0); device=CPU())
+=======
+  #Q = init_ode_state(dg, FT(0); device=CPU())
+  Q = init_ode_state(dg, FT(0))
+>>>>>>> upstream/kp/diagnostics
   lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
   # Calculating initial condition norm
  #= eng0 = norm(Q)
@@ -185,7 +272,12 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
                                   Dates.dateformat"HH:MM:SS"))
     end
   end
+<<<<<<< HEAD
  
+=======
+
+  #=
+>>>>>>> upstream/kp/diagnostics
   # Setup VTK output callbacks
   step = [0]
   cbvtk = GenericCallbacks.EveryXSimulationSteps(5000) do (init=false)
@@ -199,6 +291,7 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
     step[1] += 1
     nothing
   end
+<<<<<<< HEAD
 
   # Get statistics during run
   cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(50) do (init=false)
@@ -211,6 +304,25 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt, C_smag, LHF, SHF
   # Get statistics at the end of the run
   current_time_str = string(ODESolvers.gettime(lsrk))
   gather_diagnostics(mpicomm, dg, Q, current_time_str, xmax, ymax, out_dir)
+=======
+  =#
+
+  # Get statistics during run
+  diagnostics_time_str = string(now())
+  cbdiagnostics = GenericCallbacks.EveryXSimulationSteps(50) do (init=false)
+    sim_time_str = string(ODESolvers.gettime(lsrk))
+    gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
+                       xmax, ymax, out_dir)
+  end
+
+  #solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbvtk, cbdiagnostics))
+  solve!(Q, lsrk; timeend=timeend, callbacks=(cbinfo, cbdiagnostics))
+
+  # Get statistics at the end of the run
+  sim_time_str = string(ODESolvers.gettime(lsrk))
+  gather_diagnostics(mpicomm, dg, Q, diagnostics_time_str, sim_time_str,
+                     xmax, ymax, out_dir)
+>>>>>>> upstream/kp/diagnostics
 
   # Print some end of the simulation information
  #= engf = norm(Q)
@@ -256,6 +368,7 @@ let
     N = 4
     # SGS Filter constants
     C_smag = FT(0.15)
+<<<<<<< HEAD
     LHF    = FT(-115)
     SHF    = FT(-15)
     C_drag = FT(0.0011)
@@ -263,12 +376,24 @@ let
     Δx, Δy, Δz = 50, 50, 20
     xmin, xmax = 0, 3200
     ymin, ymax = 0, 3200
+=======
+    LHF    = FT(115)
+    SHF    = FT(15)
+    C_drag = FT(0.0011)
+    # User defined domain parameters
+    Δx, Δy, Δz = 50, 50, 20
+    #xmin, xmax = 0, 3200
+    #ymin, ymax = 0, 3200
+    xmin, xmax = 0, 1500
+    ymin, ymax = 0, 1500
+>>>>>>> upstream/kp/diagnostics
     zmin, zmax = 0, 1500
 
     grid_resolution = [Δx, Δy, Δz]
     domain_size     = [xmin, xmax, ymin, ymax, zmin, zmax]
     dim = length(grid_resolution)
 
+<<<<<<< HEAD
     if(dim == 2)
         brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
                       grid1d(ymin, ymax, elemsize=FT(grid_resolution[end])*N))
@@ -279,6 +404,13 @@ let
     end
     zmax = brickrange[dim][end]
     zsponge = FT(0.75 * zmax)
+=======
+    brickrange = (grid1d(xmin, xmax, elemsize=FT(grid_resolution[1])*N),
+                  grid1d(ymin, ymax, elemsize=FT(grid_resolution[2])*N),
+                  grid1d(zmin, zmax, elemsize=FT(grid_resolution[end])*N))
+    zmax = brickrange[dim][end]
+    zsponge = FT(1200.0)
+>>>>>>> upstream/kp/diagnostics
 
     topl = StackedBrickTopology(mpicomm, brickrange,
                                 periodicity = (true, true, false),
